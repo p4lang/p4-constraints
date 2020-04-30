@@ -1,0 +1,62 @@
+# The BUILD-file shipped with P4Runtime is not to our liking, so we define a
+# custom one here.
+# TODO(smolkaj): Submit pull request to fix this upstream.
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],  # Apache 2.0
+)
+
+proto_library(
+    name = "p4types_proto",
+    srcs = ["proto/p4/config/v1/p4types.proto"],
+    strip_import_prefix = "proto/",
+)
+
+cc_proto_library(
+    name = "p4types_cc_proto",
+    deps = [":p4types_proto"],
+)
+
+proto_library(
+    name = "p4data_proto",
+    srcs = ["proto/p4/v1/p4data.proto"],
+    strip_import_prefix = "proto/",
+)
+
+cc_proto_library(
+    name = "p4data_cc_proto",
+    deps = [":p4types_proto"],
+)
+
+proto_library(
+    name = "p4info_proto",
+    srcs = ["proto/p4/config/v1/p4info.proto"],
+    strip_import_prefix = "proto/",
+    deps = [
+        ":p4types_proto",
+        "@com_google_protobuf//:any_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "p4info_cc_proto",
+    deps = [":p4info_proto"],
+)
+
+proto_library(
+    name = "p4runtime_proto",
+    srcs = ["proto/p4/v1/p4runtime.proto"],
+    strip_import_prefix = "proto/",
+    deps = [
+        ":p4data_proto",
+        ":p4info_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_googleapis//google/rpc:status_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "p4runtime_cc_proto",
+    deps = [":p4runtime_proto"],
+)

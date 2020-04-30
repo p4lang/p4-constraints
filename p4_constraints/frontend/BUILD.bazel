@@ -1,0 +1,99 @@
+package(
+    licenses = ["notice"],  # Apache 2.0
+)
+
+cc_library(
+    name = "parser",
+    srcs = ["parser.cc"],
+    hdrs = ["parser.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":ast_constructors",
+        ":token",
+        "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:quote",
+        "@com_google_absl//absl/status",
+        "//util:status",
+        "//util:statusor",
+    ],
+)
+
+cc_test(
+    name = "parser_test",
+    size = "small",
+    srcs = ["parser_test.cc"],
+    deps = [
+        ":parser",
+        ":token",
+        "//p4_constraints:ast_cc_proto",
+        "//util:protocol_buffer_matchers",
+        "//util:status_matchers",
+        "//util:statusor",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "lexer",
+    srcs = ["lexer.cc"],
+    hdrs = ["lexer.h"],
+    visibility = ["//p4_constraints:__subpackages__"],
+    deps = [
+        ":token",
+        "//p4_constraints:ast",
+        "//p4_constraints:ast_cc_proto",
+        "@com_google_absl//absl/strings",
+        "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+cc_test(
+    name = "lexer_test",
+    size = "small",
+    srcs = ["lexer_test.cc"],
+    deps = [
+        ":lexer",
+        ":token",
+        "//p4_constraints:ast_cc_proto",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "token",
+    srcs = ["token.cc"],
+    hdrs = ["token.h"],
+    deps = [
+        "//p4_constraints:ast_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_glog//:glog",
+    ],
+)
+
+cc_test(
+    name = "token_test",
+    size = "small",
+    srcs = ["token_test.cc"],
+    deps = [
+        ":token",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "ast_constructors",
+    srcs = ["ast_constructors.cc"],
+    hdrs = ["ast_constructors.h"],
+    deps = [
+        ":token",
+        "//p4_constraints:ast_cc_proto",
+        "//util:status",
+        "//util:statusor",
+        "//util:ret_check",
+        "@com_google_absl//absl/types:span",
+    ],
+    # GMP is a system dependency for now.
+    # Building it with Bazel would be better, but it's not obvious how to do it.
+    linkopts = ["-lgmp", "-lgmpxx"],
+)

@@ -1,0 +1,63 @@
+In table invalid_constraints.forgot_quotes:
+Syntax error: @entry_restriction must be enclosed in '("' and '")'
+
+In table invalid_constraints.forgot_quotes_with_srcloc:
+Syntax error: @entry_restriction must be enclosed in '("' and '")'
+
+In @entry_restriction of table invalid_constraints.empty_restriction; at offset line 1, column 1:
+Parse error: unexpected token: <END_OF_INPUT>. Expected true, false, <ID>, !, -, or (.
+
+tests/invalid_constraints.p4:21:3:
+   |   @entry_restriction("
+21 |   ")
+   |   ^
+Parse error: unexpected token: <END_OF_INPUT>. Expected true, false, <ID>, !, -, or (.
+
+tests/invalid_constraints.p4:27:5-15:
+   |   @entry_restriction("
+27 |     foo.bar.baz == 2
+   |     ^^^^^^^^^^^
+Type error: unknown key foo.bar.baz
+
+In @entry_restriction of table invalid_constraints.unknown_key_no_srcloc; at offset line 1, columns 1 to 11:
+Type error: unknown key foo.bar.baz
+
+tests/invalid_constraints.p4:38:21-22:
+   |   @entry_restriction("
+38 |     foo.bar.baz == 0b2
+   |                     ^^
+Parse error: unexpected token: <ID>. Expected <END_OF_INPUT>, ), ::, &&, ;, ||, ->, ==, !=, >, >=, <, or <=.
+
+In @entry_restriction of table invalid_constraints.bad_binary_numeral_no_srcloc; at offset line 1, columns 17 to 18:
+Parse error: unexpected token: <ID>. Expected <END_OF_INPUT>, ), ::, &&, ;, ||, ->, ==, !=, >, >=, <, or <=.
+
+tests/invalid_constraints.p4:52:11-14:
+   |     /**************************************************************************/
+52 |     error here
+   |           ^^^^
+Parse error: unexpected token: <ID>. Expected <END_OF_INPUT>, ), ::, &&, ;, ||, ->, ==, !=, >, >=, <, or <=.
+
+tests/invalid_constraints.p4:60:5-15:
+   |   @entry_restriction("
+60 |     ternary_key::prefix_length
+   |     ^^^^^^^^^^^
+Type error: expression of type ternary<32> has no field 'prefix_length'
+
+tests/invalid_constraints.p4:70:5-10:
+   |   @entry_restriction("
+70 |     0x0F0F :: value
+   |     ^^^^^^
+Type error: expression of type int has no field 'value'
+
+tests/invalid_constraints.p4:77:42-46:
+   |   @entry_restriction("
+77 |     -0x0F0F == -0o01234567 -> !false && -false
+   |                                          ^^^^^
+Type error: expected type int, got bool
+
+tests/invalid_constraints.p4:84:33:
+   |   @entry_restriction("
+84 |     !false -> -8 == -0b1000 || !1
+   |                                 ^
+Type error: expected type bool, got int
+
