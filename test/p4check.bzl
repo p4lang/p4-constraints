@@ -1,4 +1,4 @@
-"""Blaze targets for end-to-end diff testing of p4_constraints library.
+"""Bazel targets for end-to-end diff testing of p4_constraints library.
 
 This file defines targets `run_p4check` and `diff_test`, which are intended to be
 used in conjunction for "golden file testing" as follows:

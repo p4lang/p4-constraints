@@ -248,8 +248,11 @@ util::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
       break;
     }
     default:
-      return Unexpected(token, {Token::TRUE, Token::FALSE, Token::ID,
-                                Token::BANG, Token::MINUS, Token::LPAR});
+      return Unexpected(
+          token,
+          {Token::TRUE, Token::FALSE, Token::BINARY, Token::OCTARY,
+           Token::DECIMAL, Token::HEXADEC, Token::ID, Token::BANG, Token::MINUS,
+           Token::LPAR});
   }
 
   // Try to extend the AST, i.e. parse an 'extension'.
