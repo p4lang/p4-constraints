@@ -100,7 +100,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   // The additional messages added with `<<`.
   std::unique_ptr<std::ostringstream> stream_;
   // Specifies how to join the message in `status_` and `stream_`.
-  MessageJoinStyle join_style_ = MessageJoinStyle::kAnnotate;
+  MessageJoinStyle join_style_ = MessageJoinStyle::kAppend;
 };
 
 inline StatusBuilder AlreadyExistsErrorBuilder(

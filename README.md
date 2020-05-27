@@ -49,7 +49,7 @@ table acl_table {
   actions = { ... }
 }
 ```
-The `@entry_restriction` says that a valid VRF classifier table entry must meet
+The `@entry_restriction` says that a valid ACL table entry must meet
 three requirements:
 
 1. It can only match on the IPv4 destination address of IPv4 packets.
@@ -57,7 +57,7 @@ three requirements:
 3. It can only perform a wildcard or an exact match on the IPv4 address.
 
 The first two requirements are to rule out undefined behavior. The third
-requirement captures the intend of the P4 programmer that VRF classification
+requirement captures the intend of the P4 programmer that the ACL table
 should not require general ternary matches on the destination address; the
 constraint documents this intend and let's us catch accidental ternary matches
 installed by the control plane at runtime.
@@ -90,25 +90,41 @@ bazel test //p4_contraints/...
 
 The easiest way to experiment with p4-constraints is to write a 
 [golden test](https://ro-che.info/articles/2017-12-04-golden-tests).
-See the [test/](test/) folder for examples. To run all golden tests, execute
+We provide [Bazel rules](test/p4check.bzl) `run_p4check` and `diff_test` to make
+this convenient.
+See the [test/](test/) folder for examples.
+
+Currently, the golden tests require [p4c](git@github.com:p4lang/p4c.git) as
+a system dependency (we hope to make this a source dependency in the future):
 ```sh
-bazel test //test/...  # TODO: this does not yet work in GitHub release.
+which p4c  # This needs to succeed for golden tests to work.
+```
+
+To run all golden tests, execute
+```sh
+bazel test //test/...  # TODO: Porting to GitHub caused some of these to break.
 ```
 
 ## p4check
 
-TODO: explain that CLI is just for experimentation/testing.
+The `p4check` CLI allows invoking the p4-constraints library from the command
+line. The most convenient way to run `p4check` is using the
+[`run_p4check`-rule](test/p4check.bzl), as is done for
+[golden testing](#golden-tests).
 
+To learn how to invoke [p4check](p4_constraints/cli/p4check.cc) manually,
+consult [the source file](p4_constraints/cli/p4check.cc) or run
+```sh
+bazel run p4_constraints/cli:p4check -- --help
+```
 
 ## Constraint language
-TODO: Write a little spec. 
-
+TODO: Write a little specification.
 
 ## Contributing
 
 Feedback, suggestions, and contributions in the form of GitHub issues and pull
 requests are welcome and encouraged.
-
 
 ### Source Code Headers
 

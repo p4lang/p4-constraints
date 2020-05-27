@@ -1,5 +1,5 @@
-* make test/* BUILD
-  * this will require building p4c with bazel, or making it a system dependency
+* make `bazel test //test/...` pass
+* remove system dependency on p4c; build using bazel instead.
 * instead of using custom p4runtime BUILD, fix problems upstream
   -> this will make `bazel build //... && bazel test //...` possible
 * remove METADATA file; look into way to run ClangTidy as CI

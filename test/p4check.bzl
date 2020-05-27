@@ -49,17 +49,18 @@ def p4info(name, src, out, deps = [], visibility = None):
         p4info protobuf text format.
       visibility: Visibility of this target.
     """
-    p4c = "//third_party/p4lang_p4c:p4c_bmv2"
-    core = "//third_party/p4lang_p4c:p4include/core.p4"
-    v1model = "//third_party/p4lang_p4c:p4include/v1model.p4"
+    # TODO(smolkaj): Build p4c from source.
+    # p4c = "@com_github_p4lang_p4c//:p4c"
+    core = "@com_github_p4lang_p4c//:p4include/core.p4"
+    v1model = "@com_github_p4lang_p4c//:p4include/v1model.p4"
     includes = " ".join(['-I="%s"' % rootpath(f) for f in [core, v1model]])
     native.genrule(
         name = name,
         visibility = visibility,
         srcs = [src],
         outs = [out],
-        toolchains = ["//tools/cpp:current_cc_toolchain"],
-        tools = deps + [p4c, core, v1model],
+        toolchains = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
+        tools = deps + [core, v1model],  # [p4c, core, v1model],
         cmd = """
             # p4c invokes `cc` for preprocessing; we provide it below.
             function cc () {{ $(CC) "$$@"; }}
@@ -68,9 +69,13 @@ def p4info(name, src, out, deps = [], visibility = None):
             # Invoke p4c.
             "{p4c}" "$(SRCS)" --p4runtime-files "$(OUTS)" {p4c_args}
         """.format(
-            p4c = execpath(p4c),
+            # TODO(smolkaj): For the moment, we rely on p4c being available
+            # as a system dependency on the PATH. The right thing to do is to
+            # build p4c from source instead to avoid a system dependency.
+            # p4c = execpath(p4c),
+            p4c = "p4c",
             p4c_args = includes + " --p4runtime-format=text --std=p4-16",
-        ),
+        )
     )
 
 def run_p4check(name, src, out, deps = [], table_entries = [], visibility = None):

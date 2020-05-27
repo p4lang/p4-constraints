@@ -1,0 +1,15 @@
+# P4C does not currently define it's own Bazel BUILD rules, so we define what we
+# need ourselves.
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],  # Apache 2.0
+)
+
+exports_files([
+    "p4include/core.p4",
+    "p4include/v1model.p4",
+])
+
+# TODO(smolkaj): Add build rules to build p4c from source, so test/p4check.bzl
+# can depend on it.

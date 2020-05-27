@@ -1,8 +1,8 @@
-tests/table_entries/accept_all_entries_1.pb.txt: constraint satisfied
+test/table_entries/accept_all_entries_1.pb.txt: constraint satisfied
 
-tests/table_entries/reject_all_entries_1.pb.txt: constraint violated
+test/table_entries/reject_all_entries_1.pb.txt: constraint violated
 
-tests/table_entries/unknown_table_entry.pb.txt: Error: INVALID_ARGUMENT: table entry with unknown table ID 0
+test/table_entries/unknown_table_entry.pb.txt: Error: INVALID_ARGUMENT: table entry with unknown table ID 0 (full ID: 33554432 (0x02000000))
 
-tests/table_entries/vrf_classifier_table_1.pb.txt: constraint violated
+test/table_entries/vrf_classifier_table_1.pb.txt: constraint violated
 
