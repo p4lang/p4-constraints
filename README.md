@@ -15,9 +15,8 @@ The project currently provides two main artifacts:
 2. A [command line interface (CLI)](p4_constraints/cli) that takes as input a P4
    program with constraints and a set of table entries, and reports if the table
    entries satisfy the constraints placed on their respective tables or not.
-
-Note that the CLI is not intended for production use, but merely for testing
-and experimentation.
+   (Note that the CLI is intended for testing and experimentation, not for
+   production use.)
 
 ## Example - Entry Restrictions
 
@@ -36,7 +35,7 @@ placed in a P4 table. Here is an example:
   // Either wildcard or exact match (i.e., "optional" match).
   hdr.ipv4.dst_addr::mask == 0 || hdr.ipv4.dst_addr::mask == -1;
 ")
-table vrf_classifier_table {
+table acl_table {
   key = {
     hdr.ethernet.ether_type : ternary;
     hdr.ethernet.src_addr : ternary;
