@@ -1,0 +1,60 @@
+# Bazel worskpace file.
+
+workspace(name = "org_p4_p4_constraints")
+
+local_repository(
+    name = "com_google_absl",
+    path = "third_party/abseil-cpp",
+)
+
+new_local_repository(
+    name = "com_google_glog",
+    path = "third_party/glog",
+    build_file = "third_party/BUILD.glog.bazel"
+)
+
+local_repository(
+    name = "com_google_googletest",
+    path = "third_party/googletest",
+)
+
+local_repository(
+    name = "com_google_protobuf",
+    path = "third_party/protobuf",
+)
+
+local_repository(
+    name = "rules_proto",
+    path = "third_party/rules_proto",
+)
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+protobuf_deps()
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+rules_proto_dependencies()
+rules_proto_toolchains()
+
+local_repository(
+    name = "com_googlesource_code_re2",
+    path = "third_party/re2",
+)
+
+new_local_repository(
+    name = "com_github_p4lang_p4c",
+    path = "third_party/p4c",
+    build_file = "third_party/BUILD.p4c.bazel",
+)
+
+new_local_repository(
+    name = "com_github_p4lang_p4runtime",
+    path = "third_party/p4runtime",
+    build_file = "third_party/BUILD.p4runtime.bazel",
+)
+
+# Transitive p4runtime dependency.
+local_repository(
+    name = "com_google_googleapis",
+    path = "third_party/googleapis",
+)
+load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
+switched_rules_by_language(name = "com_google_googleapis_imports")
+

@@ -1,0 +1,9 @@
+# This is the list of p4-constraints's significant contributors.
+#
+# This does not necessarily list everyone who has contributed code. To see the
+# full list of contributors, see the revision history in source control.
+
+Google LLC <*@google.com>
+Stefan Heule <heule@google.com>
+Steffen Smolka <smolkaj@google.com>
+Konstantin Weitz <konne@google.com>

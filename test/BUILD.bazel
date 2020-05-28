@@ -1,0 +1,39 @@
+load(":p4check.bzl", "diff_test", "run_p4check")
+
+package(
+    licenses = ["notice"],  # Apache 2.0
+)
+
+diff_test(
+    name = "invalid_constraints_test",
+    actual = ":invalid_constraints_p4check",
+    # To update expected file, run `bazel run <target> -- --update`.
+    expected = "invalid_constraints.expected.output",
+)
+
+diff_test(
+    name = "valid_constraints_test",
+    actual = ":valid_constraints_p4check",
+    # To update expected file, run `bazel run <target> -- --update`.
+    expected = "valid_constraints.expected.output",
+)
+
+run_p4check(
+    name = "invalid_constraints_p4check",
+    src = "invalid_constraints.p4",
+    out = "invalid_constraints.p4check.output",
+    deps = [":p4_files"],
+)
+
+run_p4check(
+    name = "valid_constraints_p4check",
+    src = "valid_constraints.p4",
+    out = "valid_constraints.p4check.output",
+    table_entries = glob(["table_entries/*.pb.txt"]),
+    deps = [":p4_files"],
+)
+
+filegroup(
+    name = "p4_files",
+    srcs = glob(["*.p4"]),
+)

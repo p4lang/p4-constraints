@@ -1,0 +1,100 @@
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],  # Apache 2.0
+)
+
+cc_library(
+  name = "integral_types",
+  hdrs = ["integral_types.h"],
+)
+
+cc_library(
+    name = "source_location",
+    hdrs = ["source_location.h"],
+)
+
+cc_library(
+    name = "status",
+    srcs = [
+        "status.cc",
+        "status_builder.cc",
+    ],
+    hdrs = [
+        "canonical_errors.h",
+        "status.h",
+        "status_builder.h",
+        "status_macros.h",
+    ],
+    deps = [
+        ":source_location",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_glog//:glog",
+    ],
+)
+
+cc_library(
+    name = "statusor",
+    srcs = ["statusor.cc"],
+    hdrs = [
+        "statusor.h",
+        "statusor_internals.h",
+    ],
+    deps = [
+        ":status",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_glog//:glog",
+    ],
+)
+
+cc_library(
+    name = "ret_check",
+    srcs = ["ret_check.cc"],
+    hdrs = ["ret_check.h"],
+    deps = [
+        ":status",
+        "@com_google_absl//absl/base:core_headers",
+    ],
+)
+
+cc_library(
+    name = "parse_text_proto",
+    hdrs = [
+        "parse_text_proto.h",
+    ],
+    deps = [
+        "@com_google_glog//:glog",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "status_matchers",
+    testonly = True,
+    hdrs = ["status_matchers.h"],
+    deps = [
+        ":status",
+        ":statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+
+cc_library(
+    name = "protocol_buffer_matchers",
+    testonly = True,
+    srcs = ["protocol_buffer_matchers.cc"],
+    hdrs = ["protocol_buffer_matchers.h"],
+    deps = [
+        ":integral_types",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+        "@com_googlesource_code_re2//:re2",
+        "@com_google_glog//:glog",
+        "@com_google_googletest//:gtest",
+    ],
+)

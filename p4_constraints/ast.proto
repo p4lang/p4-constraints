@@ -1,0 +1,170 @@
+// Copyright 2020 The P4-Constraints Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// The abstract syntax tree (AST) of P4 constraints and expressions.
+
+syntax = "proto3";
+
+package p4_constraints.ast;
+
+// The AST of an expression. Constraints are expression of type boolean.
+message Expression {
+  // The source location where this expression was parsed is the half-open
+  // interval [start_location, end_location).
+  SourceLocation start_location = 1;  // required
+  SourceLocation end_location = 2;    // required
+
+  // The type of the expression. Constraints are expressions of type boolean.
+  Type type = 3;  // required
+
+  oneof expression {  // required
+    bool boolean_constant = 4;
+    // To ease debugging, we represent unsigned, arbitrary-precision integers
+    // as base 10 ASCII strings. If efficiency becomes a concern, bytes may be
+    // better.
+    string integer_constant = 5;
+    // A table key (aka "match field"), e.g. `header.ethernet.ether_type`.
+    string key = 6;
+    Expression boolean_negation = 7;
+    Expression arithmetic_negation = 8;
+    // Type casts are not exposed in the surface language, but may be inserted
+    // by the type checker. The kind of cast to be performed is given by the
+    // types of the expression and its subexpression. The following casts are
+    // legal (for all bit-widths W):
+    //
+    //      int ~~> bit<W>
+    //   bit<W> ~~> Exact<W>
+    //   bit<W> ~~> Ternary<W>
+    //   bit<W> ~~> Lpm<W>
+    //   bit<W> ~~> Range<W>
+    //
+    // For details refer to type_checker.cc.
+    Expression type_cast = 9;
+    BinaryExpression binary_expression = 10;
+    FieldAccess field_access = 11;
+  }
+}
+
+// Used to access a field of a composite value, as in `ip_dst::prefix_length`
+// where `ip_dst` is of type `LPM`. Also known as "projection".
+message FieldAccess {
+  // The name of the field that is being accessed (i.e., projected out).
+  // For example, `prefix_length` in `ip_dst::prefix_length`.
+  string field = 1;
+  // The expression whose field is being accessed (i.e., projected out).
+  // For example, `ip_dst` in `ip_dst::prefix_length`.
+  Expression expr = 2;
+}
+
+message BinaryExpression {
+  BinaryOperator binop = 1;
+  Expression left = 2;
+  Expression right = 3;
+}
+
+enum BinaryOperator {
+  UNKNOWN_OPERATOR = 0;  // Default (should never be used).
+  // Comparison operators.
+  EQ = 1;  // ==
+  NE = 2;  // !=
+  GT = 3;  // >
+  GE = 4;  // >=
+  LT = 5;  // <
+  LE = 6;  // <=
+  // Boolean operators.
+  AND = 7;      // &&
+  OR = 8;       // ||
+  IMPLIES = 9;  // ->
+}
+
+message Type {
+  oneof type {  // required
+    Unknown unknown = 1;
+    Unsupported unsupported = 2;
+    Boolean boolean = 3;
+    ArbitraryInt arbitrary_int = 4;
+    FixedUnsigned fixed_unsigned = 5;
+
+    // Match kind types.
+    Exact exact = 6;
+    Ternary ternary = 7;
+    Lpm lpm = 8;
+    Range range = 9;
+  }
+
+  // Before type-checking, types may be unknown.
+  message Unknown {}
+
+  // Unsupported type of the given name.
+  message Unsupported {
+    string name = 1;  // required
+  }
+
+  // Boolean, aka "bool".
+  message Boolean {}
+
+  // Arbitrary-precision signed integer, aka "int".
+  message ArbitraryInt {}
+
+  // Fixed-width unsigned integer, aka "bit<W>".
+  message FixedUnsigned {
+    int32 bitwidth = 1;  // required
+  }
+
+  // Exact match, aka "Exact<W>".
+  message Exact {
+    int32 bitwidth = 1;  // required
+  }
+
+  // Ternary match, aka "Ternary<W>".
+  message Ternary {
+    int32 bitwidth = 1;  // required
+  }
+
+  // Longest prefix match, aka "Lpm<W>".
+  message Lpm {
+    int32 bitwidth = 1;  // required
+  }
+
+  // Range match, aka "Range<W>".
+  message Range {
+    int32 bitwidth = 1;  // required
+  }
+}
+
+// Represents the location of a character relative to a source file or table.
+// Useful for reporting errors during lexing, parsing, type-checking, etc.
+message SourceLocation {
+  // Line and column numbers relative to the source, 0-based. A line break is a
+  // character sequences matching the regex \n|\r\n? greedily. The character
+  // immediately following a line break is considered to be located on the next
+  // line at column 0. In a sequence of characters without line breaks, all
+  // character are considered to be on the same line in subsequent columns.
+  int32 line = 1;    // required
+  int32 column = 2;  // required
+
+  // The source from which the character was read; `line` and `column` are
+  // to be interpreted relative to this source.
+  oneof source {  // required
+    // Qualified or unqualified source file path. Prefer over `table_name` when
+    // possible. If present, `line` and `column` are relative to the beginning
+    // of the file.
+    string file_path = 3;
+
+    // P4 table name. Prefer `file_path` whenever possible.
+    // If present, `line` and `column` are relative to an @entry_restriction
+    // annotation attached to a table of the given name.
+    string table_name = 4;
+  }
+}

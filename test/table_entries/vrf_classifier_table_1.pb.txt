@@ -1,0 +1,9 @@
+table_id: 3
+match {
+  field_id: 3  # hdr.ipv4.dst_addr
+  ternary {
+    # Illegal: constraint only allows exact match or wildcard match.
+    value: "123"
+    mask: "123"
+  }
+}

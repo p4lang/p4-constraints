@@ -1,0 +1,88 @@
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],  # Apache 2.0
+)
+
+cc_library(
+    name = "interpreter",
+    srcs = ["interpreter.cc"],
+    hdrs = ["interpreter.h"],
+    deps = [
+        ":constraint_info",
+        "//p4_constraints:ast",
+        "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:quote",
+        "//util:status",
+        "//util:statusor",
+        "//util:ret_check",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+    ],
+    # GMP is a system dependency for now.
+    # Building it with Bazel would be better, but it's not obvious how to do it.
+    linkopts = ["-lgmp", "-lgmpxx"],
+)
+
+cc_test(
+    name = "interpreter_test",
+    size = "small",
+    srcs = ["interpreter_test.cc"],
+    deps = [
+        ":constraint_info",
+        ":interpreter",
+        "//p4_constraints:ast_cc_proto",
+        "//util:parse_text_proto",
+        "//util:status_matchers",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+    ],
+)
+
+cc_library(
+    name = "constraint_info",
+    srcs = [
+        "constraint_info.cc",
+        "type_checker.cc",
+    ],
+    hdrs = [
+        "constraint_info.h",
+        "type_checker.h",
+    ],
+    deps = [
+        "//p4_constraints:ast",
+        "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:quote",
+        "//p4_constraints/frontend:parser",
+        "//p4_constraints/frontend:lexer",
+        "//util:status",
+        "//util:statusor",
+        "//util:ret_check",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_googlesource_code_re2//:re2",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+    ],
+)
+
+cc_test(
+    name = "type_checker_test",
+    size = "small",
+    srcs = ["type_checker_test.cc"],
+    deps = [
+        ":constraint_info",
+        "//p4_constraints:ast",
+        "//p4_constraints:ast_cc_proto",
+        "//util:parse_text_proto",
+        "//util:status_matchers",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
