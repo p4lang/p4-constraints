@@ -52,7 +52,8 @@ constexpr char kUsage[] =
 // The 8 most significant bits of any P4Runtime table ID must equal
 // p4::config::v1::P4Ids::TABLE. To ease writing table entries by hand in
 // testing, we simply coerce all table IDs into the correct format.
-uint32 FixTableId(uint32 table_id) {
+// See P4Runtime specification, "6.3 ID Allocation for P4Info Objects".
+uint32 CoerceToTableId(uint32 table_id) {
   return (table_id & 0x00FFFFFF) | (p4::config::v1::P4Ids::TABLE << 24);
 }
 
@@ -84,8 +85,11 @@ int main(int argc, char** argv) {
       return 1;
     }
   }
+  // p4c 2019 and earlier does not set the 8 most significant bits of table IDs
+  // correctly, but p4c 2020 (since PR p4lang/p4c#2243) does. To make p4check
+  // compatible with both, we coerce all table IDs into the right format here.
   for (auto& table : *p4info.mutable_tables()) {
-    table.mutable_preamble()->set_id(FixTableId(table.preamble().id()));
+    table.mutable_preamble()->set_id(CoerceToTableId(table.preamble().id()));
   }
 
   // Parse constraints and report potential errors.
@@ -121,7 +125,11 @@ int main(int argc, char** argv) {
         continue;
       }
     }
-    entry.set_table_id(FixTableId(entry.table_id()));
+    // For testing, it is convenient to write table entries whose table ID
+    // matches the @id annotation of the corresponding table in the .p4 program.
+    // However, p4c sets the 8 most significant bits of IDs from @id annotations
+    // to p4::config::v1::P4Ids::TABLE, so we must do the same here.
+    entry.set_table_id(CoerceToTableId(entry.table_id()));
 
     // Check entry.
     util::StatusOr<bool> result = EntryMeetsConstraint(entry, constraint_info);

@@ -5,7 +5,7 @@ TODO: integrate CLI status here
 **Work in progress. Feedback and contributions are welcome.**
 
 p4-constraints extends the [P4 language](https://p4.org/) with support for
-constraint 
+constraint
 [annotations](https://p4.org/p4-spec/docs/P4-16-v1.2.0.html#sec-annotations).
 These constraints can be enforced at runtime using the p4-constraints library.
 
@@ -88,7 +88,7 @@ bazel test //p4_contraints/...
 
 ## Golden tests
 
-The easiest way to experiment with p4-constraints is to write a 
+The easiest way to experiment with p4-constraints is to write a
 [golden test](https://ro-che.info/articles/2017-12-04-golden-tests).
 We provide [Bazel rules](test/p4check.bzl) `run_p4check` and `diff_test` to make
 this convenient.

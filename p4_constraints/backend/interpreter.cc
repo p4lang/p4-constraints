@@ -204,9 +204,8 @@ util::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
       Integer domain_size = one << bitwidth;  // 2^W
       Integer fixed_value = value % domain_size;
       // operator% may return negative values.
-      return {fixed_value >= zero ? 
-                fixed_value : 
-                (fixed_value + domain_size)};
+      if (fixed_value < zero) fixed_value += domain_size;
+      return {fixed_value};
     }
 
     // bit<W> ~~> Exact<W>

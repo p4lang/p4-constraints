@@ -63,9 +63,8 @@ cc_library(
     name = "parse_text_proto",
     hdrs = [
         "parse_text_proto.h",
-        # "proto_ns.h",
     ],
-    deps = [        # "//mediapipe/framework:port",
+    deps = [
         "@com_google_glog//:glog",
         "@com_google_protobuf//:protobuf",
     ],

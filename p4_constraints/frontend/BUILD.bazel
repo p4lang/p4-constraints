@@ -37,7 +37,7 @@ cc_library(
     name = "lexer",
     srcs = ["lexer.cc"],
     hdrs = ["lexer.h"],
-    visibility = ["//p4_constraints:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         ":token",
         "//p4_constraints:ast",

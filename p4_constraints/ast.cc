@@ -19,7 +19,6 @@
 
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "p4_constraints/ast.pb.h"
 #include "src/google/protobuf/util/message_differencer.h"

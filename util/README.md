@@ -1,9 +1,8 @@
-# Utiliies
+# Utilities
 
-These libraries provide base functionalities that are used throughout the code
-base.
+These libraries provide basic functions used throughout the code base.
 
-The files in this directory are copied/adapted from the following repositories: 
+The files in this directory are copied/adapted from the following repositories:
 * https://github.com/google/mediapipe
 * https://github.com/google/iree
 * https://github.com/google/nucleus
