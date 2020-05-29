@@ -17,7 +17,7 @@ jobs:
     - name: Mount bazel cache
       uses: actions/cache@v2
       with:
-        path: "/home/runner/.cache/bazel"
+        path: "~/.cache/bazel"  # See https://docs.bazel.build/versions/master/output_directories.html
         key: bazel
 
     - name: Install bazelisk
