@@ -15,11 +15,15 @@
 #ifndef MEDIAPIPE_DEPS_STATUS_BUILDER_H_
 #define MEDIAPIPE_DEPS_STATUS_BUILDER_H_
 
+#include <string>
+#include <sstream>
+#include <iostream>
+
 #include "absl/base/attributes.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "util/source_location.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 
 namespace util {
 
@@ -30,14 +34,14 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   // Creates a `StatusBuilder` based on an original status.  If logging is
   // enabled, it will use `location` as the location from which the log message
   // occurs.  A typical user will call this with `UTIL_LOC`.
-  StatusBuilder(const ::util::Status& original_status,
+  StatusBuilder(const ::absl::Status& original_status,
                 ::util::source_location location)
       : status_(original_status),
         line_(location.line()),
         file_(location.file_name()),
         stream_(new std::ostringstream) {}
 
-  StatusBuilder(::util::Status&& original_status,
+  StatusBuilder(::absl::Status&& original_status,
                 ::util::source_location location)
       : status_(std::move(original_status)),
         line_(location.line()),
@@ -47,14 +51,14 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   // Creates a `StatusBuilder` from a util status code.  If logging is
   // enabled, it will use `location` as the location from which the log message
   // occurs.  A typical user will call this with `UTIL_LOC`.
-  StatusBuilder(::util::StatusCode code,
+  StatusBuilder(::absl::StatusCode code,
                 ::util::source_location location)
       : status_(code, ""),
         line_(location.line()),
         file_(location.file_name()),
         stream_(new std::ostringstream) {}
 
-  StatusBuilder(const ::util::Status& original_status, const char* file,
+  StatusBuilder(const ::absl::Status& original_status, const char* file,
                 int line)
       : status_(original_status),
         line_(line),
@@ -76,10 +80,10 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
     return *this;
   }
 
-  operator Status() const&;
-  operator Status() &&;
+  operator ::absl::Status() const&;
+  operator ::absl::Status() &&;
 
-  ::util::Status JoinMessageToStatus();
+  ::absl::Status JoinMessageToStatus();
 
  private:
   // Specifies how to join the error message in the original status and any
@@ -91,7 +95,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   };
 
   // The status that the result will be based on.
-  ::util::Status status_;
+  ::absl::Status status_;
   // The line to record if this file is logged.
   int line_;
   // Not-owned: The file to record if this status is logged.
@@ -105,42 +109,42 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
 
 inline StatusBuilder AlreadyExistsErrorBuilder(
     ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kAlreadyExists, location);
+  return StatusBuilder(::absl::StatusCode::kAlreadyExists, location);
 }
 
 inline StatusBuilder FailedPreconditionErrorBuilder(
     ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kFailedPrecondition, location);
+  return StatusBuilder(::absl::StatusCode::kFailedPrecondition, location);
 }
 
 inline StatusBuilder InternalErrorBuilder(
     ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kInternal, location);
+  return StatusBuilder(::absl::StatusCode::kInternal, location);
 }
 
 inline StatusBuilder InvalidArgumentErrorBuilder(
     ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kInvalidArgument, location);
+  return StatusBuilder(::absl::StatusCode::kInvalidArgument, location);
 }
 
 inline StatusBuilder NotFoundErrorBuilder(
     ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kNotFound, location);
+  return StatusBuilder(::absl::StatusCode::kNotFound, location);
 }
 
 inline StatusBuilder UnavailableErrorBuilder(
     ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kUnavailable, location);
+  return StatusBuilder(::absl::StatusCode::kUnavailable, location);
 }
 
 inline StatusBuilder UnimplementedErrorBuilder(
     ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kUnimplemented, location);
+  return StatusBuilder(::absl::StatusCode::kUnimplemented, location);
 }
 
 inline StatusBuilder UnknownErrorBuilder(
     ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kUnknown, location);
+  return StatusBuilder(::absl::StatusCode::kUnknown, location);
 }
 
 }  // namespace util

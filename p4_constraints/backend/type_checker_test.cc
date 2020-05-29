@@ -25,7 +25,7 @@
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "util/parse_text_proto.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 #include "util/status_matchers.h"
 
 namespace p4_constraints {

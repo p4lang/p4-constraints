@@ -22,7 +22,7 @@
 
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 #include "util/statusor.h"
 
 #undef EXPECT_OK
@@ -104,7 +104,7 @@ class IsOkAndHoldsGenerator {
 };
 
 // Implements a gMock matcher for checking error-code expectations on
-// util::Status and util::StatusOr objects.
+// absl::Status and util::StatusOr objects.
 template <typename Enum, typename Matchee>
 class StatusMatcher : public ::testing::MatcherInterface<Matchee> {
  public:
@@ -144,18 +144,18 @@ class StatusMatcher : public ::testing::MatcherInterface<Matchee> {
 
  private:
   template <typename T>
-  StatusCode GetCode(const T &matchee) const {
+  absl::StatusCode GetCode(const T &matchee) const {
     return GetCode(matchee.status());
   }
 
-  StatusCode GetCode(const Status &status) const { return status.code(); }
+  absl::StatusCode GetCode(const absl::Status &status) const { return status.code(); }
 
   template <typename T>
   absl::string_view GetMessage(const T &matchee) const {
     return GetMessage(matchee.status());
   }
 
-  absl::string_view GetMessage(const Status &status) const {
+  absl::string_view GetMessage(const absl::Status &status) const {
     return status.message();
   }
 
@@ -169,7 +169,7 @@ class StatusMatcher : public ::testing::MatcherInterface<Matchee> {
 // StatusMatcherGenerator is an intermediate object returned by
 // util::testing::status::StatusIs().
 // It implements implicit type-cast operators to supported matcher types:
-// Matcher<const Status &> and Matcher<const StatusOr<T> &>. These typecast
+// Matcher<const absl::Status &> and Matcher<const StatusOr<T> &>. These typecast
 // operators create gMock matchers that test OK expectations on a status
 // container.
 template <typename Enum>
@@ -178,10 +178,10 @@ class StatusIsMatcherGenerator {
   StatusIsMatcherGenerator(Enum code, absl::optional<absl::string_view> message)
       : code_(code), message_(message) {}
 
-  // Type-cast operator for Matcher<const util::Status &>.
-  operator ::testing::Matcher<const Status &>() const {
+  // Type-cast operator for Matcher<const absl::Status &>.
+  operator ::testing::Matcher<const absl::Status &>() const {
     return ::testing::MakeMatcher(
-        new internal::StatusMatcher<Enum, const Status &>(code_, message_));
+        new internal::StatusMatcher<Enum, const absl::Status &>(code_, message_));
   }
 
   // Type-cast operator for Matcher<const util::StatusOr<T> &>.
@@ -201,7 +201,7 @@ class StatusIsMatcherGenerator {
 };
 
 // Implements a gMock matcher that checks whether a status container (e.g.
-// util::Status or util::StatusOr<T>) has an OK status.
+// absl::Status or util::StatusOr<T>) has an OK status.
 template <class T>
 class IsOkMatcherImpl : public ::testing::MatcherInterface<T> {
  public:
@@ -236,15 +236,15 @@ class IsOkMatcherImpl : public ::testing::MatcherInterface<T> {
 
 // IsOkMatcherGenerator is an intermediate object returned by util::IsOk().
 // It implements implicit type-cast operators to supported matcher types:
-// Matcher<const Status &> and Matcher<const StatusOr<T> &>. These typecast
+// Matcher<const absl::Status &> and Matcher<const StatusOr<T> &>. These typecast
 // operators create gMock matchers that test OK expectations on a status
 // container.
 class IsOkMatcherGenerator {
  public:
-  // Type-cast operator for Matcher<const util::Status &>.
-  operator ::testing::Matcher<const Status &>() const {
+  // Type-cast operator for Matcher<const absl::Status &>.
+  operator ::testing::Matcher<const absl::Status &>() const {
     return ::testing::MakeMatcher(
-        new internal::IsOkMatcherImpl<const Status &>());
+        new internal::IsOkMatcherImpl<const absl::Status &>());
   }
 
   // Type-cast operator for Matcher<const util::StatusOr<T> &>.
@@ -284,14 +284,14 @@ internal::IsOkAndHoldsGenerator<ValueMatcherT> IsOkAndHolds(
   return internal::IsOkAndHoldsGenerator<ValueMatcherT>(value_matcher);
 }
 
-// Returns a gMock matcher that expects an util::Status object to have the
+// Returns a gMock matcher that expects an absl::Status object to have the
 // given |code|.
 template <typename Enum>
 internal::StatusIsMatcherGenerator<Enum> StatusIs(Enum code) {
   return internal::StatusIsMatcherGenerator<Enum>(code, absl::nullopt);
 }
 
-// Returns a gMock matcher that expects an util::Status object to have the
+// Returns a gMock matcher that expects an absl::Status object to have the
 // given |code| and |message|.
 template <typename Enum>
 internal::StatusIsMatcherGenerator<Enum> StatusIs(Enum code,
@@ -300,7 +300,7 @@ internal::StatusIsMatcherGenerator<Enum> StatusIs(Enum code,
 }
 
 // Returns an internal::IsOkMatcherGenerator, which may be typecast to a
-// Matcher<util::Status> or Matcher<util::StatusOr<T>>. These gMock
+// Matcher<absl::Status> or Matcher<util::StatusOr<T>>. These gMock
 // matchers test that a given status container has an OK status.
 inline internal::IsOkMatcherGenerator IsOk() {
   return internal::IsOkMatcherGenerator();
@@ -309,14 +309,14 @@ inline internal::IsOkMatcherGenerator IsOk() {
 }  // namespace status
 }  // namespace testing
 
-// Macros for testing the results of functions that return util::Status or
+// Macros for testing the results of functions that return absl::Status or
 // util::StatusOr<T> (for any type T).
 #define EXPECT_OK(rexpr) EXPECT_THAT(rexpr, ::util::testing::status::IsOk())
 #define ASSERT_OK(rexpr) ASSERT_THAT(rexpr, ::util::testing::status::IsOk())
 
 // Executes an expression that returns an util::StatusOr<T>, and assigns the
 // contained variable to lhs if the error code is OK.
-// If the Status is non-OK, generates a test failure and returns from the
+// If the absl::Status is non-OK, generates a test failure and returns from the
 // current function, which must have a void return type.
 //
 // Example: Assigning to an existing value

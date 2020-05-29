@@ -31,7 +31,7 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "util/parse_text_proto.h"
 #include "util/status_matchers.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 
 namespace p4_constraints {
 namespace internal_interpreter {

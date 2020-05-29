@@ -12,9 +12,9 @@ cc_library(
         ":token",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:quote",
-        "@com_google_absl//absl/status",
-        "//util:status",
+        "//util:status_builder",
         "//util:statusor",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -88,7 +88,7 @@ cc_library(
     deps = [
         ":token",
         "//p4_constraints:ast_cc_proto",
-        "//util:status",
+        "//util:status_builder",
         "//util:statusor",
         "//util:ret_check",
         "@com_google_absl//absl/types:span",

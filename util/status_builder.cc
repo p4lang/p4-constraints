@@ -54,21 +54,21 @@ StatusBuilder& StatusBuilder::SetNoLogging() {
   return *this;
 }
 
-StatusBuilder::operator Status() const& {
+StatusBuilder::operator ::absl::Status() const& {
   if (stream_->str().empty() || no_logging_) {
     return status_;
   }
   return StatusBuilder(*this).JoinMessageToStatus();
 }
 
-StatusBuilder::operator Status() && {
+StatusBuilder::operator ::absl::Status() && {
   if (stream_->str().empty() || no_logging_) {
     return status_;
   }
   return JoinMessageToStatus();
 }
 
-::util::Status StatusBuilder::JoinMessageToStatus() {
+::absl::Status StatusBuilder::JoinMessageToStatus() {
   std::string message;
   if (join_style_ == MessageJoinStyle::kAnnotate) {
     if (!status_.ok()) {
@@ -79,7 +79,7 @@ StatusBuilder::operator Status() && {
                   ? absl::StrCat(stream_->str(), status_.message())
                   : absl::StrCat(status_.message(), stream_->str());
   }
-  return Status(status_.code(), message);
+  return ::absl::Status(status_.code(), message);
 }
 
 }  // namespace util

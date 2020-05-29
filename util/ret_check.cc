@@ -31,7 +31,7 @@ namespace util {
 
 ::util::StatusBuilder RetCheckFailSlowPath(
     ::util::source_location location, const char* condition,
-    const ::util::Status& status) {
+    const ::absl::Status& status) {
   return ::util::RetCheckFailSlowPath(location)
          << condition << " returned " << status << " ";
 }

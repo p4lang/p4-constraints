@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // Helper macros and methods to return and propagate errors with
-// `::util::Status`.
+// `::absl::Status`.
 //
 // The owners of util do not endorse use of these macros as a good
 // programming practice, and would prefer that you write the equivalent C++
@@ -23,17 +23,17 @@
 #ifndef MEDIAPIPE_DEPS_STATUS_MACROS_H_
 #define MEDIAPIPE_DEPS_STATUS_MACROS_H_
 
-#include "util/status.h"
+#include "absl/status/status.h"
 #include "util/status_builder.h"
 
-// Evaluates an expression that produces a `::util::Status`. If the status
+// Evaluates an expression that produces a `::absl::Status`. If the status
 // is not ok, returns it from the current function.
 //
 // For example:
-//   ::util::Status MultiStepFunction() {
+//   ::absl::Status MultiStepFunction() {
 //     RETURN_IF_ERROR(Function(args...));
 //     RETURN_IF_ERROR(foo.Method(args...));
-//     return ::util::OkStatus();
+//     return ::absl::OkStatus();
 //   }
 //
 // The macro ends with a `::util::StatusBuilder` which allows the returned
@@ -41,11 +41,11 @@
 // macro will not be evaluated unless there is an error.
 //
 // For example:
-//   ::util::Status MultiStepFunction() {
+//   ::absl::Status MultiStepFunction() {
 //     RETURN_IF_ERROR(Function(args...)) << "in MultiStepFunction";
 //     RETURN_IF_ERROR(foo.Method(args...)).Log(base_logging::ERROR)
 //         << "while processing query: " << query.DebugString();
-//     return ::util::OkStatus();
+//     return ::absl::OkStatus();
 //   }
 //
 // `::util::StatusBuilder` supports adapting the builder chain using a
@@ -74,12 +74,12 @@
 //
 // If using this macro inside a lambda, you need to annotate the return type
 // to avoid confusion between a `::util::StatusBuilder` and a
-// `::util::Status` type. E.g.
+// `::absl::Status` type. E.g.
 //
-//   []() -> ::util::Status {
+//   []() -> ::absl::Status {
 //     RETURN_IF_ERROR(Function(args...));
 //     RETURN_IF_ERROR(foo.Method(args...));
-//     return ::util::OkStatus();
+//     return ::absl::OkStatus();
 //   }
 #define RETURN_IF_ERROR(expr)                                          \
   STATUS_MACROS_IMPL_ELSE_BLOCKER_                                        \
@@ -194,10 +194,10 @@ namespace status_macro_internal {
 // that declares a variable.
 class StatusAdaptorForMacros {
  public:
-  StatusAdaptorForMacros(const Status& status, const char* file, int line)
+  StatusAdaptorForMacros(const ::absl::Status& status, const char* file, int line)
       : builder_(status, file, line) {}
 
-  StatusAdaptorForMacros(Status&& status, const char* file, int line)
+  StatusAdaptorForMacros(::absl::Status&& status, const char* file, int line)
       : builder_(std::move(status), file, line) {}
 
   StatusAdaptorForMacros(const StatusBuilder& builder, const char* /* file */,
