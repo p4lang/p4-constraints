@@ -22,7 +22,7 @@
 #include "p4_constraints/frontend/ast_constructors.h"
 #include "p4_constraints/frontend/token.h"
 #include "p4_constraints/quote.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 #include "util/status_macros.h"
 #include "util/statusor.h"
 
@@ -135,7 +135,7 @@ util::StatusBuilder ParseError(Token token) {
 
 // Returns an error status indicating that the given token came as a surprise,
 // since one of the given other tokens was expected.
-util::Status Unexpected(Token token, const std::vector<Token::Kind>& expected) {
+absl::Status Unexpected(Token token, const std::vector<Token::Kind>& expected) {
   util::StatusBuilder error = ParseError(token);
   if (token.kind == Token::UNEXPECTED_CHAR) {
     // Slightly awkward phrasing because the unexpected character may actually

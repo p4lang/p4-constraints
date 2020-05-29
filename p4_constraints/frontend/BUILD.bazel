@@ -12,9 +12,8 @@ cc_library(
         ":token",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:quote",
-        "@com_google_absl//absl/status",
         "//util:status",
-        "//util:statusor",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -28,7 +27,7 @@ cc_test(
         "//p4_constraints:ast_cc_proto",
         "//util:protocol_buffer_matchers",
         "//util:status_matchers",
-        "//util:statusor",
+        "//util:status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -89,7 +88,6 @@ cc_library(
         ":token",
         "//p4_constraints:ast_cc_proto",
         "//util:status",
-        "//util:statusor",
         "//util:ret_check",
         "@com_google_absl//absl/types:span",
     ],

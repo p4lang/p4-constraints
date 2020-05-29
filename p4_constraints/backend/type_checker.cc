@@ -25,7 +25,7 @@
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/quote.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 #include "util/status_macros.h"
 #include "util/statusor.h"
 
@@ -185,7 +185,7 @@ absl::optional<Type> FieldTypeOfCompositeType(const Type& composite_type,
 
 // -- Type checking ------------------------------------------------------------
 
-util::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
+absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
   switch (expr->expression_case()) {
     case Expression::kBooleanConstant:
       expr->mutable_type()->mutable_boolean();

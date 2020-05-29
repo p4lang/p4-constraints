@@ -91,6 +91,18 @@ To see the output of a failed test, invoke it using `bazel run` like so:
 bazel run //p4_constraints/frontend:lexer_test
 ```
 
+### MacOS
+
+While building under MacOS is not officially supported, it currently works after
+executing the following commands, using [Homebrew](https://brew.sh/) to install
+[GMP](https://gmplib.org/):
+```sh
+# Install GMP.
+brew install gmp && brew link gmp
+# Tell linker (ld) where to find GMP so '-lgmp' works.
+echo "build --linkopt='-L /usr/local/brew/lib'" > user.bazelrc
+```
+
 ## Golden tests
 
 The easiest way to experiment with p4-constraints is to write a
@@ -107,7 +119,7 @@ which p4c  # This needs to succeed for golden tests to work.
 
 To run all golden tests, execute
 ```sh
-bazel test //test/...  # TODO: Porting to GitHub caused some of these to break.
+bazel test //test/...
 ```
 
 To see the output of a failed test, invoke it using `bazel run` like so:
