@@ -13,3 +13,4 @@ All developers must sign the [P4.org](http://p4.org) CLA and return it to
 
 Any contribution to the C++ core code must respect the coding guidelines.
 We follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html).
+We provide a [script](format.sh) to automatically format all code correctly.
