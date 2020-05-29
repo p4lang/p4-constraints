@@ -1,5 +1,5 @@
 * continuous integration
-* remove METADATA file; look into way to run ClangTidy as CI
+  * remove METADATA file; look into way to run ClangTidy as CI
 * finish README: add grammar.
 * announce officially
 * instead of using custom p4runtime BUILD, fix problems upstream

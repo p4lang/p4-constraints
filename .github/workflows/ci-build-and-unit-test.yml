@@ -1,0 +1,36 @@
+name: "CI: build & unit test"
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    
+    - name: Mount bazel cache
+      uses: actions/cache@v2
+      with:
+        path: "~/.cache/bazel"  # See https://docs.bazel.build/versions/master/output_directories.html
+        key: bazel
+
+    - name: Install bazelisk
+      run: |
+        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.4.0/bazelisk-linux-amd64"
+        mkdir -p "${GITHUB_WORKSPACE}/bin/"
+        mv bazelisk-linux-amd64 "${GITHUB_WORKSPACE}/bin/bazel"
+        chmod +x "${GITHUB_WORKSPACE}/bin/bazel"
+
+    - name: Build
+      run: |
+        "${GITHUB_WORKSPACE}/bin/bazel" build //p4_constraints/...
+
+    - name: Unit test
+      run: |
+        "${GITHUB_WORKSPACE}/bin/bazel" test //p4_constraints/...
