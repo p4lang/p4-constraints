@@ -25,9 +25,9 @@
 #include <variant>
 
 #include "absl/container/flat_hash_map.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
-#include "p4/v1/p4runtime.pb.h"
 #include "util/statusor.h"
 
 namespace p4_constraints {

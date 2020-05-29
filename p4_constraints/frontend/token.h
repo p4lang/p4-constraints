@@ -22,8 +22,8 @@
 #include <iosfwd>
 #include <string>
 
-#include "p4_constraints/ast.pb.h"
 #include "absl/types/optional.h"
+#include "p4_constraints/ast.pb.h"
 
 namespace p4_constraints {
 

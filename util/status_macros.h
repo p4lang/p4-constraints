@@ -16,9 +16,9 @@
 #define IREE_BASE_INTERNAL_STATUS_MACROS_H_
 
 #include "absl/status/status.h"
+#include "util/source_location.h"
 #include "util/status_builder.h"
 #include "util/statusor.h"
-#include "util/source_location.h"
 
 // Evaluates an expression that produces a `absl::Status`. If the status is not
 // ok, returns it from the current function.

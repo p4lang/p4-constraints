@@ -20,12 +20,12 @@
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "glog/logging.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/quote.h"
-#include "absl/status/status.h"
 #include "util/status_macros.h"
 #include "util/statusor.h"
 

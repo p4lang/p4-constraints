@@ -49,6 +49,7 @@ def p4info(name, src, out, deps = [], visibility = None):
         p4info protobuf text format.
       visibility: Visibility of this target.
     """
+
     # TODO(smolkaj): Build p4c from source.
     # p4c = "@com_github_p4lang_p4c//:p4c"
     core = "@com_github_p4lang_p4c//:p4include/core.p4"
@@ -75,7 +76,7 @@ def p4info(name, src, out, deps = [], visibility = None):
             # p4c = execpath(p4c),
             p4c = "p4c",
             p4c_args = includes + " --p4runtime-format=text --std=p4-16",
-        )
+        ),
     )
 
 def run_p4check(name, src, out, deps = [], table_entries = [], visibility = None):

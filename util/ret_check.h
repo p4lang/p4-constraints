@@ -21,17 +21,16 @@
 
 namespace util {
 // Returns a StatusBuilder that corresponds to a `RET_CHECK` failure.
-::util::StatusBuilder RetCheckFailSlowPath(
-    ::util::SourceLocation location);
+::util::StatusBuilder RetCheckFailSlowPath(::util::SourceLocation location);
 
 // Returns a StatusBuilder that corresponds to a `RET_CHECK` failure.
-::util::StatusBuilder RetCheckFailSlowPath(
-    ::util::SourceLocation location, const char* condition);
+::util::StatusBuilder RetCheckFailSlowPath(::util::SourceLocation location,
+                                           const char* condition);
 
 // Returns a StatusBuilder that corresponds to a `RET_CHECK` failure.
-::util::StatusBuilder RetCheckFailSlowPath(
-    ::util::SourceLocation location, const char* condition,
-    const ::absl::Status& status);
+::util::StatusBuilder RetCheckFailSlowPath(::util::SourceLocation location,
+                                           const char* condition,
+                                           const ::absl::Status& status);
 
 inline StatusBuilder RetCheckImpl(const ::absl::Status& status,
                                   const char* condition,
@@ -48,8 +47,7 @@ inline StatusBuilder RetCheckImpl(const ::absl::Status& status,
   return ::util::RetCheckFailSlowPath(UTIL_LOC, #cond)
 
 #define RET_CHECK_OK(status) \
-  RETURN_IF_ERROR(        \
-      ::util::RetCheckImpl((status), #status, UTIL_LOC))
+  RETURN_IF_ERROR(::util::RetCheckImpl((status), #status, UTIL_LOC))
 
 #define RET_CHECK_FAIL() return ::util::RetCheckFailSlowPath(UTIL_LOC)
 

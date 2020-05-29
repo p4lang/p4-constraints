@@ -16,16 +16,17 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "absl/strings/substitute.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "util/parse_text_proto.h"
-#include "absl/status/status.h"
 #include "util/status_matchers.h"
 
 namespace p4_constraints {
@@ -33,9 +34,9 @@ namespace p4_constraints {
 using ::absl::StatusCode;
 using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::Type;
+using ::util::ParseTextProtoOrDie;
 using ::util::testing::status::IsOk;
 using ::util::testing::status::StatusIs;
-using ::util::ParseTextProtoOrDie;
 
 class InferAndCheckTypesTest : public ::testing::Test {
  public:
@@ -102,7 +103,7 @@ TEST_F(InferAndCheckTypesTest, BooleanConstant) {
 
 TEST_F(InferAndCheckTypesTest, IntegerConstant) {
   Expression expr =
-    ParseTextProtoOrDie<Expression>(R"(integer_constant: "123")");
+      ParseTextProtoOrDie<Expression>(R"(integer_constant: "123")");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
   EXPECT_TRUE(expr.type().has_arbitrary_int());
 }
@@ -128,8 +129,8 @@ TEST_F(InferAndCheckTypesTest, KnownVariablesTypeCheck) {
 TEST_F(InferAndCheckTypesTest, UnknownVariablesDontTypeCheck) {
   std::string keys[] = {"unknown", "unsupported", "not even a key"};
   for (auto& key : keys) {
-    Expression expr =
-      ParseTextProtoOrDie<Expression>(absl::Substitute(R"( key: "$0" )", key));
+    Expression expr = ParseTextProtoOrDie<Expression>(
+        absl::Substitute(R"( key: "$0" )", key));
     EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                 StatusIs(StatusCode::kInvalidArgument));
   }
@@ -192,7 +193,7 @@ TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfIntTypeChecks) {
 
   // Arithmetic negation of int key.
   expr =
-    ParseTextProtoOrDie<Expression>(R"(arithmetic_negation { key: "int" })");
+      ParseTextProtoOrDie<Expression>(R"(arithmetic_negation { key: "int" })");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
   EXPECT_TRUE(expr.type().has_arbitrary_int());
 }
@@ -222,7 +223,7 @@ TEST_F(InferAndCheckTypesTest, TypeCastNeverTypeChecks) {
   // TypeCasts should only be inserted by the type checker, so preexisting
   // TypeCasts should be rejected.
   Expression expr =
-    ParseTextProtoOrDie<Expression>(R"(type_cast { integer_constant: "0" })");
+      ParseTextProtoOrDie<Expression>(R"(type_cast { integer_constant: "0" })");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 }
@@ -284,25 +285,25 @@ TEST_F(InferAndCheckTypesTest, IllegalTypeCastEqualityComparisonFails) {
 TEST_F(InferAndCheckTypesTest, BinaryBooleanOperators) {
   for (ast::BinaryOperator op : {ast::AND, ast::OR, ast::IMPLIES}) {
     // Positive tests.
-    Expression expr =
-        ParseTextProtoOrDie<Expression>(absl::Substitute(R"PROTO(
-                                            binary_expression {
-                                              binop: $0
-                                              left { key: "bool" }
-                                              right { boolean_constant: false }
-                                            })PROTO",
-                                          op));
+    Expression expr = ParseTextProtoOrDie<Expression>(
+        absl::Substitute(R"PROTO(
+                           binary_expression {
+                             binop: $0
+                             left { key: "bool" }
+                             right { boolean_constant: false }
+                           })PROTO",
+                         op));
     ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
     EXPECT_TRUE(expr.type().has_boolean());
 
-    Expression nested =
-        ParseTextProtoOrDie<Expression>(absl::Substitute(R"PROTO(
-                                            binary_expression {
-                                              binop: $0
-                                              left { $1 }
-                                              right { $1 }
-                                            })PROTO",
-                                          op, expr.DebugString()));
+    Expression nested = ParseTextProtoOrDie<Expression>(
+        absl::Substitute(R"PROTO(
+                           binary_expression {
+                             binop: $0
+                             left { $1 }
+                             right { $1 }
+                           })PROTO",
+                         op, expr.DebugString()));
     Expression* right = expr.mutable_binary_expression()->mutable_right();
     std::swap(*right->mutable_binary_expression()->mutable_left(),
               *right->mutable_binary_expression()->mutable_right());
@@ -330,14 +331,14 @@ TEST_F(InferAndCheckTypesTest, BinaryBooleanOperators) {
 TEST_F(InferAndCheckTypesTest, OrderedComparisonOperatorsFails) {
   for (ast::BinaryOperator op : {ast::GT, ast::GE, ast::LT, ast::LE}) {
     for (std::string key : {"bool", "ternary32", "lpm32", "range32"}) {
-      Expression expr =
-          ParseTextProtoOrDie<Expression>(absl::Substitute(R"PROTO(
-                                              binary_expression {
-                                                binop: $0
-                                                left { key: "$1" }
-                                                right { key: "$1" }
-                                              })PROTO",
-                                            op, key));
+      Expression expr = ParseTextProtoOrDie<Expression>(
+          absl::Substitute(R"PROTO(
+                             binary_expression {
+                               binop: $0
+                               left { key: "$1" }
+                               right { key: "$1" }
+                             })PROTO",
+                           op, key));
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
           << expr.DebugString();
@@ -348,14 +349,14 @@ TEST_F(InferAndCheckTypesTest, OrderedComparisonOperatorsFails) {
 TEST_F(InferAndCheckTypesTest, OrderedComparisonOperatorsTypeChecks) {
   for (ast::BinaryOperator op : {ast::GT, ast::GE, ast::LT, ast::LE}) {
     for (std::string key : {"int", "bit16", "exact32"}) {
-      Expression expr =
-          ParseTextProtoOrDie<Expression>(absl::Substitute(R"PROTO(
-                                              binary_expression {
-                                                binop: $0
-                                                left { key: "$1" }
-                                                right { key: "$1" }
-                                              })PROTO",
-                                            op, key));
+      Expression expr = ParseTextProtoOrDie<Expression>(
+          absl::Substitute(R"PROTO(
+                             binary_expression {
+                               binop: $0
+                               left { key: "$1" }
+                               right { key: "$1" }
+                             })PROTO",
+                           op, key));
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk())
           << expr.DebugString();
       EXPECT_TRUE(expr.type().has_boolean()) << expr.DebugString();
@@ -378,13 +379,13 @@ TEST_F(InferAndCheckTypesTest, FieldAccessTypeChecks) {
     for (auto& field_and_type : fields) {
       auto& field = field_and_type.first;
       auto& field_type = field_and_type.second;
-      Expression expr =
-        ParseTextProtoOrDie<Expression>(absl::Substitute(R"PROTO(
-                                          field_access {
-                                            field: "$0"
-                                            expr { key: "$1" }
-                                          })PROTO",
-                                        field, key));
+      Expression expr = ParseTextProtoOrDie<Expression>(
+          absl::Substitute(R"PROTO(
+                             field_access {
+                               field: "$0"
+                               expr { key: "$1" }
+                             })PROTO",
+                           field, key));
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk())
           << expr.DebugString();
       EXPECT_EQ(expr.type(), field_type) << expr.DebugString();
@@ -404,13 +405,13 @@ TEST_F(InferAndCheckTypesTest, FieldAccess_AccessNonExistingField) {
     auto& key = test_case.first;
     auto& illegal_fields = test_case.second;
     for (auto& field : illegal_fields) {
-      Expression expr =
-        ParseTextProtoOrDie<Expression>(absl::Substitute(R"PROTO(
-                                          field_access {
-                                            field: "$0"
-                                            expr { key: "$1" }
-                                          })PROTO",
-                                        field, key));
+      Expression expr = ParseTextProtoOrDie<Expression>(
+          absl::Substitute(R"PROTO(
+                             field_access {
+                               field: "$0"
+                               expr { key: "$1" }
+                             })PROTO",
+                           field, key));
       EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
           << expr.DebugString();
@@ -425,13 +426,13 @@ TEST_F(InferAndCheckTypesTest, FieldAccess_AccessFieldOfScalarExpression) {
                                 "foo",   "bar"};
   for (auto& key : keys_with_scalar_types) {
     for (auto& field : fields) {
-      Expression expr =
-        ParseTextProtoOrDie<Expression>(absl::Substitute(R"PROTO(
-                                          field_access {
-                                            field: "$0"
-                                            expr { key: "$1" }
-                                          })PROTO",
-                                        field, key));
+      Expression expr = ParseTextProtoOrDie<Expression>(
+          absl::Substitute(R"PROTO(
+                             field_access {
+                               field: "$0"
+                               expr { key: "$1" }
+                             })PROTO",
+                           field, key));
       EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
           << expr.DebugString();

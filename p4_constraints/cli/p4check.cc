@@ -27,18 +27,18 @@
 #include <utility>
 #include <vector>
 
-#include "p4_constraints/backend/constraint_info.h"
-#include "p4_constraints/backend/interpreter.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/flags/usage.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
-#include "google/protobuf/text_format.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/span.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
+#include "google/protobuf/text_format.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/backend/interpreter.h"
 #include "util/statusor.h"
 
 using ::p4_constraints::ConstraintInfo;
@@ -138,8 +138,7 @@ int main(int argc, char** argv) {
       continue;
     }
     std::cout << "constraint "
-              << (result.ValueOrDie() ? "satisfied" : "violated")
-              << "\n\n";
+              << (result.ValueOrDie() ? "satisfied" : "violated") << "\n\n";
   }
 
   return 0;

@@ -19,21 +19,21 @@
 #include <utility>
 #include <vector>
 
-#include "util/integral_types.h"
-#include "p4_constraints/ast.pb.h"
-#include "p4_constraints/frontend/lexer.h"
-#include "p4_constraints/frontend/parser.h"
-#include "p4_constraints/backend/type_checker.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "p4/config/v1/p4info.pb.h"
+#include "p4_constraints/ast.pb.h"
+#include "p4_constraints/backend/type_checker.h"
+#include "p4_constraints/frontend/lexer.h"
+#include "p4_constraints/frontend/parser.h"
+#include "re2/re2.h"
+#include "re2/stringpiece.h"
+#include "util/integral_types.h"
 #include "util/ret_check.h"
 #include "util/status_macros.h"
 #include "util/statusor.h"
-#include "re2/re2.h"
-#include "re2/stringpiece.h"
 
 namespace p4_constraints {
 
@@ -133,13 +133,13 @@ util::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
     const KeyInfo key_info{.id = key.id(), .name = key.name(), .type = type};
     if (!keys_by_id.insert({key_info.id, key_info}).second) {
       return util::InvalidArgumentErrorBuilder(UTIL_LOC)
-        << "table " << table.preamble().name()
-        << " has duplicate key: " << key.DebugString();
+             << "table " << table.preamble().name()
+             << " has duplicate key: " << key.DebugString();
     }
     if (!keys_by_name.insert({key_info.name, key_info}).second) {
       return util::InvalidArgumentErrorBuilder(UTIL_LOC)
-        << "table " << table.preamble().name()
-        << " has duplicate key: " << key.DebugString();
+             << "table " << table.preamble().name()
+             << " has duplicate key: " << key.DebugString();
     }
   }
 

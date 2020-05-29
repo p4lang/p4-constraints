@@ -20,9 +20,9 @@
 #ifndef P4_CONSTRAINTS_FRONTEND_AST_CONSTRUCTORS_H_
 #define P4_CONSTRAINTS_FRONTEND_AST_CONSTRUCTORS_H_
 
+#include "absl/types/span.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/token.h"
-#include "absl/types/span.h"
 #include "util/statusor.h"
 
 namespace p4_constraints {

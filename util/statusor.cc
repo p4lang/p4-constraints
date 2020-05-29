@@ -15,8 +15,8 @@
 #include "util/statusor.h"
 
 #include "absl/base/attributes.h"
-#include "glog/logging.h"
 #include "absl/status/status.h"
+#include "glog/logging.h"
 
 namespace util {
 namespace internal_statusor {
