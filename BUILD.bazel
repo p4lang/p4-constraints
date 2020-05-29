@@ -1,0 +1,7 @@
+load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
+
+buildifier(
+    name = "buildifier",
+    exclude_patterns = ["./third_party/**"],
+    lint_mode = "fix",
+)
