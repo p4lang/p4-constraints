@@ -1,10 +1,10 @@
-// Copyright 2019 The MediaPipe Authors.
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//      https://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,137 +12,122 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MEDIAPIPE_DEPS_STATUS_BUILDER_H_
-#define MEDIAPIPE_DEPS_STATUS_BUILDER_H_
+#ifndef IREE_BASE_INTERNAL_STATUS_BUILDER_H_
+#define IREE_BASE_INTERNAL_STATUS_BUILDER_H_
 
-#include "absl/base/attributes.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
+#include <sstream>
+
+#include "absl/status/status.h"
 #include "util/source_location.h"
-#include "util/status.h"
 
 namespace util {
 
+// Creates a status based on an original_status, but enriched with additional
+// information. The builder implicitly converts to Status and StatusOr<T>
+// allowing for it to be returned directly.
 class ABSL_MUST_USE_RESULT StatusBuilder {
  public:
+  // Creates a `StatusBuilder` based on an original status.
+  explicit StatusBuilder(const absl::Status& original_status,
+                         SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+  explicit StatusBuilder(absl::Status&& original_status,
+                         SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+
+  // Creates a `StatusBuilder` from a status code.
+  // A typical user will not specify `location`, allowing it to default to the
+  // current location.
+  explicit StatusBuilder(absl::StatusCode code,
+                         SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+
   StatusBuilder(const StatusBuilder& sb);
   StatusBuilder& operator=(const StatusBuilder& sb);
-  // Creates a `StatusBuilder` based on an original status.  If logging is
-  // enabled, it will use `location` as the location from which the log message
-  // occurs.  A typical user will call this with `UTIL_LOC`.
-  StatusBuilder(const ::util::Status& original_status,
-                ::util::source_location location)
-      : status_(original_status),
-        line_(location.line()),
-        file_(location.file_name()),
-        stream_(new std::ostringstream) {}
+  StatusBuilder(StatusBuilder&&) = default;
+  StatusBuilder& operator=(StatusBuilder&&) = default;
 
-  StatusBuilder(::util::Status&& original_status,
-                ::util::source_location location)
-      : status_(std::move(original_status)),
-        line_(location.line()),
-        file_(location.file_name()),
-        stream_(new std::ostringstream) {}
-
-  // Creates a `StatusBuilder` from a util status code.  If logging is
-  // enabled, it will use `location` as the location from which the log message
-  // occurs.  A typical user will call this with `UTIL_LOC`.
-  StatusBuilder(::util::StatusCode code,
-                ::util::source_location location)
-      : status_(code, ""),
-        line_(location.line()),
-        file_(location.file_name()),
-        stream_(new std::ostringstream) {}
-
-  StatusBuilder(const ::util::Status& original_status, const char* file,
-                int line)
-      : status_(original_status),
-        line_(line),
-        file_(file),
-        stream_(new std::ostringstream) {}
-
-  bool ok() const { return status_.ok(); }
-
-  StatusBuilder& SetAppend();
-
-  StatusBuilder& SetPrepend();
-
-  StatusBuilder& SetNoLogging();
-
+  // Appends to the extra message that will be added to the original status.
   template <typename T>
-  StatusBuilder& operator<<(const T& msg) {
-    if (status_.ok()) return *this;
-    *stream_ << msg;
-    return *this;
-  }
+  StatusBuilder& operator<<(const T& value) &;
+  template <typename T>
+  StatusBuilder&& operator<<(const T& value) &&;
 
-  operator Status() const&;
-  operator Status() &&;
+  // Returns true if the Status created by this builder will be ok().
+  bool ok() const;
 
-  ::util::Status JoinMessageToStatus();
+  // Returns the error code for the Status created by this builder.
+  absl::StatusCode code() const;
+
+  // Returns the source location used to create this builder.
+  SourceLocation source_location() const;
+
+  // Implicit conversion to Status.
+  operator absl::Status() const&;
+  operator absl::Status() &&;
 
  private:
-  // Specifies how to join the error message in the original status and any
-  // additional message that has been streamed into the builder.
-  enum class MessageJoinStyle {
-    kAnnotate,
-    kAppend,
-    kPrepend,
-  };
+  absl::Status CreateStatus() &&;
+
+  static absl::Status JoinMessageToStatus(absl::Status s, absl::string_view msg);
 
   // The status that the result will be based on.
-  ::util::Status status_;
-  // The line to record if this file is logged.
-  int line_;
-  // Not-owned: The file to record if this status is logged.
-  const char* file_;
-  bool no_logging_ = false;
-  // The additional messages added with `<<`.
-  std::unique_ptr<std::ostringstream> stream_;
-  // Specifies how to join the message in `status_` and `stream_`.
-  MessageJoinStyle join_style_ = MessageJoinStyle::kAppend;
+  absl::Status status_;
+
+  // The location to record if this status is logged.
+  SourceLocation loc_;
+
+  // The message that will be added to the original status.
+  std::stringstream stream_;
 };
 
-inline StatusBuilder AlreadyExistsErrorBuilder(
-    ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kAlreadyExists, location);
+template <typename T>
+StatusBuilder& StatusBuilder::operator<<(const T& value) & {
+  if (status_.ok()) return *this;
+  stream_ << value;
+  return *this;
+}
+template <typename T>
+StatusBuilder&& StatusBuilder::operator<<(const T& value) && {
+  return std::move(operator<<(value));
 }
 
-inline StatusBuilder FailedPreconditionErrorBuilder(
-    ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kFailedPrecondition, location);
-}
+// Implicitly converts `builder` to `Status` and write it to `os`.
+std::ostream& operator<<(std::ostream& os, const StatusBuilder& builder);
+std::ostream& operator<<(std::ostream& os, StatusBuilder&& builder);
 
-inline StatusBuilder InternalErrorBuilder(
-    ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kInternal, location);
-}
-
-inline StatusBuilder InvalidArgumentErrorBuilder(
-    ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kInvalidArgument, location);
-}
-
-inline StatusBuilder NotFoundErrorBuilder(
-    ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kNotFound, location);
-}
-
-inline StatusBuilder UnavailableErrorBuilder(
-    ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kUnavailable, location);
-}
-
-inline StatusBuilder UnimplementedErrorBuilder(
-    ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kUnimplemented, location);
-}
-
-inline StatusBuilder UnknownErrorBuilder(
-    ::util::source_location location) {
-  return StatusBuilder(::util::StatusCode::kUnknown, location);
-}
+// Each of the functions below creates StatusBuilder with a canonical error.
+// The error code of the StatusBuilder matches the name of the function.
+StatusBuilder AbortedErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder AlreadyExistsErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder CancelledErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder DataLossErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder DeadlineExceededErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder FailedPreconditionErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder InternalErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder InvalidArgumentErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder NotFoundErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder OutOfRangeErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder PermissionDeniedErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder UnauthenticatedErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder ResourceExhaustedErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder UnavailableErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder UnimplementedErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
+StatusBuilder UnknownErrorBuilder(
+    SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
 
 }  // namespace util
 
-#endif  // MEDIAPIPE_DEPS_STATUS_BUILDER_H_
+#endif  // IREE_BASE_INTERNAL_STATUS_BUILDER_H_

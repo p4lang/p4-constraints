@@ -21,7 +21,7 @@
 
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 
 namespace p4_constraints {
 
@@ -40,7 +40,7 @@ namespace p4_constraints {
 // This function is idempotent, meaning that if it is called twice in a row,
 // the function returns the same result each time and does not further mutate
 // its input during the second call.
-util::Status InferAndCheckTypes(ast::Expression* expr,
+absl::Status InferAndCheckTypes(ast::Expression* expr,
                                 const TableInfo& table_info);
 
 }  // namespace p4_constraints

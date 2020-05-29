@@ -16,20 +16,19 @@
 
 #include "absl/base/attributes.h"
 #include "glog/logging.h"
-#include "util/canonical_errors.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 
 namespace util {
 namespace internal_statusor {
 
-void Helper::HandleInvalidStatusCtorArg(::util::Status* status) {
+void Helper::HandleInvalidStatusCtorArg(::absl::Status* status) {
   const char* kMessage =
       "An OK status is not a valid constructor argument to StatusOr<T>";
   LOG(ERROR) << kMessage;
-  *status = ::util::InternalError(kMessage);
+  *status = ::absl::InternalError(kMessage);
 }
 
-void Helper::Crash(const ::util::Status& status) {
+void Helper::Crash(const ::absl::Status& status) {
   LOG(FATAL) << "Attempting to fetch value instead of handling error "
              << status;
 }

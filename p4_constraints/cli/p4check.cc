@@ -34,7 +34,7 @@
 #include "absl/flags/usage.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/text_format.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/span.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -93,12 +93,12 @@ int main(int argc, char** argv) {
   }
 
   // Parse constraints and report potential errors.
-  std::pair<ConstraintInfo, std::vector<util::Status>> pair =
+  std::pair<ConstraintInfo, std::vector<absl::Status>> pair =
       P4ToConstraintInfo(p4info);
   const auto& constraint_info = pair.first;
   const auto& errors = pair.second;
   if (!errors.empty()) {
-    for (const util::Status& error : errors) {
+    for (const absl::Status& error : errors) {
       std::cerr << error.message() << "\n\n";
     }
     return 1;

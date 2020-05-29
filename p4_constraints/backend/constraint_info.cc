@@ -25,7 +25,7 @@
 #include "p4_constraints/frontend/parser.h"
 #include "p4_constraints/backend/type_checker.h"
 #include "absl/container/flat_hash_map.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -161,11 +161,11 @@ util::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
 
 }  // namespace
 
-std::pair<ConstraintInfo, std::vector<util::Status>> P4ToConstraintInfo(
+std::pair<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info) {
   // Allocate output.
   absl::flat_hash_map<const uint32, const TableInfo> info;
-  std::vector<util::Status> errors;
+  std::vector<absl::Status> errors;
 
   for (const Table& table : p4info.tables()) {
     util::StatusOr<TableInfo> table_info = ParseTableInfo(table);

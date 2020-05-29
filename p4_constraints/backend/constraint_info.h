@@ -31,7 +31,7 @@
 #include "util/integral_types.h"
 #include "p4_constraints/ast.pb.h"
 #include "absl/container/flat_hash_map.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 #include "p4/config/v1/p4info.pb.h"
 
 namespace p4_constraints {
@@ -69,7 +69,7 @@ using ConstraintInfo = const absl::flat_hash_map<const uint32, const TableInfo>;
 // representation together with list of error statuses that may have occurred.
 // If the list of statuses is non-empty, the returned `ConstraintInfo` is
 // incomplete and must be discarded by the caller.
-std::pair<ConstraintInfo, std::vector<util::Status>> P4ToConstraintInfo(
+std::pair<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info);
 
 }  // namespace p4_constraints

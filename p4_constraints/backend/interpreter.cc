@@ -34,7 +34,7 @@
 #include "p4_constraints/quote.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "util/integral_types.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 #include "util/ret_check.h"
 #include "util/status_macros.h"
 #include "util/statusor.h"
@@ -312,7 +312,7 @@ util::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
 struct EvalFieldAccess {
   const absl::string_view field;
 
-  util::Status Error(const std::string& type) {
+  absl::Status Error(const std::string& type) {
     return util::InvalidArgumentErrorBuilder(UTIL_LOC)
            << "value of type " << type << " has no field " << field;
   }
@@ -424,7 +424,7 @@ util::StatusOr<EvalResult> Eval_(const Expression& expr,
 
 // We wrap Eval_ with a cautionary dynamic type check to ease debugging.
 
-util::Status DynamicTypeCheck(const Expression& expr, const EvalResult result) {
+absl::Status DynamicTypeCheck(const Expression& expr, const EvalResult result) {
   switch (expr.type().type_case()) {
     case Type::kBoolean:
       if (absl::holds_alternative<bool>(result)) return {};

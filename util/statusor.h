@@ -73,7 +73,7 @@
 #define MEDIAPIPE_DEPS_DEFAULT_STATUSOR_H_
 
 #include "absl/base/attributes.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 #include "util/status_builder.h"
 #include "util/statusor_internals.h"
 
@@ -148,9 +148,9 @@ class StatusOr : private internal_statusor::StatusOrData<T>,
   //
   // REQUIRES: !status.ok(). This requirement is DCHECKed.
   // In optimized builds, passing Status::OK() here will have the effect
-  // of passing ::util::StatusCode::kInternal as a fallback.
-  StatusOr(const ::util::Status& status);
-  StatusOr& operator=(const ::util::Status& status);
+  // of passing ::absl::StatusCode::kInternal as a fallback.
+  StatusOr(const ::absl::Status& status);
+  StatusOr& operator=(const ::absl::Status& status);
   StatusOr(const ::util::StatusBuilder& builder);
   StatusOr& operator=(const ::util::StatusBuilder& builder);
 
@@ -162,8 +162,8 @@ class StatusOr : private internal_statusor::StatusOrData<T>,
   StatusOr(T&& value);
 
   // RValue versions of the operations declared above.
-  StatusOr(::util::Status&& status);
-  StatusOr& operator=(::util::Status&& status);
+  StatusOr(::absl::Status&& status);
+  StatusOr& operator=(::absl::Status&& status);
   StatusOr(::util::StatusBuilder&& builder);
   StatusOr& operator=(::util::StatusBuilder&& builder);
 
@@ -172,8 +172,8 @@ class StatusOr : private internal_statusor::StatusOrData<T>,
 
   // Returns a reference to util status. If this contains a T, then
   // returns Status::OK().
-  const ::util::Status& status() const&;
-  ::util::Status status() &&;
+  const ::absl::Status& status() const&;
+  ::absl::Status status() &&;
 
   // Returns a reference to our current value, or CHECK-fails if !this->ok().
   //
@@ -213,48 +213,48 @@ class StatusOr : private internal_statusor::StatusOrData<T>,
 
 template <typename T>
 StatusOr<T>::StatusOr()
-    : Base(::util::Status(::util::StatusCode::kUnknown, "")) {}
+    : Base(::absl::Status(::absl::StatusCode::kUnknown, "")) {}
 
 template <typename T>
 StatusOr<T>::StatusOr(const T& value) : Base(value) {}
 
 template <typename T>
-StatusOr<T>::StatusOr(const ::util::Status& status) : Base(status) {}
+StatusOr<T>::StatusOr(const ::absl::Status& status) : Base(status) {}
 
 template <typename T>
 StatusOr<T>::StatusOr(const ::util::StatusBuilder& builder)
     : Base(builder) {}
 
 template <typename T>
-StatusOr<T>& StatusOr<T>::operator=(const ::util::Status& status) {
+StatusOr<T>& StatusOr<T>::operator=(const ::absl::Status& status) {
   this->Assign(status);
   return *this;
 }
 
 template <typename T>
 StatusOr<T>& StatusOr<T>::operator=(const ::util::StatusBuilder& builder) {
-  return *this = static_cast<::util::Status>(builder);
+  return *this = static_cast<::absl::Status>(builder);
 }
 
 template <typename T>
 StatusOr<T>::StatusOr(T&& value) : Base(std::move(value)) {}
 
 template <typename T>
-StatusOr<T>::StatusOr(::util::Status&& status) : Base(std::move(status)) {}
+StatusOr<T>::StatusOr(::absl::Status&& status) : Base(std::move(status)) {}
 
 template <typename T>
 StatusOr<T>::StatusOr(::util::StatusBuilder&& builder)
     : Base(std::move(builder)) {}
 
 template <typename T>
-StatusOr<T>& StatusOr<T>::operator=(::util::Status&& status) {
+StatusOr<T>& StatusOr<T>::operator=(::absl::Status&& status) {
   this->Assign(std::move(status));
   return *this;
 }
 
 template <typename T>
 StatusOr<T>& StatusOr<T>::operator=(::util::StatusBuilder&& builder) {
-  return *this = static_cast<::util::Status>(std::move(builder));
+  return *this = static_cast<::absl::Status>(std::move(builder));
 }
 
 template <typename T>
@@ -289,12 +289,12 @@ inline StatusOr<T>& StatusOr<T>::operator=(StatusOr<U>&& other) {
 }
 
 template <typename T>
-const ::util::Status& StatusOr<T>::status() const& {
+const ::absl::Status& StatusOr<T>::status() const& {
   return this->status_;
 }
 template <typename T>
-::util::Status StatusOr<T>::status() && {
-  return ok() ? ::util::OkStatus() : std::move(this->status_);
+::absl::Status StatusOr<T>::status() && {
+  return ok() ? ::absl::OkStatus() : std::move(this->status_);
 }
 
 template <typename T>

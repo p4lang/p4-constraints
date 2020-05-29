@@ -22,22 +22,22 @@
 namespace util {
 // Returns a StatusBuilder that corresponds to a `RET_CHECK` failure.
 ::util::StatusBuilder RetCheckFailSlowPath(
-    ::util::source_location location);
+    ::util::SourceLocation location);
 
 // Returns a StatusBuilder that corresponds to a `RET_CHECK` failure.
 ::util::StatusBuilder RetCheckFailSlowPath(
-    ::util::source_location location, const char* condition);
+    ::util::SourceLocation location, const char* condition);
 
 // Returns a StatusBuilder that corresponds to a `RET_CHECK` failure.
 ::util::StatusBuilder RetCheckFailSlowPath(
-    ::util::source_location location, const char* condition,
-    const ::util::Status& status);
+    ::util::SourceLocation location, const char* condition,
+    const ::absl::Status& status);
 
-inline StatusBuilder RetCheckImpl(const ::util::Status& status,
+inline StatusBuilder RetCheckImpl(const ::absl::Status& status,
                                   const char* condition,
-                                  ::util::source_location location) {
+                                  ::util::SourceLocation location) {
   if (ABSL_PREDICT_TRUE(status.ok()))
-    return ::util::StatusBuilder(OkStatus(), location);
+    return ::util::StatusBuilder(absl::OkStatus(), location);
   return RetCheckFailSlowPath(location, condition, status);
 }
 

@@ -16,7 +16,7 @@
 #define MEDIAPIPE_DEPS_STATUSOR_INTERNALS_H_
 
 #include "absl/base/attributes.h"
-#include "util/status.h"
+#include "absl/status/status.h"
 
 namespace util {
 namespace internal_statusor {
@@ -24,8 +24,8 @@ namespace internal_statusor {
 class Helper {
  public:
   // Move type-agnostic error handling to the .cc.
-  static void HandleInvalidStatusCtorArg(::util::Status*);
-  ABSL_ATTRIBUTE_NORETURN static void Crash(const ::util::Status& status);
+  static void HandleInvalidStatusCtorArg(::absl::Status*);
+  ABSL_ATTRIBUTE_NORETURN static void Crash(const ::absl::Status& status);
 };
 
 // Construct an instance of T in `p` through placement new, passing Args... to
@@ -92,10 +92,10 @@ class StatusOrData {
   explicit StatusOrData(const T& value) : data_(value) { MakeStatus(); }
   explicit StatusOrData(T&& value) : data_(std::move(value)) { MakeStatus(); }
 
-  explicit StatusOrData(const ::util::Status& status) : status_(status) {
+  explicit StatusOrData(const ::absl::Status& status) : status_(status) {
     EnsureNotOk();
   }
-  explicit StatusOrData(::util::Status&& status)
+  explicit StatusOrData(::absl::Status&& status)
       : status_(std::move(status)) {
     EnsureNotOk();
   }
@@ -133,7 +133,7 @@ class StatusOrData {
       MakeValue(value);
     } else {
       MakeValue(value);
-      status_ = ::util::OkStatus();
+      status_ = ::absl::OkStatus();
     }
   }
 
@@ -143,17 +143,17 @@ class StatusOrData {
       MakeValue(std::move(value));
     } else {
       MakeValue(std::move(value));
-      status_ = ::util::OkStatus();
+      status_ = ::absl::OkStatus();
     }
   }
 
-  void Assign(const ::util::Status& status) {
+  void Assign(const ::absl::Status& status) {
     Clear();
     status_ = status;
     EnsureNotOk();
   }
 
-  void Assign(::util::Status&& status) {
+  void Assign(::absl::Status&& status) {
     Clear();
     status_ = std::move(status);
     EnsureNotOk();
@@ -168,7 +168,7 @@ class StatusOrData {
   // Eg. in the copy constructor we use the default constructor of Status in
   // the ok() path to avoid an extra Ref call.
   union {
-    ::util::Status status_;
+    ::absl::Status status_;
   };
 
   // data_ is active iff status_.ok()==true
@@ -203,7 +203,7 @@ class StatusOrData {
   // argument.
   template <typename... Args>
   void MakeStatus(Args&&... args) {
-    internal_statusor::PlacementNew<::util::Status>(
+    internal_statusor::PlacementNew<::absl::Status>(
         &status_, std::forward<Args>(args)...);
   }
 };

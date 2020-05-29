@@ -114,7 +114,7 @@ which p4c  # This needs to succeed for golden tests to work.
 
 To run all golden tests, execute
 ```sh
-bazel test //test/...  # TODO: Porting to GitHub caused some of these to break.
+bazel test //test/...
 ```
 
 ## p4check

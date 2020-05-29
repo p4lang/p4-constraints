@@ -9,7 +9,7 @@ cc_binary(
     deps = [
         "//p4_constraints/backend:constraint_info",
         "//p4_constraints/backend:interpreter",
-        "//util:statusor",
+        "//util:status",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/flags:usage",
