@@ -86,6 +86,11 @@ To test, run
 bazel test //p4_contraints/...
 ```
 
+To see the output of a failed test, invoke it using `bazel run` like so:
+```sh
+bazel run //p4_constraints/frontend:lexer_test
+```
+
 ## Golden tests
 
 The easiest way to experiment with p4-constraints is to write a
@@ -103,6 +108,11 @@ which p4c  # This needs to succeed for golden tests to work.
 To run all golden tests, execute
 ```sh
 bazel test //test/...  # TODO: Porting to GitHub caused some of these to break.
+```
+
+To see the output of a failed test, invoke it using `bazel run` like so:
+```sh
+bazel run //test:invalid_constraints_test
 ```
 
 ## p4check
