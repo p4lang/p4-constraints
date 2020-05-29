@@ -1,6 +1,4 @@
-# p4-constraints
-
-TODO: integrate CLI status here
+# p4-constraints ![](https://github.com/p4lang/p4-constraints/workflows/build%20&%20unit%20test/badge.svg)
 
 **Work in progress. Feedback and contributions are welcome.**
 
