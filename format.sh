@@ -7,7 +7,7 @@ CLANG_FORMAT_EXTENSIONS="cc|h|proto"
 # Run clang-format.
 find . -not -path "./third_party/**" \
   | egrep "\.(${CLANG_FORMAT_EXTENSIONS})\$" \
-  | xargs clang-format -style=google -i
+  | xargs clang-format --verbose -style=google -i
 
 # Run buildifier (Bazel file formatter).
 bazel run //:buildifier
