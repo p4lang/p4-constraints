@@ -145,8 +145,8 @@ TODO: Write a little specification.
 
 ## Contributing
 
-Feedback, suggestions, and contributions in the form of GitHub issues and pull
-requests are welcome and encouraged.
+Feedback, suggestions, and contributions in the form of GitHub issues and
+[pull requests](CONTRIBUTING.md) are welcome and encouraged.
 
 ### Source Code Headers
 
