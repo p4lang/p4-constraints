@@ -17,7 +17,7 @@
 namespace util {
 
 ::util::StatusBuilder RetCheckFailSlowPath(
-    ::util::source_location location) {
+    ::util::SourceLocation location) {
   // TODO Implement LogWithStackTrace().
   return ::util::InternalErrorBuilder(location)
          << "RET_CHECK failure (" << location.file_name() << ":"
@@ -25,12 +25,12 @@ namespace util {
 }
 
 ::util::StatusBuilder RetCheckFailSlowPath(
-    ::util::source_location location, const char* condition) {
+    ::util::SourceLocation location, const char* condition) {
   return ::util::RetCheckFailSlowPath(location) << condition;
 }
 
 ::util::StatusBuilder RetCheckFailSlowPath(
-    ::util::source_location location, const char* condition,
+    ::util::SourceLocation location, const char* condition,
     const ::absl::Status& status) {
   return ::util::RetCheckFailSlowPath(location)
          << condition << " returned " << status << " ";

@@ -5,13 +5,13 @@ In table invalid_constraints.forgot_quotes_with_srcloc:
 Syntax error: @entry_restriction must be enclosed in '("' and '")'
 
 In @entry_restriction of table invalid_constraints.empty_restriction; at offset line 1, column 1:
-Parse error: unexpected token: <END_OF_INPUT>. Expected true, false, <ID>, !, -, or (.
+Parse error: unexpected token: <END_OF_INPUT>. Expected true, false, <BINARY>, <OCTARY>, <DECIMAL>, <HEXADEC>, <ID>, !, -, or (.
 
 test/invalid_constraints.p4:21:3:
    |   @entry_restriction("
 21 |   ")
    |   ^
-Parse error: unexpected token: <END_OF_INPUT>. Expected true, false, <ID>, !, -, or (.
+Parse error: unexpected token: <END_OF_INPUT>. Expected true, false, <BINARY>, <OCTARY>, <DECIMAL>, <HEXADEC>, <ID>, !, -, or (.
 
 test/invalid_constraints.p4:27:5-15:
    |   @entry_restriction("

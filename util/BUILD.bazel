@@ -14,13 +14,16 @@ cc_library(
 )
 
 cc_library(
-    name = "status_builder",
+    name = "status",
     srcs = [
         "status_builder.cc",
+        "statusor.cc",
+        "statusor_internals.h",
     ],
     hdrs = [
         "status_builder.h",
         "status_macros.h",
+        "statusor.h",
     ],
     deps = [
         ":source_location",
@@ -33,26 +36,11 @@ cc_library(
 )
 
 cc_library(
-    name = "statusor",
-    srcs = ["statusor.cc"],
-    hdrs = [
-        "statusor.h",
-        "statusor_internals.h",
-    ],
-    deps = [
-        ":status_builder",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_glog//:glog",
-    ],
-)
-
-cc_library(
     name = "ret_check",
     srcs = ["ret_check.cc"],
     hdrs = ["ret_check.h"],
     deps = [
-        ":status_builder",
+        ":status",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/base:core_headers",
     ],
@@ -75,7 +63,7 @@ cc_library(
     hdrs = ["status_matchers.h"],
     deps = [
         "@com_google_absl//absl/status",
-        ":statusor",
+        ":status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@com_google_googletest//:gtest",
