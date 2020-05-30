@@ -157,18 +157,19 @@ using CompositeTypeAndField = std::tuple<Type::TypeCase, std::string>;
 // (composite type, field name) -> field type.
 const auto* const kFieldTypes =
     new absl::flat_hash_map<const CompositeTypeAndField, const Type::TypeCase>{
-        {{Type::kExact, "value"}, Type::kFixedUnsigned},
-        {{Type::kTernary, "value"}, Type::kFixedUnsigned},
-        {{Type::kTernary, "mask"}, Type::kFixedUnsigned},
-        {{Type::kLpm, "value"}, Type::kFixedUnsigned},
-        {{Type::kLpm, "prefix_length"}, Type::kArbitraryInt},
-        {{Type::kRange, "low"}, Type::kFixedUnsigned},
-        {{Type::kRange, "high"}, Type::kFixedUnsigned},
+        {std::make_tuple(Type::kExact, "value"), Type::kFixedUnsigned},
+        {std::make_tuple(Type::kTernary, "value"), Type::kFixedUnsigned},
+        {std::make_tuple(Type::kTernary, "mask"), Type::kFixedUnsigned},
+        {std::make_tuple(Type::kLpm, "value"), Type::kFixedUnsigned},
+        {std::make_tuple(Type::kLpm, "prefix_length"), Type::kArbitraryInt},
+        {std::make_tuple(Type::kRange, "low"), Type::kFixedUnsigned},
+        {std::make_tuple(Type::kRange, "high"), Type::kFixedUnsigned},
     };
 
 absl::optional<Type> FieldTypeOfCompositeType(const Type& composite_type,
                                               const std::string& field) {
-  auto it = kFieldTypes->find({composite_type.type_case(), field});
+  auto it =
+      kFieldTypes->find(std::make_tuple(composite_type.type_case(), field));
   if (it == kFieldTypes->end()) return {};
   Type field_type = TypeCaseToType(it->second);
   absl::optional<int> bitwidth = TypeBitwidth(composite_type);
