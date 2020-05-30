@@ -40,6 +40,7 @@ jobs:
     - name: Build p4c
       run: |
         cd "${GITHUB_WORKSPACE}/p4c"
+        sudo apt-get installbison flex libgmp-dev libboost-dev libboost-iostreams-dev libboost-graph-dev
         "${GITHUB_WORKSPACE}/bin/bazel" build //:p4c_bmv2
         sudo ln -s "$(realpath "${GITHUB_WORKSPACE}/p4c/bazel-bin/p4c_bmv2")" /bin/p4c
         
