@@ -14,7 +14,6 @@
 
 #include "p4_constraints/ast.h"
 
-#include <optional>
 #include <string>
 
 #include "absl/strings/ascii.h"

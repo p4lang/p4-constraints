@@ -23,7 +23,6 @@
 #ifndef P4_CONSTRAINTS_BACKEND_CONSTRAINT_INFO_H_
 #define P4_CONSTRAINTS_BACKEND_CONSTRAINT_INFO_H_
 
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>

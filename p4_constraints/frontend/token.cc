@@ -14,7 +14,6 @@
 
 #include "p4_constraints/frontend/token.h"
 
-#include <optional>
 #include <string>
 #include <utility>
 

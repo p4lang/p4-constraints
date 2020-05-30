@@ -14,7 +14,6 @@
 
 #include "p4_constraints/backend/constraint_info.h"
 
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>

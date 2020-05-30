@@ -19,10 +19,8 @@
 #include <stddef.h>
 
 #include <cstring>
-#include <optional>
 #include <string>
 #include <utility>
-#include <variant>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"

@@ -14,7 +14,6 @@
 
 #include "p4_constraints/backend/type_checker.h"
 
-#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
