@@ -23,7 +23,7 @@ jobs:
     - name: Mount bazel cache
       uses: actions/cache@v2
       with:
-        path: "~/.cache/bazel"  # See https://docs.bazel.build/versions/master/output_directories.html
+        path: "/home/runner/.cache/bazel"  # See https://docs.bazel.build/versions/master/output_directories.html
         key: bazel
 
     - name: Install bazelisk
@@ -40,7 +40,7 @@ jobs:
     - name: Build p4c
       run: |
         cd "${GITHUB_WORKSPACE}/p4c"
-        sudo apt-get installbison flex libgmp-dev libboost-dev libboost-iostreams-dev libboost-graph-dev
+        sudo apt-get install bison flex libgmp-dev libboost-dev libboost-iostreams-dev libboost-graph-dev
         "${GITHUB_WORKSPACE}/bin/bazel" build //:p4c_bmv2
         sudo ln -s "$(realpath "${GITHUB_WORKSPACE}/p4c/bazel-bin/p4c_bmv2")" /bin/p4c
         
