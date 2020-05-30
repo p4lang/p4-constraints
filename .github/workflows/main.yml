@@ -9,30 +9,37 @@ on:
 jobs:
   build:
     runs-on: ubuntu-16.04
+    env:
+      MAKEFLAGS: '-j 32'
     
     steps:
     - uses: actions/checkout@v2
       with:
-        repository: p4lang/p4c
         submodules: recursive
-
-    - uses: actions/checkout@v2
-      with:
-        repository: protocolbuffers/protobuf
-        submodules: recursive
-        path: protobuf
-        ref: '3.12.x'
 
     - name: Install protobuf
       run: |
-        cd protobuf
+        cd third_party/protobuf
         ./autogen.sh
         ./configure
         make
         sudo make install
         sudo ldconfig
 
-    - name: Build p4c
+    - name: Install p4c
       run: |
+        cd third_party/p4c
         chmod +x tools/travis-build
         sudo ./tools/travis-build
+        
+    - name: Install bazelisk
+      run: |
+        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.4.0/bazelisk-linux-amd64"
+        mv bazelisk-linux-amd64 bazel
+        chmod +x bazel
+        
+    - name: Build p4-constraints
+      run: bazel build //test/...
+    
+    - name: Run gold tests
+      run: bazel test //test/... --test_output=errors
