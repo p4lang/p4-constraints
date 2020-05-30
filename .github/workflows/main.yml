@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-16.04
     
     steps:
     - uses: actions/checkout@v2
@@ -17,7 +17,7 @@ jobs:
         submodules: recursive
 
     # Runs a single command using the runners shell
-    - name: Run a one-line script
+    - name: Build p4c
       run: |
         chmod +x tools/travis-build
         sudo ./tools/travis-build
