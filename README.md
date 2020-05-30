@@ -120,12 +120,12 @@ this convenient.
 See the [test/](test/) folder -- in particular
 [test/BUILD.bazel](test/BUILD.bazel) -- for examples of how to use them.
 
-Currently, the golden tests require [p4c](git@github.com:p4lang/p4c.git) as
+Currently, the golden tests require [p4c](https://github.com/p4lang/p4c) as
 a system dependency (we hope to make this a source dependency in the future):
 ```sh
 which p4c  # This needs to succeed for golden tests to work.
 ```
-You may want to use our [Docker container](#docker), which comes with `p4c`
+You may want to use our [Docker container](#docker), which comes with p4c
 preinstalled.
 
 To run all golden tests, execute
