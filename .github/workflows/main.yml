@@ -16,7 +16,22 @@ jobs:
         repository: p4lang/p4c
         submodules: recursive
 
-    # Runs a single command using the runners shell
+    - uses: actions/checkout@v2
+      with:
+        repository: protocolbuffers/protobuf
+        submodules: recursive
+        path: protobuf
+        ref: '3.12.x'
+
+    - name: Install protobuf
+      run: |
+        cd protobuf
+        ./autogen.sh
+        ./configure
+        make
+        sudo make install
+        sudo ldconfig
+
     - name: Build p4c
       run: |
         chmod +x tools/travis-build
