@@ -29,6 +29,7 @@ jobs:
     - name: Install p4c
       run: |
         cd third_party/p4c
+        sed --in-place '/make install/q' tools/travis-build  # Removes lines after `make install`.
         chmod +x tools/travis-build
         sudo ./tools/travis-build
         
