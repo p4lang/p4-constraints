@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
 package(
     licenses = ["notice"],  # Apache 2.0
 )
@@ -26,8 +28,8 @@ cc_test(
         ":token",
         "//p4_constraints:ast_cc_proto",
         "//util:protocol_buffer_matchers",
-        "//util:status_matchers",
         "//util:status",
+        "//util:status_matchers",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -84,14 +86,17 @@ cc_library(
     name = "ast_constructors",
     srcs = ["ast_constructors.cc"],
     hdrs = ["ast_constructors.h"],
+    # GMP is a system dependency for now.
+    # Building it with Bazel would be better, but it's not obvious how to do it.
+    linkopts = [
+        "-lgmp",
+        "-lgmpxx",
+    ],
     deps = [
         ":token",
         "//p4_constraints:ast_cc_proto",
-        "//util:status",
         "//util:ret_check",
+        "//util:status",
         "@com_google_absl//absl/types:span",
     ],
-    # GMP is a system dependency for now.
-    # Building it with Bazel would be better, but it's not obvious how to do it.
-    linkopts = ["-lgmp", "-lgmpxx"],
 )

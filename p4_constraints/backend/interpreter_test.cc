@@ -14,9 +14,10 @@
 
 #include "p4_constraints/backend/interpreter.h"
 
-#include <gmpxx.h>
 #include <gmock/gmock.h>
+#include <gmpxx.h>
 #include <gtest/gtest.h>
+
 #include <optional>
 #include <string>
 #include <utility>
@@ -24,14 +25,14 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
-#include "p4/v1/p4runtime.pb.h"
 #include "util/parse_text_proto.h"
 #include "util/status_matchers.h"
-#include "absl/status/status.h"
 
 namespace p4_constraints {
 namespace internal_interpreter {
@@ -40,9 +41,9 @@ using ::absl::StatusCode;
 using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::Type;
 using ::testing::Eq;
+using ::util::ParseTextProtoOrDie;
 using ::util::testing::status::IsOkAndHolds;
 using ::util::testing::status::StatusIs;
-using ::util::ParseTextProtoOrDie;
 
 class EntryMeetsConstraintTest : public ::testing::Test {
  public:

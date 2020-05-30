@@ -222,8 +222,7 @@ template <typename T>
 StatusOr<T>::StatusOr(const ::absl::Status& status) : Base(status) {}
 
 template <typename T>
-StatusOr<T>::StatusOr(const ::util::StatusBuilder& builder)
-    : Base(builder) {}
+StatusOr<T>::StatusOr(const ::util::StatusBuilder& builder) : Base(builder) {}
 
 template <typename T>
 StatusOr<T>& StatusOr<T>::operator=(const ::absl::Status& status) {

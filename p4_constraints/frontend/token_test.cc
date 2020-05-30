@@ -14,8 +14,9 @@
 
 #include "p4_constraints/frontend/token.h"
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <type_traits>
 
 namespace p4_constraints {

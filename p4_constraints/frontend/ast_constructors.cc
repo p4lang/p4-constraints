@@ -15,13 +15,14 @@
 #include "p4_constraints/frontend/ast_constructors.h"
 
 #include <gmpxx.h>
+
 #include <sstream>
 #include <string>
 #include <utility>
 
+#include "absl/types/span.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/token.h"
-#include "absl/types/span.h"
 #include "util/ret_check.h"
 #include "util/status_macros.h"
 #include "util/statusor.h"

@@ -95,8 +95,7 @@ class StatusOrData {
   explicit StatusOrData(const ::absl::Status& status) : status_(status) {
     EnsureNotOk();
   }
-  explicit StatusOrData(::absl::Status&& status)
-      : status_(std::move(status)) {
+  explicit StatusOrData(::absl::Status&& status) : status_(std::move(status)) {
     EnsureNotOk();
   }
 

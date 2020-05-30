@@ -25,16 +25,16 @@
 #include <variant>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "glog/logging.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/quote.h"
-#include "p4/v1/p4runtime.pb.h"
 #include "util/integral_types.h"
-#include "absl/status/status.h"
 #include "util/ret_check.h"
 #include "util/status_macros.h"
 #include "util/statusor.h"

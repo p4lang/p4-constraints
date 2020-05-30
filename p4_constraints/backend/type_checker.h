@@ -19,9 +19,9 @@
 #ifndef P4_CONSTRAINTS_BACKEND_TYPE_CHECKER_H_
 #define P4_CONSTRAINTS_BACKEND_TYPE_CHECKER_H_
 
+#include "absl/status/status.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
-#include "absl/status/status.h"
 
 namespace p4_constraints {
 

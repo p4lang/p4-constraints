@@ -37,7 +37,7 @@ absl::Status Annotate(const absl::Status& s, absl::string_view msg) {
   return result;
 }
 
-}
+}  // namespace
 
 namespace util {
 
@@ -45,7 +45,8 @@ StatusBuilder::StatusBuilder(const absl::Status& original_status,
                              SourceLocation location)
     : status_(original_status), loc_(location) {}
 
-StatusBuilder::StatusBuilder(absl::Status&& original_status, SourceLocation location)
+StatusBuilder::StatusBuilder(absl::Status&& original_status,
+                             SourceLocation location)
     : status_(original_status), loc_(location) {}
 
 StatusBuilder::StatusBuilder(const StatusBuilder& sb)
@@ -64,7 +65,9 @@ StatusBuilder& StatusBuilder::operator=(const StatusBuilder& sb) {
 StatusBuilder::operator absl::Status() const& {
   return StatusBuilder(*this).CreateStatus();
 }
-StatusBuilder::operator absl::Status() && { return std::move(*this).CreateStatus(); }
+StatusBuilder::operator absl::Status() && {
+  return std::move(*this).CreateStatus();
+}
 
 bool StatusBuilder::ok() const { return status_.ok(); }
 
@@ -81,7 +84,8 @@ absl::Status StatusBuilder::CreateStatus() && {
   return result;
 }
 
-absl::Status StatusBuilder::JoinMessageToStatus(absl::Status s, absl::string_view msg) {
+absl::Status StatusBuilder::JoinMessageToStatus(absl::Status s,
+                                                absl::string_view msg) {
   if (msg.empty()) return s;
   return Annotate(s, msg);
 }

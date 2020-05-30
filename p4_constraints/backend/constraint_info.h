@@ -28,11 +28,11 @@
 #include <utility>
 #include <vector>
 
-#include "util/integral_types.h"
-#include "p4_constraints/ast.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "p4/config/v1/p4info.pb.h"
+#include "p4_constraints/ast.pb.h"
+#include "util/integral_types.h"
 
 namespace p4_constraints {
 

@@ -9,8 +9,8 @@ local_repository(
 
 new_local_repository(
     name = "com_google_glog",
+    build_file = "third_party/BUILD.glog.bazel",
     path = "third_party/glog",
-    build_file = "third_party/BUILD.glog.bazel"
 )
 
 local_repository(
@@ -27,10 +27,15 @@ local_repository(
     name = "rules_proto",
     path = "third_party/rules_proto",
 )
+
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
 protobuf_deps()
+
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+
 rules_proto_dependencies()
+
 rules_proto_toolchains()
 
 local_repository(
@@ -40,14 +45,14 @@ local_repository(
 
 new_local_repository(
     name = "com_github_p4lang_p4c",
-    path = "third_party/p4c",
     build_file = "third_party/BUILD.p4c.bazel",
+    path = "third_party/p4c",
 )
 
 new_local_repository(
     name = "com_github_p4lang_p4runtime",
-    path = "third_party/p4runtime",
     build_file = "third_party/BUILD.p4runtime.bazel",
+    path = "third_party/p4runtime",
 )
 
 # Transitive p4runtime dependency.
@@ -55,11 +60,14 @@ local_repository(
     name = "com_google_googleapis",
     path = "third_party/googleapis",
 )
+
 load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
+
 switched_rules_by_language(name = "com_google_googleapis_imports")
 
 # Buildifier (Bazel file formatter) + dependencies.
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 http_archive(
     name = "io_bazel_rules_go",
     sha256 = "0c10738a488239750dbf35336be13252bad7c74348f867d30c3c3e0001906096",
@@ -68,8 +76,11 @@ http_archive(
         "https://github.com/bazelbuild/rules_go/releases/download/v0.23.2/rules_go-v0.23.2.tar.gz",
     ],
 )
+
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+
 go_rules_dependencies()
+
 go_register_toolchains()
 
 http_archive(
@@ -80,7 +91,9 @@ http_archive(
         "https://github.com/bazelbuild/bazel-gazelle/releases/download/0.18.1/bazel-gazelle-0.18.1.tar.gz",
     ],
 )
+
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
+
 gazelle_dependencies()
 
 http_archive(

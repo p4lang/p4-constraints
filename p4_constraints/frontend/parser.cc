@@ -17,12 +17,12 @@
 #include <string>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "glog/logging.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/ast_constructors.h"
 #include "p4_constraints/frontend/token.h"
 #include "p4_constraints/quote.h"
-#include "absl/status/status.h"
 #include "util/status_macros.h"
 #include "util/statusor.h"
 
@@ -249,10 +249,9 @@ util::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
     }
     default:
       return Unexpected(
-          token,
-          {Token::TRUE, Token::FALSE, Token::BINARY, Token::OCTARY,
-           Token::DECIMAL, Token::HEXADEC, Token::ID, Token::BANG, Token::MINUS,
-           Token::LPAR});
+          token, {Token::TRUE, Token::FALSE, Token::BINARY, Token::OCTARY,
+                  Token::DECIMAL, Token::HEXADEC, Token::ID, Token::BANG,
+                  Token::MINUS, Token::LPAR});
   }
 
   // Try to extend the AST, i.e. parse an 'extension'.
