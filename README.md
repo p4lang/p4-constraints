@@ -125,7 +125,7 @@ a system dependency (we hope to make this a source dependency in the future):
 ```sh
 which p4c  # This needs to succeed for golden tests to work.
 ```
-You may want to use our [Docker container](#Docker), which comes with `p4c`
+You may want to use our [Docker container](#docker), which comes with `p4c`
 preinstalled.
 
 To run all golden tests, execute
