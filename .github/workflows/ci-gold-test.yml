@@ -19,5 +19,5 @@ jobs:
 
     - name: Run gold tests
       env:
-        TEST: bazel test //test/... --test_output=errors
+        TEST: bazel test //e2e-test/... --test_output=errors
       run: docker run --tty p4-constraints $TEST
