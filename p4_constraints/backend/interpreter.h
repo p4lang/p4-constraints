@@ -22,7 +22,6 @@
 #include <gmpxx.h>
 
 #include <string>
-#include <variant>
 
 #include "absl/container/flat_hash_map.h"
 #include "p4/v1/p4runtime.pb.h"

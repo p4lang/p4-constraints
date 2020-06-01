@@ -1,4 +1,6 @@
-# p4-constraints ![](https://github.com/p4lang/p4-constraints/workflows/build%20&%20unit%20test/badge.svg)
+![build & unit test](https://github.com/p4lang/p4-constraints/workflows/build%20&%20unit%20test/badge.svg)
+![gold test](https://github.com/p4lang/p4-constraints/workflows/gold%20test/badge.svg)
+# p4-constraints
 
 **Work in progress. Feedback and contributions are welcome.**
 
@@ -98,38 +100,50 @@ executing the following commands, using [Homebrew](https://brew.sh/) to install
 # Install GMP.
 brew install gmp && brew link gmp
 # Tell linker (ld) where to find GMP so '-lgmp' works.
-echo "build --linkopt='-L /usr/local/brew/lib'" > user.bazelrc
+echo "build --linkopt='-L/usr/local/brew/lib'" > user.bazelrc
+```
+
+### Docker
+
+You can also build p4-constraint in a Docker container, for example:
+```sh
+docker build --tag p4-constraints .                 # Time to get coffee...
+docker run --tty --interactive p4-constraints bash  # Open shell in container.
+bazel test //p4_constraints/...
 ```
 
 ## Golden tests
 
 The easiest way to experiment with p4-constraints is to write a
 [golden test](https://ro-che.info/articles/2017-12-04-golden-tests).
-We provide [Bazel rules](test/p4check.bzl) `run_p4check` and `diff_test` to make
+We provide [Bazel rules](e2e-test/p4check.bzl) `run_p4check` and `diff_test` to make
 this convenient.
-See the [test/](test/) folder for examples.
+See the [e2e-test/](e2e-test/) folder -- in particular
+[e2e-test/BUILD.bazel](e2e-test/BUILD.bazel) -- for examples of how to use them.
 
-Currently, the golden tests require [p4c](git@github.com:p4lang/p4c.git) as
+Currently, the golden tests require [p4c](https://github.com/p4lang/p4c) as
 a system dependency (we hope to make this a source dependency in the future):
 ```sh
 which p4c  # This needs to succeed for golden tests to work.
 ```
+You may want to use our [Docker container](#docker), which comes with p4c
+preinstalled.
 
 To run all golden tests, execute
 ```sh
-bazel test //test/...
+bazel test //e2e-test/...
 ```
 
 To see the output of a failed test, invoke it using `bazel run` like so:
 ```sh
-bazel run //test:invalid_constraints_test
+bazel run //e2e-test:invalid_constraints_test
 ```
 
 ## p4check
 
 The `p4check` CLI allows invoking the p4-constraints library from the command
 line. The most convenient way to run `p4check` is using the
-[`run_p4check`-rule](test/p4check.bzl), as is done for
+[`run_p4check`-rule](e2e-test/p4check.bzl), as is done for
 [golden testing](#golden-tests).
 
 To learn how to invoke [p4check](p4_constraints/cli/p4check.cc) manually,

@@ -20,7 +20,6 @@
 #define P4_CONSTRAINTS_AST_H_
 
 #include <iosfwd>
-#include <optional>
 #include <string>
 
 #include "absl/types/optional.h"

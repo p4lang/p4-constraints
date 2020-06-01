@@ -1,0 +1,23 @@
+name: gold test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Build Docker image
+      run: docker build --tag p4-constraints .
+
+    - name: Run gold tests
+      env:
+        TEST: bazel test //e2e-test/... --test_output=errors
+      run: docker run --tty p4-constraints $TEST
