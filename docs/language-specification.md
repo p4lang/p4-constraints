@@ -44,7 +44,7 @@ together with a prefix length, and a range match consists of lower and upper
 bounds.
 
 To access the different values associated with a key, the language provides a
-field access (or "projection") operator `::`:
+field access (or "projection") operator `::`.
 ```p4
 @entry_restriction("ipv6.dst::prefix_length <= 64")
 table ipv6_table {
@@ -70,13 +70,13 @@ table:
 
 | <match_type> | field            | field type |
 |--------------|------------------|------------|
-| exact        | k::value         | bit<<W>>   |
-| ternary      | k::value         | bit<<W>>   |
-|              | k::mask          | bit<<W>>   |
-| lpm          | k::value         | bit<<W>>   |
+| exact        | k::value         | bit\<W\>   |
+| ternary      | k::value         | bit\<W\>   |
+|              | k::mask          | bit\<W\>   |
+| lpm          | k::value         | bit\<W\>   |
 |              | k::prefix_length | int        |
-| range        | k::low           | bit<<W>>   |
-|              | k::high          | bit<<W>>   |
+| range        | k::low           | bit\<W\>   |
+|              | k::high          | bit\<W\>   |
 
 When `k` is of type `bool`, everything behaves precisely as if `k` was of type
 `bit<1>`, with the boolean constant `true` and `false` being mapped to `1` and
