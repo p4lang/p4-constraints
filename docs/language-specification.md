@@ -83,20 +83,6 @@ TODO
 
 ### Boolean operations
 
-The language provides the Boolean constants `true` and `false` for allowing
-or disallowing all table entries:
-
-```p4
-@entry_restriction("true")
-table all_entries_allowed { ... }
-
-@entry_restriction("false")
-table all_entries_disallowed { ... }
-```
-
-Specifying the entry_restriction `true` is tantamount to not specifying a
-constraint at all.
-
 As in P4, Boolean expressions can be negated using `!`,
 or combined conjunctively using `&&` or disjunctively using `||`.
 
@@ -139,6 +125,8 @@ ipv4.valid == 1 -> ipv6.valid == 0;
 ipv6.valid == 1 -> ipv4.valid == 0;
 ")
 ```
+
+Like P4, the language also provides the Boolean constants `true` and `false`.
 
 ## Grammar
 
