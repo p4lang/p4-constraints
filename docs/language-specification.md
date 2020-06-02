@@ -68,15 +68,19 @@ with `k` being of type `bit<W>`. Then the fields that can be accessed using
 the `::` operator together with their types are summarized in the following
 table:
 
-| <match_type> | field                  | field type |
-|--------------|------------------------|------------|
-| exact        | k::value               | bit<W>     |
-| ternary      | k::value               | bit<W>     |
-|              | hdr.val::mask          | bit<W>     |
-| lpm          | hdr.val::value         | bit<W>     |
-|              | hdr.val::prefix_length | int        |
-| range        | hdr.val::low           | bit<W>     |
-|              | hdr.val::high          | bit<W>     |
+| <match_type> | field            | field type |
+|--------------|------------------|------------|
+| exact        | k::value         | bit<<W>>   |
+| ternary      | k::value         | bit<<W>>   |
+|              | k::mask          | bit<<W>>   |
+| lpm          | k::value         | bit<<W>>   |
+|              | k::prefix_length | int        |
+| range        | k::low           | bit<<W>>   |
+|              | k::high          | bit<<W>>   |
+
+When `k` is of type `bool`, everything behaves precisely as if `k` was of type
+`bit<1>`, with the boolean constant `true` and `false` being mapped to `1` and
+`0`, respectively.
 
 ### Implicit conversions
 TODO
@@ -103,9 +107,9 @@ the IPv4 destination be only performed on valid IPv4 headers.
 As a convenience, expressions can also be combined using `;` in place of `&&`:
 ```p4
 @entry_restriction("
-constraint1;
-constraint2;
-constraint3;  // The trailing ';' is optional.
+  constraint1;
+  constraint2;
+  constraint3;  // The trailing ';' is optional.
 ")
 ```
 While `;` and `&&` are semantically equivalent, ';' is defined to have the
@@ -114,15 +118,15 @@ convenient for combining several top-level constraints without having to
 insert parentheses. For example,
 ```p4
 @entry_restriction("
-(ipv4.valid == 1 -> ipv6.valid == 0) &&
-(ipv6.valid == 1 -> ipv4.valid == 0)
+  (ipv4.valid == 1 -> ipv6.valid == 0) &&
+  (ipv6.valid == 1 -> ipv4.valid == 0)
 ")
 ```
 can be expressed more succinctly without parentheses as
 ```p4
 @entry_restriction("
-ipv4.valid == 1 -> ipv6.valid == 0;
-ipv6.valid == 1 -> ipv4.valid == 0;
+  ipv4.valid == 1 -> ipv6.valid == 0;
+  ipv6.valid == 1 -> ipv4.valid == 0;
 ")
 ```
 
@@ -194,7 +198,7 @@ right-hand side is of type `int`; instead we would have to write
 ```p4
 ipv4.valid == 0 && ipv6.valid == 0
 ```
-to ask that both valid bits be unset.
+if we intended to express that both valid bits must be unset.
 
 
 [associativity]: https://en.wikipedia.org/wiki/Operator_associativity
