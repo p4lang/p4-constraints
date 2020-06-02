@@ -24,17 +24,62 @@ At the heart of the language lies the ability to talk about table keys,
 and to constrain their values using comparison operators.
 ```p4
 @entry_restriction("ipv4.valid == 1")
-table ipv4_table { 
-  key {
-    ipv4.valid : exact;
-    ipv4.dst : lpm;
+table ipv4_table {
+  key = {
+    ipv4.isValid() : exact @name("ipv4.valid");
+    ipv4.dst : ternary;
   }
 }
 ```
-For example, the above constraint `ipv4.valid == 1` states that the key
-`ipv4.valid` must be equal to `1` for all table entries. Just like P4, the
-constraint language provides the comparison operators `==`, `!=`, `>`, `>=`,
-`<`, and `<=` with the usual semantics.
+For example, the above constraint states that the key `ipv4.valid` must be equal
+to `1` for all table entries. Just like P4, the constraint language provides the
+comparison operators `==`, `!=`, `>`, `>=`, `<`, and `<=` with the usual
+semantics.
+
+### Accessing the fields of a key
+
+While an `exact` match consists of a single value, a `ternary` match is given
+by a value together with a mask. Similarly, an `lpm` match consists of a value
+together with a prefix length, and a range match consists of lower and upper
+bounds.
+
+To access the different values associated with a key, the language provides a
+field access (or "projection") operator `::`:
+```p4
+@entry_restriction("ipv6.dst::prefix_length <= 64")
+table ipv6_table {
+  key = {
+    ipv6.dst : lpm;
+  }
+}
+```
+For example, the above constraint states that entries should only ever match on
+the most-significant 64 bits of an IPv6 address.
+
+More generally, assume we have a P4 table of the form
+```p4
+table t {
+  key = {
+    k : <match_type>;
+  }
+}
+```
+with `k` being of type `bit<W>`. Then the fields that can be accessed using
+the `::` operator together with their types are summarized in the following
+table:
+
+| <match_type> | field                  | field type |
+|--------------|------------------------|------------|
+| exact        | k::value               | bit<W>     |
+| ternary      | k::value               | bit<W>     |
+|              | hdr.val::mask          | bit<W>     |
+| lpm          | hdr.val::value         | bit<W>     |
+|              | hdr.val::prefix_length | int        |
+| range        | hdr.val::low           | bit<W>     |
+|              | hdr.val::high          | bit<W>     |
+
+### Implicit conversions
+TODO
 
 ### Boolean operations
 
@@ -49,11 +94,55 @@ table all_entries_allowed { ... }
 table all_entries_disallowed { ... }
 ```
 
-As in P4, Boolean expressions can be negated using `!`,
-or combined conjunctively using `&&` or disjunctively using `||`, allowing
+Specifying the entry_restriction `true` is tantamount to not specifying a
+constraint at all.
 
+As in P4, Boolean expressions can be negated using `!`,
+or combined conjunctively using `&&` or disjunctively using `||`.
+
+Additionally, p4-constraints provides the binary operator `->` to denote
+[logical implication](https://en.wikipedia.org/wiki/Material_conditional):
+```p4
+@entry_restriction("ipv4.dst::mask != 0 -> ipv4.valid == 1")
+table ipv4_table {
+  key {
+    ipv4.isValid() : exact @name("ipv4.valid");
+    ipv4.dst : ternary;
+  }
+}
+```
+For example, the entry restriction above demands that non-trivial matches on
+the IPv4 destination be only performed on valid IPv4 headers.
+
+As a convenience, expressions can also be combined using `;` in place of `&&`:
+```p4
+@entry_restriction("
+constraint1;
+constraint2;
+constraint3;  // The trailing ';' is optional.
+")
+```
+While `;` and `&&` are semantically equivalent, ';' is defined to have the
+[lowest level of precedence](#precedence-and-associativity), making it
+convenient for combining several top-level constraints without having to
+insert parentheses. For example,
+```p4
+@entry_restriction("
+(ipv4.valid == 1 -> ipv6.valid == 0) &&
+(ipv6.valid == 1 -> ipv4.valid == 0)
+")
+```
+can be expressed more succinctly without parentheses as
+```p4
+@entry_restriction("
+ipv4.valid == 1 -> ipv6.valid == 0;
+ipv6.valid == 1 -> ipv4.valid == 0;
+")
+```
 
 ## Grammar
+
+Formally, the set of expressions is given by the following grammar:
 ```
 // Constraints are expressions of type bool.
 expression ::=
@@ -67,20 +156,22 @@ expression ::=
   | expression ('&&' | '||' | '->' | ';') expression               // Binary boolean operators.
   | expression ('==' | '!=' | '>' | '>=' | '<' | '<=') expression  // Comparisons.
 
-key ::= id ('.' id)*                                               // Table keys, e.g. "hdr.ethernet.eth_type".
-id ::= [_a-zA-Z][_a-zA-Z0-9]*                                      // Identifiers.
-
 numeral ::=
   | (0[dD])? [0-9]+                                                // Decimal numerals.
   | 0[bB] [0-1]+                                                   // Binary numerals.
   | 0[oO] [0-7]+                                                   // Octary numerals.
   | 0[xX] [0-9a-fA-F]+                                             // Hexadecimal numerals.
+
+key ::= id ('.' id)*                                               // Table keys, e.g. "hdr.ethernet.eth_type".
+id ::= [_a-zA-Z][_a-zA-Z0-9]*                                      // Identifiers.
 ```
-Top-level expression may optionally be terminated by a trailing ';'.
+As a syntactic convenience, top-level expression may be terminated
+by a trailing ';' without affecting the semantics of the expression.
 
 ### Precedence and Associativity
 
-Operators ordered by precedence: higher in the table means "binds stronger".
+The following table lists all operator ordered by precedence:
+higher in the table means "binds stronger".
 
 | Syntax               | Semantics           | Associativity | Examples                                            |
 |----------------------|---------------------|---------------|-----------------------------------------------------|
@@ -92,3 +183,30 @@ Operators ordered by precedence: higher in the table means "binds stronger".
 | \|\|                 | Boolean disjunction | left          | ipv4.valid == 1 \|\| ipv6.valid == 1                |
 | ->                   | Boolean implication | none          | ipv4.dst::mask != 0 -> ethernet.ether_type == 0x800 |
 | ;                    | Boolean conjunction | left          | ipv4.valid == 1 -> ipv6.valid == 0;<br>ipv6.valid == 1 -> ipv4.valid == 0|
+
+The first three operators are unary operators in the sense that they act on a
+single expression; as such they can always be parsed unambiguously without
+imposing an [associativity](https://en.wikipedia.org/wiki/Operator_associativity).
+
+The comparison operators as well as `->` are none-associative; this means that
+expressions involving these operators that could be parsed in both a left-
+and right-associative manner are syntactically illegal. For example,
+p4-constraints will reject the expression
+```p4
+ipv4.valid == ipv6.valid == 0
+```
+with a syntax error and demand that it be disambiguated using parentheses,
+e.g. by writing
+```p4
+(ipv4.valid == ipv6.valid) == 0
+```
+Note that the above expression is syntactically valid but will not type check
+since the left-hand side of the equality is of type `bool` whereas the
+right-hand side is of type `int`; instead we would have to write
+```p4
+ipv4.valid == 0 && ipv6.valid == 0
+```
+to ask that both valid bits be unset.
+
+
+[associativity]: https://en.wikipedia.org/wiki/Operator_associativity
