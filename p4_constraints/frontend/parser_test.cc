@@ -198,30 +198,6 @@ TEST_F(ParserTest, Positive) {
                    }
                  }
                })PROTO"},
-      {{kTrue, kImplies, kTrue, kImplies, kTrue},
-       R"PROTO(binary_expression: {
-                 left: { boolean_constant: true },
-                 binop: IMPLIES,
-                 right: {
-                   binary_expression: {
-                     left: { boolean_constant: true },
-                     binop: IMPLIES,
-                     right: { boolean_constant: true }
-                   }
-                 }
-               })PROTO"},
-      {{kLpar, kTrue, kImplies, kTrue, kRpar, kImplies, kTrue},
-       R"PROTO(binary_expression: {
-                 left: {
-                   binary_expression: {
-                     left: { boolean_constant: true },
-                     binop: IMPLIES,
-                     right: { boolean_constant: true }
-                   }
-                 },
-                 binop: IMPLIES,
-                 right: { boolean_constant: true }
-               })PROTO"},
 
       // Precedence.
       {{kNot, kTrue, kAnd, kTrue, kOr, kTrue, kImplies, kTrue},
@@ -297,6 +273,14 @@ TEST_F(ParserTest, Negative) {
       {kRpar, kTrue},
       {kRpar, kTrue, kRpar},
       {kRpar, kTrue, kLpar},
+
+      // Non-associative operators
+      {kTrue, kImplies, kTrue, kImplies, kTrue},
+      {kTrue, kEq, kTrue, kNe, kTrue},
+      {kTrue, kNe, kTrue, kGt, kTrue},
+      {kTrue, kGt, kTrue, kGe, kTrue},
+      {kTrue, kGe, kTrue, kLt, kTrue},
+      {kTrue, kLt, kTrue, kLe, kTrue},
   };
 
   for (auto& tokens : tests) {

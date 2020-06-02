@@ -153,7 +153,10 @@ bazel run p4_constraints/cli:p4check -- --help
 ```
 
 ## Constraint language
-TODO: Write a little specification.
+
+See [docs/language-specification.md](docs/language-specification.md) for a
+documentation of the constraint languages, or look at some example constraints
+in the .p4-files in the [e2e-test folder](e2e-test/).
 
 ## Contributing
 
