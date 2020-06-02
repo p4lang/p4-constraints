@@ -81,8 +81,12 @@ Associativity TokenAssociativity(Token::Kind kind) {
     case Token::DOUBLE_COLON:
     case Token::SEMICOLON:
       return Associativity::LEFT;
-    case Token::IMPLIES:
-      return Associativity::RIGHT;
+    // While the convention in logic and functional programming is for `->` to
+    // be right-associative, this will likely do more harm than good. Forcing
+    // the user to disambiguate using parentheses seems far better, for our
+    // purposes.
+    // case Token::IMPLIES:
+    //   return Associativity::RIGHT;
     default:
       return Associativity::NONE;
   }
