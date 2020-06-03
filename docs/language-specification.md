@@ -90,7 +90,7 @@ TODO
 As in P4, Boolean expressions can be negated using `!`,
 or combined conjunctively using `&&` or disjunctively using `||`.
 
-Additionally, p4-constraints provides the binary operator `->` to denote
+Additionally, p4-constraints provides the binary operator `->` to express
 [logical implication](https://en.wikipedia.org/wiki/Material_conditional):
 ```p4
 @entry_restriction("ipv4.dst::mask != 0 -> ipv4.valid == 1")
@@ -169,7 +169,7 @@ higher in the table means "binds stronger".
 |----------------------|---------------------|---------------|-----------------------------------------------------|
 | ::                   | Field access        | N/A           | ipv4.dst::prefix_length                             |
 | !                    | Boolean negation    | N/A           | !true, !(key == 2), !!false                         |
-| -                    | Arithmetic negation | N/A           | -1, -(10 + 3), --2                                  |
+| -                    | Arithmetic negation | N/A           | -1, -ipv4.dst::prefix_length, --2                   |
 | ==, !=, >, >=, <, <= | Comparison          | none          | 2 == 4, 1 > -12, true != false                      |
 | &&                   | Boolean conjunction | left          | ipv4.valid == 1 && ipv4.dst == 0xf0f0f0f0           |
 | \|\|                 | Boolean disjunction | left          | ipv4.valid == 1 \|\| ipv6.valid == 1                |
