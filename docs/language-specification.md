@@ -93,7 +93,7 @@ or combined conjunctively using `&&` or disjunctively using `||`.
 Additionally, p4-constraints provides the binary operator `->` to express
 [logical implication](https://en.wikipedia.org/wiki/Material_conditional):
 ```p4
-@entry_restriction("ipv4.dst::mask != 0 -> ipv4.valid == 1")
+@entry_restriction("ipv4.valid == 0 -> ipv4.dst::mask == 0")
 table ipv4_table {
   key {
     ipv4.isValid() : exact @name("ipv4.valid");
@@ -101,8 +101,8 @@ table ipv4_table {
   }
 }
 ```
-For example, the entry restriction above demands that non-trivial matches on
-the IPv4 destination be only performed on valid IPv4 headers.
+For example, the entry restriction above demands that table entries must ignore
+invalid IPv4 destination addresses by masking them off.
 
 As a convenience, expressions can also be combined using `;` in place of `&&`:
 ```p4
