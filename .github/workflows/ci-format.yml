@@ -13,20 +13,13 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: recursive
-
-    - name: Install bazelisk
-      run: |
-        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.4.0/bazelisk-linux-amd64"
-        mkdir -p "${GITHUB_WORKSPACE}/bin/"
-        mv bazelisk-linux-amd64 "${GITHUB_WORKSPACE}/bin/bazel"
-        chmod +x "${GITHUB_WORKSPACE}/bin/bazel"
         
     - name: Run format.sh
-      run: cd "${GITHUB_WORKSPACE}" && ./format.sh
+      run: ./format.sh
 
     - name: Check formatting diff
       run: |
-        CHANGED_FILES="$(cd "${GITHUB_WORKSPACE}" && git diff-index --name-only HEAD --)"
+        CHANGED_FILES="$(git diff-index --name-only HEAD --)"
         if [[ -z "${CHANGED_FILES}" ]]; then
           echo "Success: no formatting changes needed."
           exit 0
