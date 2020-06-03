@@ -29,6 +29,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/types/variant.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "util/integral_types.h"
@@ -53,22 +54,20 @@ struct TableInfo {
 
   // Maps from key IDs/names to KeyInfo.
   // Derives from Table.match_fields in p4info.proto.
-  absl::flat_hash_map<const uint32, const KeyInfo> keys_by_id;
-  absl::flat_hash_map<const std::string, const KeyInfo> keys_by_name;
+  absl::flat_hash_map<uint32, KeyInfo> keys_by_id;
+  absl::flat_hash_map<std::string, KeyInfo> keys_by_name;
 };
 
 // Contains all information required for constraint checking.
 // Technically, a map from table IDs to TableInfo.
-using ConstraintInfo = const absl::flat_hash_map<const uint32, const TableInfo>;
+using ConstraintInfo = absl::flat_hash_map<uint32, TableInfo>;
 
 // Translates P4Info to ConstraintInfo.
 //
 // Parses all tables and their constraint annotations into an in-memory
 // representation suitable for constraint checking. Returns parsed
-// representation together with list of error statuses that may have occurred.
-// If the list of statuses is non-empty, the returned `ConstraintInfo` is
-// incomplete and must be discarded by the caller.
-std::pair<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
+// representation, or a nonempty list of error statuses if parsing fails.
+absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info);
 
 }  // namespace p4_constraints
