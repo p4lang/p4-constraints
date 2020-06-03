@@ -17,6 +17,8 @@ The project currently provides two main artifacts:
    entries satisfy the constraints placed on their respective tables or not.
    (Note that the CLI is intended for testing and experimentation, not for
    production use.)
+   
+**_Check out [these slides](docs/2020-06-03_p4rt-wg.pdf) for a tour of p4-constraints._**
 
 ## Example - Entry Restrictions
 
@@ -61,6 +63,35 @@ requirement captures the intend of the P4 programmer that the ACL table
 should not require general ternary matches on the destination address; the
 constraint documents this intend and let's us catch accidental ternary matches
 installed by the control plane at runtime.
+
+## API
+
+At a high level, p4-constraint's API consists of only two functions:
+one function for parsing constraints and one function for checking them.
+```C++
+/* p4_constraints/backend/constraint_info.h */
+
+// Translates P4Info to ConstraintInfo.
+//
+// Parses all tables and their constraint annotations into an in-memory
+// representation suitable for constraint checking. Returns parsed
+// representation, or a nonempty list of error statuses if parsing fails.
+absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
+    const p4::config::v1::P4Info& p4info);
+```
+```C++
+/* p4_constraints/backend/interpreter.h */
+
+// Checks if a given table entry satisfies the entry constraint attached to its
+// associated table. Returns true if this is the case or if no constraint
+// exists. Returns an InvalidArgument Status if the entry belongs to a table not
+// present in ConstraintInfo, or if it is inconsistent with the table definition
+// in ConstraintInfo.
+util::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
+                                          const ConstraintInfo& context);
+```
+You can learn more about use cases for p4-constraints and possible extensions in
+[our slide deck](docs/2020-06-03_p4rt-wg.pdf).
 
 ## Building
 
