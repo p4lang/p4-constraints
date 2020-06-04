@@ -22,6 +22,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
+#include "absl/types/variant.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/type_checker.h"
@@ -124,8 +125,8 @@ util::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
 }
 
 util::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
-  absl::flat_hash_map<const uint32, const KeyInfo> keys_by_id;
-  absl::flat_hash_map<const std::string, const KeyInfo> keys_by_name;
+  absl::flat_hash_map<uint32, KeyInfo> keys_by_id;
+  absl::flat_hash_map<std::string, KeyInfo> keys_by_name;
 
   for (const MatchField& key : table.match_fields()) {
     ASSIGN_OR_RETURN(const ast::Type type, ParseKeyType(key));
@@ -160,10 +161,10 @@ util::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
 
 }  // namespace
 
-std::pair<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
+absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info) {
   // Allocate output.
-  absl::flat_hash_map<const uint32, const TableInfo> info;
+  absl::flat_hash_map<uint32, TableInfo> info;
   std::vector<absl::Status> errors;
 
   for (const Table& table : p4info.tables()) {
@@ -176,8 +177,8 @@ std::pair<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
                        << "duplicate table: " << table.DebugString());
     }
   }
-
-  return {info, errors};
+  if (!errors.empty()) return errors;
+  return info;
 }
 
 }  // namespace p4_constraints

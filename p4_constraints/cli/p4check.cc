@@ -33,6 +33,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/span.h"
+#include "absl/types/variant.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/text_format.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -93,16 +94,16 @@ int main(int argc, char** argv) {
   }
 
   // Parse constraints and report potential errors.
-  std::pair<ConstraintInfo, std::vector<absl::Status>> pair =
+  absl::variant<ConstraintInfo, std::vector<absl::Status>> info_or_errors =
       P4ToConstraintInfo(p4info);
-  const auto& constraint_info = pair.first;
-  const auto& errors = pair.second;
-  if (!errors.empty()) {
+  if (absl::holds_alternative<std::vector<absl::Status>>(info_or_errors)) {
+    const auto& errors = absl::get<std::vector<absl::Status>>(info_or_errors);
     for (const absl::Status& error : errors) {
       std::cerr << error.message() << "\n\n";
     }
     return 1;
   }
+  const auto& constraint_info = absl::get<ConstraintInfo>(info_or_errors);
 
   // Check table entries, if any where given.
   for (const char* entry_filename :
