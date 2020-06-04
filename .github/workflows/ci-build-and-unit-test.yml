@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      BAZEL: bazelisk-linux-amd64
     steps:
     - uses: actions/checkout@v2
       with:
@@ -22,15 +24,11 @@ jobs:
 
     - name: Install bazelisk
       run: |
-        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.4.0/bazelisk-linux-amd64"
-        mkdir -p "${GITHUB_WORKSPACE}/bin/"
-        mv bazelisk-linux-amd64 "${GITHUB_WORKSPACE}/bin/bazel"
-        chmod +x "${GITHUB_WORKSPACE}/bin/bazel"
+        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.4.0/$BAZEL"
+        chmod +x $BAZEL
 
     - name: Build
-      run: |
-        "${GITHUB_WORKSPACE}/bin/bazel" build //p4_constraints/...
+      run: ./$BAZEL build //p4_constraints/...
 
     - name: Unit test
-      run: |
-        "${GITHUB_WORKSPACE}/bin/bazel" test //p4_constraints/...
+      run: ./$BAZEL test //p4_constraints/... --test_output=errors
