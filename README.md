@@ -90,14 +90,18 @@ absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
 util::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
                                           const ConstraintInfo& context);
 ```
+For those who seek more fine-grained control, the API also offers more
+low-level functions that are documented in the various header files.
 
-Use cases of p4-constraints include:
+## Use cases
+
+p4-constraints can be used as follows:
+
 - As a specification language to further clarify the control plane API.
-- In P4RT server implementations to reject ill-formed table entries.
+- In P4Runtime server implementations to reject ill-formed table entries.
 - In the controller as a defense-in-depth check.
 - During testing to check for valid vs invalid table entries.
   - To guide a fuzzer to valid table entries.
-
 
 ## Building
 
