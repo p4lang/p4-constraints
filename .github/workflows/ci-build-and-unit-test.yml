@@ -31,4 +31,4 @@ jobs:
       run: ./$BAZEL build //p4_constraints/...
 
     - name: Unit test
-      run: ./$BAZEL" test //p4_constraints/... --test_output=errors
+      run: ./$BAZEL test //p4_constraints/... --test_output=errors
