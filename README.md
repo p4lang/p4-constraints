@@ -18,7 +18,7 @@ The project currently provides two main artifacts:
    (Note that the CLI is intended for testing and experimentation, not for
    production use.)
    
-**_Check out [these slides](docs/2020-06-03_p4rt-wg.pdf) for a tour of p4-constraints._**
+**_Check out [these slides](docs/2020-06-03_p4rt-wg.pdf) for a tour of p4-constraints (up to date as of May 2020)._**
 
 ## Example - Entry Restrictions
 
@@ -90,8 +90,14 @@ absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
 util::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
                                           const ConstraintInfo& context);
 ```
-You can learn more about use cases for p4-constraints and possible extensions in
-[our slide deck](docs/2020-06-03_p4rt-wg.pdf).
+
+Use cases of p4-constraints include:
+- As a specification language to further clarify the control plane API.
+- In P4RT server implementations to reject ill-formed table entries.
+- In the controller as a defense-in-depth check.
+- During testing to check for valid vs invalid table entries.
+  - To guide a fuzzer to valid table entries.
+
 
 ## Building
 
