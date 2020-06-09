@@ -119,12 +119,16 @@ git submodule update --init --recursive
 
 To build, run
 ```sh
-bazel build //p4_contraints/...
+bazel build //...
+```
+To run all tests including [golden tests](golden-tests), run
+```sh
+bazel test //...
 ```
 
-To test, run
+To run unit tests only, run
 ```sh
-bazel test //p4_contraints/...
+bazel test //p4_contraints/...  # Exclude tests in e2e-test folder.
 ```
 
 To see the output of a failed test, invoke it using `bazel run` like so:
@@ -150,15 +154,15 @@ You can also build p4-constraint in a Docker container, for example:
 ```sh
 docker build --tag p4-constraints .                 # Time to get coffee...
 docker run --tty --interactive p4-constraints bash  # Open shell in container.
-bazel test //p4_constraints/...
+bazel test //...                                    # Run tests in container.
 ```
 
 ## Golden tests
 
 The easiest way to experiment with p4-constraints is to write a
 [golden test](https://ro-che.info/articles/2017-12-04-golden-tests).
-We provide [Bazel rules](e2e-test/p4check.bzl) `run_p4check` and `diff_test` to make
-this convenient.
+We provide [Bazel rules](e2e-test/p4check.bzl) `run_p4check` and `diff_test` to
+make this convenient.
 See the [e2e-test/](e2e-test/) folder -- in particular
 [e2e-test/BUILD.bazel](e2e-test/BUILD.bazel) -- for examples of how to use them.
 
