@@ -1,32 +1,12 @@
-# Bazel worskpace file.
+# Bazel workspace file.
 
-workspace(name = "org_p4_p4_constraints")
+workspace(name = "com_github_p4lang_p4_constraints")
 
-local_repository(
-    name = "com_google_absl",
-    path = "third_party/abseil-cpp",
-)
+load("p4_constraints_deps.bzl", "p4_constraints_deps")
 
-new_local_repository(
-    name = "com_google_glog",
-    build_file = "third_party/BUILD.glog.bazel",
-    path = "third_party/glog",
-)
+p4_constraints_deps()
 
-local_repository(
-    name = "com_google_googletest",
-    path = "third_party/googletest",
-)
-
-local_repository(
-    name = "com_google_protobuf",
-    path = "third_party/protobuf",
-)
-
-local_repository(
-    name = "rules_proto",
-    path = "third_party/rules_proto",
-)
+# -- Protocol Buffers ----------------------------------------------------------
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
@@ -38,34 +18,40 @@ rules_proto_dependencies()
 
 rules_proto_toolchains()
 
-local_repository(
-    name = "com_googlesource_code_re2",
-    path = "third_party/re2",
-)
+# # -- P4{C, Runtime} + transitive dependencies ----------------------------------
 
-new_local_repository(
-    name = "com_github_p4lang_p4c",
-    build_file = "third_party/BUILD.p4c.bazel",
-    path = "third_party/p4c",
-)
+load("@com_github_p4lang_p4c//:bazel/p4c_deps.bzl", "p4c_deps")
 
-new_local_repository(
-    name = "com_github_p4lang_p4runtime",
-    build_file = "third_party/BUILD.p4runtime.bazel",
-    path = "third_party/p4runtime",
-)
+p4c_deps()
 
-# Transitive p4runtime dependency.
-local_repository(
-    name = "com_google_googleapis",
-    path = "third_party/googleapis",
-)
+load("@com_github_p4lang_p4runtime//:p4runtime_deps.bzl", "p4runtime_deps")
+
+p4runtime_deps()
+
+load("@com_github_nelhage_rules_boost//:boost/boost.bzl", "boost_deps")
+
+boost_deps()
 
 load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 
-switched_rules_by_language(name = "com_google_googleapis_imports")
+switched_rules_by_language(
+    name = "com_google_googleapis_imports",
+    cc = True,
+    grpc = True,
+)
 
-# Buildifier (Bazel file formatter) + dependencies.
+# TODO(smolkaj): We likely do not need GRPC?
+
+load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+
+grpc_deps()
+
+load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
+
+grpc_extra_deps()
+
+# -- Buildifier (Bazel file formatter) + transitive dependencies ---------------
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(

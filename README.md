@@ -112,24 +112,22 @@ Ubuntu as follows:
 apt-get install libgmp-dev
 ```
 
-Ensure that all [third-party dependencies](third_party/) are checked out:
-```sh
-git submodule update --init --recursive
-```
-
 To build, run
 ```sh
-bazel build //...
+bazel build //p4_constraints/...
 ```
+
+To run all tests except [golden tests](golden-tests), run
+```sh
+bazel test //p4_constraints/...
+```
+
 To run all tests including [golden tests](golden-tests), run
 ```sh
 bazel test //...
 ```
-
-To run unit tests only, run
-```sh
-bazel test //p4_contraints/...  # Exclude tests in e2e-test folder.
-```
+This may take a while when executed for the first as it will build p4c from
+source.
 
 To see the output of a failed test, invoke it using `bazel run` like so:
 ```sh
@@ -165,14 +163,6 @@ We provide [Bazel rules](e2e-test/p4check.bzl) `run_p4check` and `diff_test` to
 make this convenient.
 See the [e2e-test/](e2e-test/) folder -- in particular
 [e2e-test/BUILD.bazel](e2e-test/BUILD.bazel) -- for examples of how to use them.
-
-Currently, the golden tests require [p4c](https://github.com/p4lang/p4c) as
-a system dependency (we hope to make this a source dependency in the future):
-```sh
-which p4c  # This needs to succeed for golden tests to work.
-```
-You may want to use our [Docker container](#docker), which comes with p4c
-preinstalled.
 
 To run all golden tests, execute
 ```sh
