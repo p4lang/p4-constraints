@@ -1,4 +1,4 @@
-name: "build & unit test"
+name: "native build & test"
 
 on:
   push:
@@ -28,7 +28,13 @@ jobs:
         chmod +x $BAZEL
 
     - name: Build
-      run: ./$BAZEL build //...
+      run: ./$BAZEL build //p4_constraints/...
 
     - name: Unit test
       run: ./$BAZEL test //p4_constraints/... --test_output=errors
+
+    - name: Gold test
+      run: ./$BAZEL test //e2e-test/... --test_output=errors
+
+    - name: Sanity check  # This step should be subsumed by the previous steps.
+      run: ./$BAZEL build //... && ./$BAZEL test //...

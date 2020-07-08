@@ -1,4 +1,4 @@
-FROM p4lang/p4c:latest
+FROM ubuntu:16.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 

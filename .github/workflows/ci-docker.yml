@@ -1,0 +1,33 @@
+name: docker build & test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Build Docker image
+      run: docker build --tag p4-constraints .
+
+    - name: Unit test
+      env:
+        CMD: bazel test //e2e-test/... --test_output=errors
+      run: docker run --tty p4-constraints "$CMD"
+
+    - name: Gold test
+      env:
+        TEST: bazel test //e2e-test/... --test_output=errors
+      run: docker run --tty p4-constraints "$CMD"
+
+    - name: Sanity check  # This step should be subsumed by the previous steps.
+      env:
+        CMD: bazel build //... && bazel test //...
+      run: docker run --tty p4-constraints "$CMD"
