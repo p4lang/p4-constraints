@@ -33,6 +33,12 @@ jobs:
     - name: Unit test
       run: ./$BAZEL test //p4_constraints/... --test_output=errors
 
+    - name: Install & build gold test dependencies (p4c)
+      run: |
+        sudo apt-get update
+        sudo apt-get install bison flex libfl-dev libgmp-dev
+        bazel build //e2e-test/...
+
     - name: Gold test
       run: ./$BAZEL test //e2e-test/... --test_output=errors
 

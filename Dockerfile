@@ -11,7 +11,13 @@ RUN apt-get install -y --no-install-recommends \
   ca-certificates \
   build-essential \
   python3 \
+  libgmp-dev \
+  git \
+  bison \
+  flex \
+  libfl-dev \
   libgmp-dev
+
 RUN update-ca-certificates
 
 RUN wget "https://github.com/bazelbuild/bazelisk/releases/download/v1.4.0/bazelisk-linux-amd64"
