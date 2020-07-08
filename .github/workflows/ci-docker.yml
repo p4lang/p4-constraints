@@ -19,7 +19,7 @@ jobs:
 
     - name: Unit test
       env:
-        CMD: bazel test //p4-constraints/... --test_output=errors
+        CMD: bazel test //p4_constraints/... --test_output=errors
       run: docker run --tty p4-constraints $CMD
 
     - name: Gold test
