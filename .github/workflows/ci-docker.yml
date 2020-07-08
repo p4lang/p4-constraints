@@ -19,15 +19,15 @@ jobs:
 
     - name: Unit test
       env:
-        CMD: bazel test //e2e-test/... --test_output=errors
-      run: docker run --tty p4-constraints "$CMD"
+        CMD: bazel test //p4-constraints/... --test_output=errors
+      run: docker run --tty p4-constraints $CMD
 
     - name: Gold test
       env:
-        TEST: bazel test //e2e-test/... --test_output=errors
-      run: docker run --tty p4-constraints "$CMD"
+        CMD: bazel test //e2e-test/... --test_output=errors
+      run: docker run --tty p4-constraints $CMD
 
     - name: Sanity check  # This step should be subsumed by the previous steps.
-      env:
-        CMD: bazel build //... && bazel test //...
-      run: docker run --tty p4-constraints "$CMD"
+      run: |
+        docker run --tty p4-constraints bazel build //...
+        docker run --tty p4-constraints bazel test //...
