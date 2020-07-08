@@ -71,5 +71,5 @@ def glog_build_file():
     """We use a custom BUILD files since we do not need gflags support."""
     return "\n".join([
         "load(':bazel/glog.bzl', 'glog_library')",
-        "glog_library(with_gflags = False)"
+        "glog_library(with_gflags = False)",
     ])

@@ -10,13 +10,12 @@ RUN apt-get install -y --no-install-recommends \
   wget \
   ca-certificates \
   build-essential \
+  git \
   python3 \
   libgmp-dev \
-  git \
   bison \
   flex \
-  libfl-dev \
-  libgmp-dev
+  libfl-dev
 
 RUN update-ca-certificates
 
