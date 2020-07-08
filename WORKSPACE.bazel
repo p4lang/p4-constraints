@@ -34,19 +34,8 @@ boost_deps()
 
 load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 
-switched_rules_by_language(
-    name = "com_google_googleapis_imports",
-    cc = True,
-    grpc = True,
-)
+switched_rules_by_language(name = "com_google_googleapis_imports")
 
-load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
-
-grpc_deps()
-
-load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
-
-grpc_extra_deps()
 
 # -- Buildifier (Bazel file formatter) + transitive dependencies ---------------
 

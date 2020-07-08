@@ -18,6 +18,7 @@ def p4_constraints_deps():
             urls = ["https://github.com/google/glog/archive/v0.4.0.tar.gz"],
             strip_prefix = "glog-0.4.0",
             sha256 = "f28359aeba12f30d73d9e4711ef356dc842886968112162bc73002645139c39c",
+            build_file_content = glog_build_file(),
         )
     if not native.existing_rule("com_google_googletest"):
         http_archive(
@@ -65,3 +66,10 @@ def p4_constraints_deps():
             remote = "https://github.com/p4lang/p4c",
             shallow_since = "1594055738 -0700",
         )
+
+def glog_build_file():
+    """We use a custom BUILD files since we do not need gflags support."""
+    return "\n".join([
+        "load(':bazel/glog.bzl', 'glog_library')",
+        "glog_library(with_gflags = False)"
+    ])
