@@ -9,9 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # Mount bazel cache.
-      DOCKER: $(echo docker run -v $HOME/.cache/bazel:/root/.cache/bazel --tty p4-constraints)
     steps:
     - uses: actions/checkout@v2
       with:
@@ -27,10 +24,16 @@ jobs:
       run: docker build --tag p4-constraints .
     
     - name: Build p4-constraints
-      run: $DOCKER bazel build //p4_constraints/...
+      env:
+        CMD: bazel build //p4_constraints/...
+      run: docker run -v $HOME/.cache/bazel:/root/.cache/bazel --tty p4-constraints $CMD
 
     - name: Unit test
-      run: $DOCKER bazel test //p4_constraints/... --test_output=errors
+      env:
+        CMD: bazel test //p4_constraints/... --test_output=errors
+      run: docker run -v $HOME/.cache/bazel:/root/.cache/bazel --tty p4-constraints $CMD
 
     - name: Gold test
-      run: $DOCKER bazel test //e2e-test/... --test_output=errors
+      env:
+        CMD: bazel test //e2e-test/... --test_output=errors
+      run: docker run -v $HOME/.cache/bazel:/root/.cache/bazel --tty p4-constraints $CMD
