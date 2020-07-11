@@ -10,7 +10,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      DOCKER: docker run --tty p4-constraints
+      # Mount bazel cache.
+      DOCKER: docker run --tty p4-constraints -v ~/.cache/bazel:/root/.cache/bazel
     steps:
     - uses: actions/checkout@v2
       with:
@@ -24,6 +25,9 @@ jobs:
 
     - name: Build Docker image
       run: docker build --tag p4-constraints .
+    
+    - name: Build p4-constraints
+      run: $DOCKER bazel build //p4_constraints/...
 
     - name: Unit test
       run: $DOCKER bazel test //p4_constraints/... --test_output=errors
