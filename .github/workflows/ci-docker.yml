@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      DOCKER: docker run --tty p4-constraints --mount type=bind,src=~/.cache/bazel,dst=~/.cache/bazel
+      DOCKER: docker run --tty p4-constraints
     steps:
     - uses: actions/checkout@v2
       with:
