@@ -22,5 +22,3 @@ RUN update-ca-certificates
 RUN wget "https://github.com/bazelbuild/bazelisk/releases/download/v1.4.0/bazelisk-linux-amd64"
 RUN chmod +x bazelisk-linux-amd64
 RUN ln -s $(pwd)/bazelisk-linux-amd64 /usr/local/bin/bazel
-
-RUN bazel build //p4_constraints/...
