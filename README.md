@@ -112,6 +112,15 @@ Ubuntu as follows:
 apt-get install libgmp-dev
 ```
 
+We inherit a few additional dependencies
+([Bison](https://en.wikipedia.org/wiki/GNU_Bison) and
+[Flex](https://en.wikipedia.org/wiki/Flex_\(lexical_analyser_generator\)))
+from [p4c](https://github.com/p4lang/p4c); these are required for
+[golden testing](golden-tests) only and can be installed on Ubuntu as follows:
+```sh
+apt-get install bison flex libfl-dev
+```
+
 To build, run
 ```sh
 bazel build //p4_constraints/...
@@ -168,6 +177,10 @@ To run all golden tests, execute
 ```sh
 bazel test //e2e-test/...
 ```
+[Recall](building) that this will build p4c and requires
+[Bison](https://en.wikipedia.org/wiki/GNU_Bison) and
+[Flex](https://en.wikipedia.org/wiki/Flex_\(lexical_analyser_generator\))
+to be installed.
 
 To see the output of a failed test, invoke it using `bazel run` like so:
 ```sh
