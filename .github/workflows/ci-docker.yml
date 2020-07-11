@@ -9,20 +9,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      DOCKER: docker run --tty p4-constraints --mount type=bind,src=~/.cache/bazel,dst=~/.cache/bazel
     steps:
     - uses: actions/checkout@v2
       with:
         submodules: recursive
+        
+    - name: Mount bazel cache
+      uses: actions/cache@v2
+      with:
+        path: "~/.cache/bazel"  # See https://docs.bazel.build/versions/master/output_directories.html
+        key: bazel
 
     - name: Build Docker image
       run: docker build --tag p4-constraints .
 
     - name: Unit test
-      env:
-        CMD: bazel test //p4_constraints/... --test_output=errors
-      run: docker run --tty p4-constraints $CMD
+      run: $DOCKER bazel test //p4_constraints/... --test_output=errors
 
     - name: Gold test
-      env:
-        CMD: bazel test //e2e-test/... --test_output=errors
-      run: docker run --tty p4-constraints $CMD
+      run: $DOCKER bazel test //e2e-test/... --test_output=errors
