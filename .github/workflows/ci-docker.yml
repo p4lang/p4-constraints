@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Mount bazel cache.
-      DOCKER: docker run -v $HOME/.cache/bazel:/root/.cache/bazel --tty p4-constraints
+      DOCKER: $(echo docker run -v $HOME/.cache/bazel:/root/.cache/bazel --tty p4-constraints)
     steps:
     - uses: actions/checkout@v2
       with:
