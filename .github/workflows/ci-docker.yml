@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Mount bazel cache.
-      DOCKER: docker run --tty p4-constraints -v ~/.cache/bazel:/root/.cache/bazel
+      DOCKER: "docker run -v ~/.cache/bazel:/root/.cache/bazel --tty p4-constraints"
     steps:
     - uses: actions/checkout@v2
       with:
@@ -21,7 +21,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: "~/.cache/bazel"  # See https://docs.bazel.build/versions/master/output_directories.html
-        key: bazel
+        key: bazel_docker
 
     - name: Build Docker image
       run: docker build --tag p4-constraints .
