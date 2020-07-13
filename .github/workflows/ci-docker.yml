@@ -38,7 +38,5 @@ jobs:
         CMD: bazel test //e2e-test/... --test_output=errors
       run: docker run -v $HOME/.cache/bazel:/root/.cache/bazel:Z --tty p4-constraints $CMD
 
-    - name: Shutdown Bazel
-      env:
-        CMD: bazel shutdown
-      run: docker run -v $HOME/.cache/bazel:/root/.cache/bazel:Z --tty p4-constraints $CMD 
+    - name: Shutdown docker (so caching succeeds)
+      run: docker image rm p4-constraints -f 
