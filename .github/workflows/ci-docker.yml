@@ -37,4 +37,3 @@ jobs:
       env:
         CMD: bazel test //e2e-test/... --test_output=errors
       run: docker run -v $HOME/.cache/bazel:/root/.cache/bazel:Z --tty p4-constraints $CMD
-
