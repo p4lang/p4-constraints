@@ -1,5 +1,5 @@
-![build & unit test](https://github.com/p4lang/p4-constraints/workflows/build%20&%20unit%20test/badge.svg)
-![gold test](https://github.com/p4lang/p4-constraints/workflows/gold%20test/badge.svg)
+![native build & test](https://github.com/p4lang/p4-constraints/workflows/native%20build%20&%20test/badge.svg)
+![docker build & test](https://github.com/p4lang/p4-constraints/workflows/docker%20build%20&%20test/badge.svg)
 # p4-constraints
 
 **Work in progress. Feedback and contributions are welcome.**
@@ -112,20 +112,31 @@ Ubuntu as follows:
 apt-get install libgmp-dev
 ```
 
-Ensure that all [third-party dependencies](third_party/) are checked out:
+We inherit a few additional dependencies
+([Bison](https://en.wikipedia.org/wiki/GNU_Bison) and
+[Flex](https://en.wikipedia.org/wiki/Flex_\(lexical_analyser_generator\)))
+from [p4c](https://github.com/p4lang/p4c); these are required for
+[golden testing](#golden-tests) only and can be installed on Ubuntu as follows:
 ```sh
-git submodule update --init --recursive
+apt-get install bison flex libfl-dev
 ```
 
 To build, run
 ```sh
-bazel build //p4_contraints/...
+bazel build //p4_constraints/...
 ```
 
-To test, run
+To run all tests except [golden tests](#golden-tests), run
 ```sh
-bazel test //p4_contraints/...
+bazel test //p4_constraints/...
 ```
+
+To run all tests including [golden tests](#golden-tests), run
+```sh
+bazel test //...
+```
+This may take a while when executed for the first as it will build p4c from
+source.
 
 To see the output of a failed test, invoke it using `bazel run` like so:
 ```sh
@@ -150,30 +161,26 @@ You can also build p4-constraint in a Docker container, for example:
 ```sh
 docker build --tag p4-constraints .                 # Time to get coffee...
 docker run --tty --interactive p4-constraints bash  # Open shell in container.
-bazel test //p4_constraints/...
+bazel test //...                                    # Run tests in container.
 ```
 
 ## Golden tests
 
 The easiest way to experiment with p4-constraints is to write a
 [golden test](https://ro-che.info/articles/2017-12-04-golden-tests).
-We provide [Bazel rules](e2e-test/p4check.bzl) `run_p4check` and `diff_test` to make
-this convenient.
+We provide [Bazel rules](e2e-test/p4check.bzl) `run_p4check` and `diff_test` to
+make this convenient.
 See the [e2e-test/](e2e-test/) folder -- in particular
 [e2e-test/BUILD.bazel](e2e-test/BUILD.bazel) -- for examples of how to use them.
-
-Currently, the golden tests require [p4c](https://github.com/p4lang/p4c) as
-a system dependency (we hope to make this a source dependency in the future):
-```sh
-which p4c  # This needs to succeed for golden tests to work.
-```
-You may want to use our [Docker container](#docker), which comes with p4c
-preinstalled.
 
 To run all golden tests, execute
 ```sh
 bazel test //e2e-test/...
 ```
+[Recall](#building) that this will build p4c and requires
+[Bison](https://en.wikipedia.org/wiki/GNU_Bison) and
+[Flex](https://en.wikipedia.org/wiki/Flex_\(lexical_analyser_generator\))
+to be installed.
 
 To see the output of a failed test, invoke it using `bazel run` like so:
 ```sh
