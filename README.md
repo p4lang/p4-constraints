@@ -135,8 +135,8 @@ To run all tests including [golden tests](#golden-tests), run
 ```sh
 bazel test //...
 ```
-This may take a while when executed for the first as it will build p4c from
-source.
+This may take a while when executed for the first time,
+as it will build p4c from source.
 
 To see the output of a failed test, invoke it using `bazel run` like so:
 ```sh
