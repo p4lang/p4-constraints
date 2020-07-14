@@ -18,7 +18,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: "~/.cache/bazel"  # See https://docs.bazel.build/versions/master/output_directories.html
-        key: bazel_docker
+        key: bazel_docker_
 
     - name: Build Docker image
       run: docker build --tag p4-constraints .
