@@ -23,6 +23,11 @@ jobs:
     - name: Build Docker image
       run: docker build --tag p4-constraints .
     
+    - name: Chown bazel cache in container
+      env:
+        CMD: chown root -R /root/.cache/bazel
+      run:  docker run -v $HOME/.cache/bazel:/root/.cache/bazel:Z --tty p4-constraints $CMD
+    
     - name: Build p4-constraints
       env:
         CMD: bazel build //p4_constraints/...
@@ -41,4 +46,4 @@ jobs:
     - name: Prepare for caching
       run: |
         docker image rm p4-constraints -f
-        sudo rm -rf $HOME/.cache/bazel/_bazel_root/**/server 
+        sudo chown $(whoami) -R $HOME/.cache/bazel
