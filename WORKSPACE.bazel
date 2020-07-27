@@ -18,7 +18,7 @@ rules_proto_dependencies()
 
 rules_proto_toolchains()
 
-# # -- P4{C, Runtime} + transitive dependencies ----------------------------------
+# -- P4{C, Runtime} + transitive dependencies ----------------------------------
 
 load("@com_github_p4lang_p4c//:bazel/p4c_deps.bzl", "p4c_deps")
 
