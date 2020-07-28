@@ -51,7 +51,7 @@ def run_p4check(name, src, out, deps = [], table_entries = [], visibility = None
       visibility: Visibility of this target.
     """
     p4info_file = src + "info.txt"
-    p4check = "//p4_constraints/cli:p4check"
+    p4check = "@com_github_p4lang_p4_constraints//p4_constraints/cli:p4check"
     p4_library(
         name = name + "_p4info",
         visibility = visibility,
