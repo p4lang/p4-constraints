@@ -25,7 +25,7 @@
 //
 // Example client usage for a StatusOr<T>, where T is not a pointer:
 //
-//  ::util::StatusOr<float> result = DoBigCalculationThatCouldFail();
+//  ::gutils::StatusOr<float> result = DoBigCalculationThatCouldFail();
 //  if (result.ok()) {
 //    float answer = result.ValueOrDie();
 //    printf("Big calculation yielded: %f", answer);
@@ -35,7 +35,7 @@
 //
 // Example client usage for a StatusOr<T*>:
 //
-//  ::util::StatusOr<Foo*> result = FooFactory::MakeNewFoo(arg);
+//  ::gutils::StatusOr<Foo*> result = FooFactory::MakeNewFoo(arg);
 //  if (result.ok()) {
 //    std::unique_ptr<Foo> foo(result.ValueOrDie());
 //    foo->DoSomethingCool();
@@ -45,7 +45,7 @@
 //
 // Example client usage for a StatusOr<std::unique_ptr<T>>:
 //
-//  ::util::StatusOr<std::unique_ptr<Foo>> result =
+//  ::gutils::StatusOr<std::unique_ptr<Foo>> result =
 //    FooFactory::MakeNewFoo(arg);
 //  if (result.ok()) {
 //    std::unique_ptr<Foo> foo = std::move(result.ValueOrDie());
@@ -56,9 +56,9 @@
 //
 // Example factory implementation returning StatusOr<T*>:
 //
-//  ::util::StatusOr<Foo*> FooFactory::MakeNewFoo(int arg) {
+//  ::gutils::StatusOr<Foo*> FooFactory::MakeNewFoo(int arg) {
 //    if (arg <= 0) {
-//      return ::util::InvalidArgumentError("Arg must be positive");
+//      return ::gutils::InvalidArgumentError("Arg must be positive");
 //    } else {
 //      return new Foo(arg);
 //    }
@@ -74,10 +74,10 @@
 
 #include "absl/base/attributes.h"
 #include "absl/status/status.h"
-#include "util/status_builder.h"
-#include "util/statusor_internals.h"
+#include "gutils/status_builder.h"
+#include "gutils/statusor_internals.h"
 
-namespace util {
+namespace gutils {
 
 #if defined(__clang__)
 // Only clang supports warn_unused_result as a type annotation.
@@ -151,8 +151,8 @@ class StatusOr : private internal_statusor::StatusOrData<T>,
   // of passing ::absl::StatusCode::kInternal as a fallback.
   StatusOr(const ::absl::Status& status);
   StatusOr& operator=(const ::absl::Status& status);
-  StatusOr(const ::util::StatusBuilder& builder);
-  StatusOr& operator=(const ::util::StatusBuilder& builder);
+  StatusOr(const ::gutils::StatusBuilder& builder);
+  StatusOr& operator=(const ::gutils::StatusBuilder& builder);
 
   // TODO: Add operator=(T) overloads.
 
@@ -164,8 +164,8 @@ class StatusOr : private internal_statusor::StatusOrData<T>,
   // RValue versions of the operations declared above.
   StatusOr(::absl::Status&& status);
   StatusOr& operator=(::absl::Status&& status);
-  StatusOr(::util::StatusBuilder&& builder);
-  StatusOr& operator=(::util::StatusBuilder&& builder);
+  StatusOr(::gutils::StatusBuilder&& builder);
+  StatusOr& operator=(::gutils::StatusBuilder&& builder);
 
   // Returns this->status().ok()
   bool ok() const { return this->status_.ok(); }
@@ -222,7 +222,7 @@ template <typename T>
 StatusOr<T>::StatusOr(const ::absl::Status& status) : Base(status) {}
 
 template <typename T>
-StatusOr<T>::StatusOr(const ::util::StatusBuilder& builder) : Base(builder) {}
+StatusOr<T>::StatusOr(const ::gutils::StatusBuilder& builder) : Base(builder) {}
 
 template <typename T>
 StatusOr<T>& StatusOr<T>::operator=(const ::absl::Status& status) {
@@ -231,7 +231,7 @@ StatusOr<T>& StatusOr<T>::operator=(const ::absl::Status& status) {
 }
 
 template <typename T>
-StatusOr<T>& StatusOr<T>::operator=(const ::util::StatusBuilder& builder) {
+StatusOr<T>& StatusOr<T>::operator=(const ::gutils::StatusBuilder& builder) {
   return *this = static_cast<::absl::Status>(builder);
 }
 
@@ -242,7 +242,7 @@ template <typename T>
 StatusOr<T>::StatusOr(::absl::Status&& status) : Base(std::move(status)) {}
 
 template <typename T>
-StatusOr<T>::StatusOr(::util::StatusBuilder&& builder)
+StatusOr<T>::StatusOr(::gutils::StatusBuilder&& builder)
     : Base(std::move(builder)) {}
 
 template <typename T>
@@ -252,7 +252,7 @@ StatusOr<T>& StatusOr<T>::operator=(::absl::Status&& status) {
 }
 
 template <typename T>
-StatusOr<T>& StatusOr<T>::operator=(::util::StatusBuilder&& builder) {
+StatusOr<T>& StatusOr<T>::operator=(::gutils::StatusBuilder&& builder) {
   return *this = static_cast<::absl::Status>(std::move(builder));
 }
 
@@ -325,6 +325,6 @@ void StatusOr<T>::IgnoreError() const {
   // no-op
 }
 
-}  // namespace util
+}  // namespace gutils
 
 #endif  // MEDIAPIPE_DEPS_DEFAULT_STATUSOR_H_

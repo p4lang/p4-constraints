@@ -19,13 +19,13 @@
 
 #include <vector>
 
+#include "gutils/statusor.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/token.h"
-#include "util/statusor.h"
 
 namespace p4_constraints {
 
-util::StatusOr<ast::Expression> ParseConstraint(
+gutils::StatusOr<ast::Expression> ParseConstraint(
     const std::vector<Token>& tokens);
 }
 

@@ -26,22 +26,22 @@
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "gutils/parse_text_proto.h"
+#include "gutils/status_matchers.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
-#include "util/parse_text_proto.h"
-#include "util/status_matchers.h"
 
 namespace p4_constraints {
 namespace internal_interpreter {
 
 using ::absl::StatusCode;
+using ::gutils::ParseTextProtoOrDie;
+using ::gutils::testing::status::IsOkAndHolds;
+using ::gutils::testing::status::StatusIs;
 using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::Type;
 using ::testing::Eq;
-using ::util::ParseTextProtoOrDie;
-using ::util::testing::status::IsOkAndHolds;
-using ::util::testing::status::StatusIs;
 
 class EntryMeetsConstraintTest : public ::testing::Test {
  public:

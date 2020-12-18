@@ -21,12 +21,12 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "glog/logging.h"
+#include "gutils/status_macros.h"
+#include "gutils/statusor.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/quote.h"
-#include "util/status_macros.h"
-#include "util/statusor.h"
 
 namespace p4_constraints {
 
@@ -39,9 +39,9 @@ using ::p4_constraints::ast::Type;
 
 // -- Error handling -----------------------------------------------------------
 
-util::StatusBuilder TypeError(const SourceLocation& start,
-                              const SourceLocation& end) {
-  return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+gutils::StatusBuilder TypeError(const SourceLocation& start,
+                                const SourceLocation& end) {
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
          << QuoteSourceLocation(start, end) << "Type error: ";
 }
 
@@ -120,7 +120,7 @@ void WrapWithCast(Expression* expr, Type type) {
 // LeastUpperBound(left.type(), right.type()) exists, Unify returns successfully
 // and mutates the expressions by wrapping them with type casts to the least
 // upper bound. Otherwise, Unify returns an InvalidArgument Status.
-util::StatusOr<Type> Unify(Expression* left, Expression* right) {
+gutils::StatusOr<Type> Unify(Expression* left, Expression* right) {
   const absl::optional<Type> least_upper_bound =
       LeastUpperBound(left->type(), right->type());
   if (!least_upper_bound.has_value()) {
@@ -272,7 +272,7 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
           return absl::OkStatus();
         }
         default:
-          return util::InternalErrorBuilder(UTIL_LOC)
+          return gutils::InternalErrorBuilder(GUTILS_LOC)
                  << "unknown binary operator "
                  << ast::BinaryOperator_Name(bin_expr->binop());
       }
@@ -299,7 +299,7 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
     }
 
     default:
-      return util::InternalErrorBuilder(UTIL_LOC)
+      return gutils::InternalErrorBuilder(GUTILS_LOC)
              << "unknown expression case: " << expr->expression_case();
   }
 }

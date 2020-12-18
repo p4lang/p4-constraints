@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "util/status_builder.h"
+#include "gutils/status_builder.h"
 
 #include <cstdio>
 
@@ -39,7 +39,7 @@ absl::Status Annotate(const absl::Status& s, absl::string_view msg) {
 
 }  // namespace
 
-namespace util {
+namespace gutils {
 
 StatusBuilder::StatusBuilder(const absl::Status& original_status,
                              SourceLocation location)
@@ -162,4 +162,4 @@ StatusBuilder UnknownErrorBuilder(SourceLocation location) {
   return StatusBuilder(absl::StatusCode::kUnknown, location);
 }
 
-}  // namespace util
+}  // namespace gutils

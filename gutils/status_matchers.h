@@ -14,9 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef UTIL_INTERNAL_STATUS_MATCHERS_H_
-#define UTIL_INTERNAL_STATUS_MATCHERS_H_
+#ifndef GUTILS_INTERNAL_STATUS_MATCHERS_H_
+#define GUTILS_INTERNAL_STATUS_MATCHERS_H_
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <memory>
@@ -24,17 +25,17 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
-#include "util/statusor.h"
+#include "gutils/statusor.h"
 
 #undef EXPECT_OK
 #undef ASSERT_OK
 #undef ASSERT_OK_AND_ASSIGN
 
-namespace util {
+namespace gutils {
 
 namespace internal {
 
-// Implements a gMock matcher that checks that an util::StaturOr<T> has an OK
+// Implements a gMock matcher that checks that an gutils::StaturOr<T> has an OK
 // status and that the contained T value matches another matcher.
 template <typename T>
 class IsOkAndHoldsMatcher
@@ -105,7 +106,7 @@ class IsOkAndHoldsGenerator {
 };
 
 // Implements a gMock matcher for checking error-code expectations on
-// absl::Status and util::StatusOr objects.
+// absl::Status and gutils::StatusOr objects.
 template <typename Enum, typename Matchee>
 class StatusMatcher : public ::testing::MatcherInterface<Matchee> {
  public:
@@ -170,7 +171,7 @@ class StatusMatcher : public ::testing::MatcherInterface<Matchee> {
 };
 
 // StatusMatcherGenerator is an intermediate object returned by
-// util::testing::status::StatusIs().
+// gutils::testing::status::StatusIs().
 // It implements implicit type-cast operators to supported matcher types:
 // Matcher<const absl::Status &> and Matcher<const StatusOr<T> &>. These
 // typecast operators create gMock matchers that test OK expectations on a
@@ -188,7 +189,7 @@ class StatusIsMatcherGenerator {
                                                                 message_));
   }
 
-  // Type-cast operator for Matcher<const util::StatusOr<T> &>.
+  // Type-cast operator for Matcher<const gutils::StatusOr<T> &>.
   template <class T>
   operator ::testing::Matcher<const StatusOr<T> &>() const {
     return ::testing::MakeMatcher(
@@ -205,7 +206,7 @@ class StatusIsMatcherGenerator {
 };
 
 // Implements a gMock matcher that checks whether a status container (e.g.
-// absl::Status or util::StatusOr<T>) has an OK status.
+// absl::Status or gutils::StatusOr<T>) has an OK status.
 template <class T>
 class IsOkMatcherImpl : public ::testing::MatcherInterface<T> {
  public:
@@ -238,7 +239,7 @@ class IsOkMatcherImpl : public ::testing::MatcherInterface<T> {
   }
 };
 
-// IsOkMatcherGenerator is an intermediate object returned by util::IsOk().
+// IsOkMatcherGenerator is an intermediate object returned by gutils::IsOk().
 // It implements implicit type-cast operators to supported matcher types:
 // Matcher<const absl::Status &> and Matcher<const StatusOr<T> &>. These
 // typecast operators create gMock matchers that test OK expectations on a
@@ -251,7 +252,7 @@ class IsOkMatcherGenerator {
         new internal::IsOkMatcherImpl<const absl::Status &>());
   }
 
-  // Type-cast operator for Matcher<const util::StatusOr<T> &>.
+  // Type-cast operator for Matcher<const gutils::StatusOr<T> &>.
   template <class T>
   operator ::testing::Matcher<const StatusOr<T> &>() const {
     return ::testing::MakeMatcher(
@@ -264,9 +265,9 @@ class IsOkMatcherGenerator {
 namespace testing {
 namespace status {
 
-namespace internal = ::util::internal;
+namespace internal = ::gutils::internal;
 
-// Returns a gMock matcher that expects an util::StatusOr<T> object to have an
+// Returns a gMock matcher that expects an gutils::StatusOr<T> object to have an
 // OK status and for the contained T object to match |value_matcher|.
 //
 // Example:
@@ -304,7 +305,7 @@ internal::StatusIsMatcherGenerator<Enum> StatusIs(Enum code,
 }
 
 // Returns an internal::IsOkMatcherGenerator, which may be typecast to a
-// Matcher<absl::Status> or Matcher<util::StatusOr<T>>. These gMock
+// Matcher<absl::Status> or Matcher<gutils::StatusOr<T>>. These gMock
 // matchers test that a given status container has an OK status.
 inline internal::IsOkMatcherGenerator IsOk() {
   return internal::IsOkMatcherGenerator();
@@ -314,11 +315,11 @@ inline internal::IsOkMatcherGenerator IsOk() {
 }  // namespace testing
 
 // Macros for testing the results of functions that return absl::Status or
-// util::StatusOr<T> (for any type T).
-#define EXPECT_OK(rexpr) EXPECT_THAT(rexpr, ::util::testing::status::IsOk())
-#define ASSERT_OK(rexpr) ASSERT_THAT(rexpr, ::util::testing::status::IsOk())
+// gutils::StatusOr<T> (for any type T).
+#define EXPECT_OK(rexpr) EXPECT_THAT(rexpr, ::gutils::testing::status::IsOk())
+#define ASSERT_OK(rexpr) ASSERT_THAT(rexpr, ::gutils::testing::status::IsOk())
 
-// Executes an expression that returns an util::StatusOr<T>, and assigns the
+// Executes an expression that returns an gutils::StatusOr<T>, and assigns the
 // contained variable to lhs if the error code is OK.
 // If the absl::Status is non-OK, generates a test failure and returns from the
 // current function, which must have a void return type.
@@ -343,10 +344,10 @@ inline internal::IsOkMatcherGenerator IsOk() {
   IREE_STATUS_MACROS_CONCAT_IMPL(x, y)
 #define IREE_STATUS_MACROS_CONCAT_IMPL(x, y) x##y
 
-// Implements the PrintTo() method for util::StatusOr<T>. This method is
-// used by gUnit to print util::StatusOr<T> objects for debugging. The
+// Implements the PrintTo() method for gutils::StatusOr<T>. This method is
+// used by gUnit to print gutils::StatusOr<T> objects for debugging. The
 // implementation relies on gUnit for printing values of T when a
-// util::StatusOr<T> object is OK and contains a value.
+// gutils::StatusOr<T> object is OK and contains a value.
 template <typename T>
 void PrintTo(const StatusOr<T> &statusor, std::ostream *os) {
   if (!statusor.ok()) {
@@ -357,6 +358,6 @@ void PrintTo(const StatusOr<T> &statusor, std::ostream *os) {
   }
 }
 
-}  // namespace util
+}  // namespace gutils
 
-#endif  // UTIL_INTERNAL_STATUS_MATCHERS_H_
+#endif  // GUTILS_INTERNAL_STATUS_MATCHERS_H_

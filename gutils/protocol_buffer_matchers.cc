@@ -16,11 +16,9 @@
  * limitations under the License.
  */
 
-#include "util/protocol_buffer_matchers.h"
+#include "gutils/protocol_buffer_matchers.h"
 
-#include <gmock/gmock-generated-matchers.h>
-#include <gmock/gmock-matchers.h>
-#include <gmock/gmock-more-matchers.h>
+#include <gmock/gmock.h>
 
 #include <algorithm>
 #include <string>
@@ -37,12 +35,11 @@
 
 #include "re2/re2.h"
 
-namespace util {
+namespace gutils {
 namespace testing {
 namespace internal {
 
 using absl::string_view;
-using RegExpStringPiece = re2::StringPiece;
 
 // Utilities.
 
@@ -181,7 +178,7 @@ class IgnoreFieldPathCriteria
 };
 
 namespace {
-bool Consume(RegExpStringPiece* s, RegExpStringPiece x) {
+bool Consume(re2::StringPiece* s, re2::StringPiece x) {
   // We use the implementation of ABSL's StartsWith here until we can pick up a
   // dependency on Abseil.
   if (x.empty() ||
@@ -212,7 +209,7 @@ ParseFieldPathOrDie(const std::string& relative_field_path,
   const RE2 field_subscript_regex(R"(([^.()[\]]+)\[(\d+)\])");
   const RE2 extension_regex(R"(\(([^)]+)\))");
 
-  RegExpStringPiece input(relative_field_path);
+  re2::StringPiece input(relative_field_path);
   while (!input.empty()) {
     // Consume a dot, except on the first iteration.
     if (input.size() < relative_field_path.size() && !Consume(&input, ".")) {
@@ -404,4 +401,4 @@ bool ProtoMatcherBase::MatchAndExplain(
 
 }  // namespace internal
 }  // namespace testing
-}  // namespace util
+}  // namespace gutils

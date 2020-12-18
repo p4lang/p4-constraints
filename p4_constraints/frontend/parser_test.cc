@@ -21,17 +21,17 @@
 #include <utility>
 #include <vector>
 
+#include "gutils/protocol_buffer_matchers.h"
+#include "gutils/status_matchers.h"
+#include "gutils/statusor.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/token.h"
-#include "util/protocol_buffer_matchers.h"
-#include "util/status_matchers.h"
-#include "util/statusor.h"
 
 namespace p4_constraints {
 
-using ::util::testing::EqualsProto;
-using ::util::testing::proto::Partially;
-using ::util::testing::status::IsOkAndHolds;
+using ::gutils::testing::EqualsProto;
+using ::gutils::testing::proto::Partially;
+using ::gutils::testing::status::IsOkAndHolds;
 
 Token Binary(std::string text) {
   return Token(Token::BINARY, text, ast::SourceLocation(),

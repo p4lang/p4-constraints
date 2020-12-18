@@ -6,11 +6,6 @@ package(
 )
 
 cc_library(
-    name = "integral_types",
-    hdrs = ["integral_types.h"],
-)
-
-cc_library(
     name = "source_location",
     hdrs = ["source_location.h"],
 )
@@ -78,7 +73,6 @@ cc_library(
     srcs = ["protocol_buffer_matchers.cc"],
     hdrs = ["protocol_buffer_matchers.h"],
     deps = [
-        ":integral_types",
         "@com_google_absl//absl/strings",
         "@com_google_glog//:glog",
         "@com_google_googletest//:gtest",

@@ -23,20 +23,20 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/substitute.h"
+#include "gutils/parse_text_proto.h"
+#include "gutils/status_matchers.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
-#include "util/parse_text_proto.h"
-#include "util/status_matchers.h"
 
 namespace p4_constraints {
 
 using ::absl::StatusCode;
+using ::gutils::ParseTextProtoOrDie;
+using ::gutils::testing::status::IsOk;
+using ::gutils::testing::status::StatusIs;
 using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::Type;
-using ::util::ParseTextProtoOrDie;
-using ::util::testing::status::IsOk;
-using ::util::testing::status::StatusIs;
 
 class InferAndCheckTypesTest : public ::testing::Test {
  public:

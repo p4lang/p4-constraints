@@ -36,11 +36,11 @@
 #include "absl/types/variant.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/text_format.h"
+#include "gutils/statusor.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/backend/interpreter.h"
-#include "util/statusor.h"
 
 using ::p4_constraints::ConstraintInfo;
 using ::p4_constraints::EntryMeetsConstraint;
@@ -54,7 +54,7 @@ constexpr char kUsage[] =
 // p4::config::v1::P4Ids::TABLE. To ease writing table entries by hand in
 // testing, we simply coerce all table IDs into the correct format.
 // See P4Runtime specification, "6.3 ID Allocation for P4Info Objects".
-uint32 CoerceToTableId(uint32 table_id) {
+uint32_t CoerceToTableId(uint32_t table_id) {
   return (table_id & 0x00FFFFFF) | (p4::config::v1::P4Ids::TABLE << 24);
 }
 
@@ -133,7 +133,8 @@ int main(int argc, char** argv) {
     entry.set_table_id(CoerceToTableId(entry.table_id()));
 
     // Check entry.
-    util::StatusOr<bool> result = EntryMeetsConstraint(entry, constraint_info);
+    gutils::StatusOr<bool> result =
+        EntryMeetsConstraint(entry, constraint_info);
     if (!result.ok()) {
       std::cout << "Error: " << result.status() << "\n\n";
       continue;

@@ -27,15 +27,14 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "glog/logging.h"
+#include "gutils/ret_check.h"
+#include "gutils/status_macros.h"
+#include "gutils/statusor.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/quote.h"
-#include "util/integral_types.h"
-#include "util/ret_check.h"
-#include "util/status_macros.h"
-#include "util/statusor.h"
 
 namespace p4_constraints {
 
@@ -51,9 +50,9 @@ namespace internal_interpreter {
 // Returns P4Info object ID as string, both including and excluding its object
 // type, which is encoded in the 8 most significant bits of the ID.
 // See P4Runtime specification, "6.3 ID Allocation for P4Info Objects".
-std::string P4IDToString(uint32 p4_object_id) {
+std::string P4IDToString(uint32_t p4_object_id) {
   // Erase 8 most significant bits, which determine the P4Info object type.
-  uint32 id_without_type_prefix = p4_object_id & 0x00ffffff;
+  uint32_t id_without_type_prefix = p4_object_id & 0x00ffffff;
   if (id_without_type_prefix == p4_object_id) {
     // When no type prefix is included for whatever reason, simply return ID.
     return absl::StrFormat("%d (0x%.8x)", p4_object_id, p4_object_id);
@@ -65,7 +64,7 @@ std::string P4IDToString(uint32 p4_object_id) {
 // -- Parsing P4RT table entries -----------------------------------------------
 
 // See https://p4.org/p4runtime/spec/master/P4Runtime-Spec.html#sec-bytestrings.
-util::StatusOr<Integer> ParseP4RTInteger(const std::string& int_str) {
+gutils::StatusOr<Integer> ParseP4RTInteger(const std::string& int_str) {
   mpz_class integer;
   const char* chars = int_str.c_str();
   const size_t char_count = strlen(chars);
@@ -80,11 +79,11 @@ util::StatusOr<Integer> ParseP4RTInteger(const std::string& int_str) {
 }
 
 // Returns (table key name, table key value)-pair.
-util::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
+gutils::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
     const p4::v1::FieldMatch& p4field, const TableInfo& table_info) {
   auto it = table_info.keys_by_id.find(p4field.field_id());
   if (it == table_info.keys_by_id.end()) {
-    return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "unknown table key with ID " << P4IDToString(p4field.field_id());
   }
   const KeyInfo& key = it->second;
@@ -132,21 +131,21 @@ util::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
     }
 
     default:
-      return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
              << "unsupported P4RT field match type "
              << p4field.field_match_type_case();
   }
 }
 
-util::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
-                                      const TableInfo& table_info) {
+gutils::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
+                                        const TableInfo& table_info) {
   absl::flat_hash_map<std::string, EvalResult> keys;
   for (const p4::v1::FieldMatch& field : entry.match()) {
     ASSIGN_OR_RETURN(auto kv, ParseKey(field, table_info),
                      _ << " while parsing P4RT table entry");
     auto result = keys.insert(kv);
     if (result.second == false) {
-      return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
              << "Unable to parse P4RT table entry: duplicate match on key "
              << kv.first << " with ID " << P4IDToString(field.field_id());
     }
@@ -156,17 +155,17 @@ util::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
 
 // -- Error handling -----------------------------------------------------------
 
-util::StatusBuilder TypeError(const ast::SourceLocation& start,
-                              const ast::SourceLocation& end) {
-  return util::InternalErrorBuilder(UTIL_LOC)
+gutils::StatusBuilder TypeError(const ast::SourceLocation& start,
+                                const ast::SourceLocation& end) {
+  return gutils::InternalErrorBuilder(GUTILS_LOC)
          << QuoteSourceLocation(start, end) << "Runtime type error: ";
 }
 
 // -- Auxiliary evaluators -----------------------------------------------------
 
 // Like Eval, but ensuring the result is a bool.
-util::StatusOr<bool> EvalToBool(const Expression& expr,
-                                const TableEntry& entry) {
+gutils::StatusOr<bool> EvalToBool(const Expression& expr,
+                                  const TableEntry& entry) {
   ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry));
   if (absl::holds_alternative<bool>(result)) return absl::get<bool>(result);
   return TypeError(expr.start_location(), expr.end_location())
@@ -174,8 +173,8 @@ util::StatusOr<bool> EvalToBool(const Expression& expr,
 }
 
 // Like Eval, but ensuring the result is an Integer.
-util::StatusOr<Integer> EvalToInt(const Expression& expr,
-                                  const TableEntry& entry) {
+gutils::StatusOr<Integer> EvalToInt(const Expression& expr,
+                                    const TableEntry& entry) {
   ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry));
   if (absl::holds_alternative<Integer>(result))
     return absl::get<Integer>(result);
@@ -183,9 +182,9 @@ util::StatusOr<Integer> EvalToInt(const Expression& expr,
          << "expected expression of integral type";
 }
 
-util::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
-                                         const Expression& expr,
-                                         const TableEntry& entry) {
+gutils::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
+                                           const Expression& expr,
+                                           const TableEntry& entry) {
   ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry));
   if (!absl::holds_alternative<Integer>(result))
     return TypeError(expr.start_location(), expr.end_location())
@@ -229,15 +228,15 @@ util::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
       return {Range{.low = value, .high = value}};
 
     default:
-      return util::InternalErrorBuilder(UTIL_LOC)
+      return gutils::InternalErrorBuilder(GUTILS_LOC)
              << "don't know how to cast to type " << type;
   }
 }
 
-util::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
-                                          const Expression& left_expr,
-                                          const Expression& right_expr,
-                                          const TableEntry& entry) {
+gutils::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
+                                            const Expression& left_expr,
+                                            const Expression& right_expr,
+                                            const TableEntry& entry) {
   switch (binop) {
     // (In-)Equality comparison.
     case ast::EQ:
@@ -301,7 +300,7 @@ util::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
     }
 
     default:
-      return util::InternalErrorBuilder(UTIL_LOC)
+      return gutils::InternalErrorBuilder(GUTILS_LOC)
              << "unknown binary operator " << ast::BinaryOperator_Name(binop)
              << " encountered at runtime";
   }
@@ -311,36 +310,36 @@ struct EvalFieldAccess {
   const absl::string_view field;
 
   absl::Status Error(const std::string& type) {
-    return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "value of type " << type << " has no field " << field;
   }
 
-  util::StatusOr<EvalResult> operator()(const Exact& exact) {
+  gutils::StatusOr<EvalResult> operator()(const Exact& exact) {
     if (field == "value") return {exact.value};
     return Error("exact");
   }
 
-  util::StatusOr<EvalResult> operator()(const Ternary& ternary) {
+  gutils::StatusOr<EvalResult> operator()(const Ternary& ternary) {
     if (field == "value") return {ternary.value};
     if (field == "mask") return {ternary.mask};
     return Error("ternary");
   }
 
-  util::StatusOr<EvalResult> operator()(const Lpm& lpm) {
+  gutils::StatusOr<EvalResult> operator()(const Lpm& lpm) {
     if (field == "value") return {lpm.value};
     if (field == "prefix_length") return {lpm.prefix_length};
     return Error("lpm");
   }
 
-  util::StatusOr<EvalResult> operator()(const Range& range) {
+  gutils::StatusOr<EvalResult> operator()(const Range& range) {
     if (field == "low") return {range.low};
     if (field == "high") return {range.high};
     return Error("range");
   }
 
-  util::StatusOr<EvalResult> operator()(bool b) { return Error("bool"); }
+  gutils::StatusOr<EvalResult> operator()(bool b) { return Error("bool"); }
 
-  util::StatusOr<EvalResult> operator()(const Integer& i) {
+  gutils::StatusOr<EvalResult> operator()(const Integer& i) {
     return Error("int");
   }
 };
@@ -352,8 +351,8 @@ struct EvalFieldAccess {
 //
 // Eval (without underscore) is a thin wrapper around Eval_, see further down;
 // Eval_ should never be called directly, except by Eval.
-util::StatusOr<EvalResult> Eval_(const Expression& expr,
-                                 const TableEntry& entry) {
+gutils::StatusOr<EvalResult> Eval_(const Expression& expr,
+                                   const TableEntry& entry) {
   switch (expr.expression_case()) {
     case Expression::kBooleanConstant:
       return {expr.boolean_constant()};
@@ -361,7 +360,7 @@ util::StatusOr<EvalResult> Eval_(const Expression& expr,
     case Expression::kIntegerConstant: {
       mpz_class result;
       if (result.set_str(expr.integer_constant(), 10) == 0) return {result};
-      return util::InternalErrorBuilder(UTIL_LOC)
+      return gutils::InternalErrorBuilder(GUTILS_LOC)
              << "AST invariant violated; invalid decimal string: "
              << expr.integer_constant();
     }
@@ -399,7 +398,7 @@ util::StatusOr<EvalResult> Eval_(const Expression& expr,
       const Expression& composite_expr = expr.field_access().expr();
       const std::string& field = expr.field_access().field();
       ASSIGN_OR_RETURN(EvalResult composite_value, Eval(composite_expr, entry));
-      util::StatusOr<EvalResult> result =
+      gutils::StatusOr<EvalResult> result =
           absl::visit(EvalFieldAccess{.field = field}, composite_value);
       if (!result.ok()) {
         return TypeError(expr.start_location(), expr.end_location())
@@ -409,11 +408,11 @@ util::StatusOr<EvalResult> Eval_(const Expression& expr,
     }
 
     case Expression::EXPRESSION_NOT_SET:
-      return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
              << "invalid expression: " << expr.DebugString();
 
     default:
-      return util::UnimplementedErrorBuilder(UTIL_LOC)
+      return gutils::UnimplementedErrorBuilder(GUTILS_LOC)
              << "unknown expression case: " << expr.expression_case();
   }
 }
@@ -452,8 +451,8 @@ absl::Status DynamicTypeCheck(const Expression& expr, const EvalResult result) {
 
 // Wraps Eval_ with dynamic type check to ease debugging. Never call Eval_
 // directly; call Eval instead.
-util::StatusOr<EvalResult> Eval(const Expression& expr,
-                                const TableEntry& entry) {
+gutils::StatusOr<EvalResult> Eval(const Expression& expr,
+                                  const TableEntry& entry) {
   ASSIGN_OR_RETURN(EvalResult result, Eval_(expr, entry));
   RETURN_IF_ERROR(DynamicTypeCheck(expr, result));
   return result;
@@ -463,8 +462,8 @@ util::StatusOr<EvalResult> Eval(const Expression& expr,
 
 // -- Public interface ---------------------------------------------------------
 
-util::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
-                                          const ConstraintInfo& context) {
+gutils::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
+                                            const ConstraintInfo& context) {
   using ::p4_constraints::internal_interpreter::EvalToBool;
   using ::p4_constraints::internal_interpreter::P4IDToString;
   using ::p4_constraints::internal_interpreter::ParseEntry;
@@ -473,7 +472,7 @@ util::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
   // Find table associated with entry and parse the entry.
   auto it = context.find(entry.table_id());
   if (it == context.end())
-    return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "table entry with unknown table ID "
            << P4IDToString(entry.table_id());
   const TableInfo& table_info = it->second;
@@ -487,7 +486,7 @@ util::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
   }
   const Expression& constraint = table_info.constraint.value();
   if (constraint.type().type_case() != Type::kBoolean) {
-    return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "table " << table_info.name
            << " has non-boolean constraint: " << constraint.DebugString();
   }

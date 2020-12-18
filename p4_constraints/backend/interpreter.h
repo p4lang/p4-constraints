@@ -24,10 +24,10 @@
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
+#include "gutils/statusor.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
-#include "util/statusor.h"
 
 namespace p4_constraints {
 
@@ -36,8 +36,8 @@ namespace p4_constraints {
 // exists. Returns an InvalidArgument Status if the entry belongs to a table not
 // present in ConstraintInfo, or if it is inconsistent with the table definition
 // in ConstraintInfo.
-util::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
-                                          const ConstraintInfo& context);
+gutils::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
+                                            const ConstraintInfo& context);
 
 // -- END OF PUBLIC INTERFACE --------------------------------------------------
 
@@ -97,8 +97,8 @@ struct TableEntry {
   // TODO(smolkaj): once we support actions, they will be added here.
 };
 
-util::StatusOr<EvalResult> Eval(const ast::Expression& expr,
-                                const TableEntry& entry);
+gutils::StatusOr<EvalResult> Eval(const ast::Expression& expr,
+                                  const TableEntry& entry);
 
 }  // namespace internal_interpreter
 

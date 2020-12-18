@@ -12,7 +12,6 @@ cc_library(
     hdrs = ["ast.h"],
     deps = [
         ":ast_cc_proto",
-        "//util:integral_types",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@com_google_glog//:glog",

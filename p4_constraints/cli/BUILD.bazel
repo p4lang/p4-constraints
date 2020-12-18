@@ -9,9 +9,9 @@ cc_binary(
     name = "p4check",
     srcs = ["p4check.cc"],
     deps = [
+        "//gutils:status",
         "//p4_constraints/backend:constraint_info",
         "//p4_constraints/backend:interpreter",
-        "//util:status",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/flags:flag",
@@ -20,6 +20,7 @@ cc_binary(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
+        "@com_google_absl//absl/types:variant",
         "@com_google_protobuf//:protobuf",
     ],
 )

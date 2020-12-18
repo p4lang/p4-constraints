@@ -23,6 +23,9 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/types/variant.h"
+#include "gutils/ret_check.h"
+#include "gutils/status_macros.h"
+#include "gutils/statusor.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/type_checker.h"
@@ -30,10 +33,6 @@
 #include "p4_constraints/frontend/parser.h"
 #include "re2/re2.h"
 #include "re2/stringpiece.h"
-#include "util/integral_types.h"
-#include "util/ret_check.h"
-#include "util/status_macros.h"
-#include "util/statusor.h"
 
 namespace p4_constraints {
 
@@ -42,7 +41,7 @@ namespace {  // internal only
 using p4::config::v1::MatchField;
 using p4::config::v1::Table;
 
-util::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
+gutils::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
     const Table& table) {
   // We expect .p4 files to have the following format:
   // ```p4
@@ -82,7 +81,7 @@ util::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
   }
   if (!absl::ConsumePrefix(&constraint, "(\"") ||
       !absl::ConsumeSuffix(&constraint, "\")")) {
-    return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "In table " << table.preamble().name() << ":\n"
            << "Syntax error: @entry_restriction must be enclosed in "
               "'(\"' and '\")'";
@@ -93,7 +92,7 @@ util::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
   return ParseConstraint(Tokenize(constraint_str, location));
 }
 
-util::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
+gutils::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
   ast::Type type;
   switch (key.match_case()) {
     case MatchField::kMatchType:
@@ -111,7 +110,7 @@ util::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
           type.mutable_range()->set_bitwidth(key.bitwidth());
           return type;
         default:
-          return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+          return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
                  << "match key of invalid MatchType: "
                  << MatchField::MatchType_Name(key.match_type());
       }
@@ -119,25 +118,25 @@ util::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
       *type.mutable_unsupported()->mutable_name() = key.other_match_type();
       return type;
     default:
-      return util::InternalErrorBuilder(UTIL_LOC)
+      return gutils::InternalErrorBuilder(GUTILS_LOC)
              << "unknown MatchField.match case: " << key.match_case();
   }
 }
 
-util::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
-  absl::flat_hash_map<uint32, KeyInfo> keys_by_id;
+gutils::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
+  absl::flat_hash_map<uint32_t, KeyInfo> keys_by_id;
   absl::flat_hash_map<std::string, KeyInfo> keys_by_name;
 
   for (const MatchField& key : table.match_fields()) {
     ASSIGN_OR_RETURN(const ast::Type type, ParseKeyType(key));
     const KeyInfo key_info{.id = key.id(), .name = key.name(), .type = type};
     if (!keys_by_id.insert({key_info.id, key_info}).second) {
-      return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
              << "table " << table.preamble().name()
              << " has duplicate key: " << key.DebugString();
     }
     if (!keys_by_name.insert({key_info.name, key_info}).second) {
-      return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
              << "table " << table.preamble().name()
              << " has duplicate key: " << key.DebugString();
     }
@@ -164,16 +163,16 @@ util::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
 absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info) {
   // Allocate output.
-  absl::flat_hash_map<uint32, TableInfo> info;
+  absl::flat_hash_map<uint32_t, TableInfo> info;
   std::vector<absl::Status> errors;
 
   for (const Table& table : p4info.tables()) {
-    util::StatusOr<TableInfo> table_info = ParseTableInfo(table);
+    gutils::StatusOr<TableInfo> table_info = ParseTableInfo(table);
     if (!table_info.ok()) {
       errors.push_back(table_info.status());
     } else if (!info.insert({table.preamble().id(), table_info.ValueOrDie()})
                     .second) {
-      errors.push_back(util::InvalidArgumentErrorBuilder(UTIL_LOC)
+      errors.push_back(gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
                        << "duplicate table: " << table.DebugString());
     }
   }
