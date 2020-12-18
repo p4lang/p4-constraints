@@ -12,26 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "util/statusor.h"
+#ifndef MEDIAPIPE_PORT_PARSE_TEXT_PROTO_H_
+#define MEDIAPIPE_PORT_PARSE_TEXT_PROTO_H_
 
-#include "absl/base/attributes.h"
-#include "absl/status/status.h"
 #include "glog/logging.h"
+#include "google/protobuf/text_format.h"
 
-namespace util {
-namespace internal_statusor {
+namespace gutils {
 
-void Helper::HandleInvalidStatusCtorArg(::absl::Status* status) {
-  const char* kMessage =
-      "An OK status is not a valid constructor argument to StatusOr<T>";
-  LOG(ERROR) << kMessage;
-  *status = ::absl::InternalError(kMessage);
+template <typename T>
+T ParseTextProtoOrDie(const std::string& input) {
+  T result;
+  CHECK(google::protobuf::TextFormat::ParseFromString(input, &result));
+  return result;
 }
 
-void Helper::Crash(const ::absl::Status& status) {
-  LOG(FATAL) << "Attempting to fetch value instead of handling error "
-             << status;
-}
+}  // namespace gutils
 
-}  // namespace internal_statusor
-}  // namespace util
+#endif  // MEDIAPIPE_PORT_PARSE_TEXT_PROTO_H_

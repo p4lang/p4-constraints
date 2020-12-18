@@ -16,40 +16,40 @@
 #define MEDIAPIPE_DEPS_RET_CHECK_H_
 
 #include "absl/base/optimization.h"
-#include "util/status_builder.h"
-#include "util/status_macros.h"
+#include "gutils/status_builder.h"
+#include "gutils/status_macros.h"
 
-namespace util {
+namespace gutils {
 // Returns a StatusBuilder that corresponds to a `RET_CHECK` failure.
-::util::StatusBuilder RetCheckFailSlowPath(::util::SourceLocation location);
-
-// Returns a StatusBuilder that corresponds to a `RET_CHECK` failure.
-::util::StatusBuilder RetCheckFailSlowPath(::util::SourceLocation location,
-                                           const char* condition);
+::gutils::StatusBuilder RetCheckFailSlowPath(::gutils::SourceLocation location);
 
 // Returns a StatusBuilder that corresponds to a `RET_CHECK` failure.
-::util::StatusBuilder RetCheckFailSlowPath(::util::SourceLocation location,
-                                           const char* condition,
-                                           const ::absl::Status& status);
+::gutils::StatusBuilder RetCheckFailSlowPath(::gutils::SourceLocation location,
+                                             const char* condition);
+
+// Returns a StatusBuilder that corresponds to a `RET_CHECK` failure.
+::gutils::StatusBuilder RetCheckFailSlowPath(::gutils::SourceLocation location,
+                                             const char* condition,
+                                             const ::absl::Status& status);
 
 inline StatusBuilder RetCheckImpl(const ::absl::Status& status,
                                   const char* condition,
-                                  ::util::SourceLocation location) {
+                                  ::gutils::SourceLocation location) {
   if (ABSL_PREDICT_TRUE(status.ok()))
-    return ::util::StatusBuilder(absl::OkStatus(), location);
+    return ::gutils::StatusBuilder(absl::OkStatus(), location);
   return RetCheckFailSlowPath(location, condition, status);
 }
 
-}  // namespace util
+}  // namespace gutils
 
 #define RET_CHECK(cond)               \
   while (ABSL_PREDICT_FALSE(!(cond))) \
-  return ::util::RetCheckFailSlowPath(UTIL_LOC, #cond)
+  return ::gutils::RetCheckFailSlowPath(GUTILS_LOC, #cond)
 
 #define RET_CHECK_OK(status) \
-  RETURN_IF_ERROR(::util::RetCheckImpl((status), #status, UTIL_LOC))
+  RETURN_IF_ERROR(::gutils::RetCheckImpl((status), #status, GUTILS_LOC))
 
-#define RET_CHECK_FAIL() return ::util::RetCheckFailSlowPath(UTIL_LOC)
+#define RET_CHECK_FAIL() return ::gutils::RetCheckFailSlowPath(GUTILS_LOC)
 
 #define MEDIAPIPE_INTERNAL_RET_CHECK_OP(name, op, lhs, rhs) \
   RET_CHECK((lhs)op(rhs))

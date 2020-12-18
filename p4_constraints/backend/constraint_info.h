@@ -32,12 +32,11 @@
 #include "absl/types/variant.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
-#include "util/integral_types.h"
 
 namespace p4_constraints {
 
 struct KeyInfo {
-  uint32 id;         // Same as MatchField.id in p4info.proto.
+  uint32_t id;       // Same as MatchField.id in p4info.proto.
   std::string name;  // Same as MatchField.name in p4info.proto.
 
   // Key type specifying how many bits to match on and how, e.g. Ternary<16>.
@@ -46,7 +45,7 @@ struct KeyInfo {
 };
 
 struct TableInfo {
-  uint32 id;         // Same as Table.preamble.id in p4info.proto.
+  uint32_t id;       // Same as Table.preamble.id in p4info.proto.
   std::string name;  // Same as Table.preamble.name in p4info.proto.
 
   // An optional constraint (aka entry_restriction) on table entries.
@@ -54,13 +53,13 @@ struct TableInfo {
 
   // Maps from key IDs/names to KeyInfo.
   // Derives from Table.match_fields in p4info.proto.
-  absl::flat_hash_map<uint32, KeyInfo> keys_by_id;
+  absl::flat_hash_map<uint32_t, KeyInfo> keys_by_id;
   absl::flat_hash_map<std::string, KeyInfo> keys_by_name;
 };
 
 // Contains all information required for constraint checking.
 // Technically, a map from table IDs to TableInfo.
-using ConstraintInfo = absl::flat_hash_map<uint32, TableInfo>;
+using ConstraintInfo = absl::flat_hash_map<uint32_t, TableInfo>;
 
 // Translates P4Info to ConstraintInfo.
 //

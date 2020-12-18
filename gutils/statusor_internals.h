@@ -18,7 +18,7 @@
 #include "absl/base/attributes.h"
 #include "absl/status/status.h"
 
-namespace util {
+namespace gutils {
 namespace internal_statusor {
 
 class Helper {
@@ -239,6 +239,6 @@ struct TraitsBase<false, false> {
 };
 
 }  // namespace internal_statusor
-}  // namespace util
+}  // namespace gutils
 
 #endif  // MEDIAPIPE_DEPS_STATUSOR_INTERNALS_H_

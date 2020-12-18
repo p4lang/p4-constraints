@@ -19,9 +19,8 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
+#include "google/protobuf/util/message_differencer.h"
 #include "p4_constraints/ast.pb.h"
-#include "src/google/protobuf/util/message_differencer.h"
-#include "util/integral_types.h"
 
 namespace p4_constraints {
 namespace ast {

@@ -21,7 +21,8 @@
 // WHAT THIS IS
 // ============
 //
-// This library defines the following matchers in the ::util::testing namespace:
+// This library defines the following matchers in the ::gutils::testing
+// namespace:
 //
 //   EqualsProto(pb)              The argument equals pb.
 //   EqualsInitializedProto(pb)   The argument is initialized and equals pb.
@@ -50,7 +51,7 @@
 // fields are different).
 //
 // This library also defines the following matcher transformer
-// functions in the ::util::testing::proto namespace:
+// functions in the ::gutils::testing::proto namespace:
 //
 //   Approximately(m, margin, fraction)
 //                     The same as m, except that it compares
@@ -153,11 +154,11 @@
 // EXAMPLES
 // ========
 //
-//   using ::util::testing::EqualsProto;
-//   using ::util::testing::EquivToProto;
-//   using ::util::testing::proto::Approximately;
-//   using ::util::testing::proto::Partially;
-//   using ::util::testing::proto::WhenDeserialized;
+//   using ::gutils::testing::EqualsProto;
+//   using ::gutils::testing::EquivToProto;
+//   using ::gutils::testing::proto::Approximately;
+//   using ::gutils::testing::proto::Partially;
+//   using ::gutils::testing::proto::WhenDeserialized;
 //
 //   // my_pb.Equals(expected_pb).
 //   EXPECT_THAT(my_pb, EqualsProto(expected_pb));
@@ -183,12 +184,10 @@
 //   // the type of the protobuf.
 //   // EXPECT_THAT(data, WhenDeserialized(EqualsProto("foo: 1")));
 
-#ifndef UTIL_TESTING_PROTOCOL_BUFFER_MATCHERS_H_
-#define UTIL_TESTING_PROTOCOL_BUFFER_MATCHERS_H_
+#ifndef GUTILS_TESTING_PROTOCOL_BUFFER_MATCHERS_H_
+#define GUTILS_TESTING_PROTOCOL_BUFFER_MATCHERS_H_
 
-#include <gmock/gmock-generated-matchers.h>
-#include <gmock/gmock-matchers.h>
-#include <gmock/gmock-more-matchers.h>
+#include <gmock/gmock.h>
 
 #include <initializer_list>
 #include <iostream>  // NOLINT
@@ -207,9 +206,8 @@
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/field_comparator.h"
 #include "google/protobuf/util/message_differencer.h"
-#include "util/integral_types.h"
 
-namespace util {
+namespace gutils {
 namespace testing {
 
 namespace internal {
@@ -1131,6 +1129,6 @@ WhenDeserializedAs(const InnerMatcher& inner_matcher) {
 
 }  // namespace proto
 }  // namespace testing
-}  // namespace util
+}  // namespace gutils
 
-#endif  // UTIL_TESTING_PROTOCOL_BUFFER_MATCHERS_H_
+#endif  // GUTILS_TESTING_PROTOCOL_BUFFER_MATCHERS_H_

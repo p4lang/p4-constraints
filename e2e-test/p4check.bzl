@@ -120,6 +120,7 @@ def _diff_test_impl(ctx):
     ctx.actions.write(
         output = ctx.outputs.executable,
         content = _diff_test_script(ctx),
+        is_executable = True,
     )
 
     # Make test script dependencies available at runtime.

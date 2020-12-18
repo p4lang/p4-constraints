@@ -12,27 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "util/ret_check.h"
+#include "gutils/ret_check.h"
 
-namespace util {
+namespace gutils {
 
-::util::StatusBuilder RetCheckFailSlowPath(::util::SourceLocation location) {
+::gutils::StatusBuilder RetCheckFailSlowPath(
+    ::gutils::SourceLocation location) {
   // TODO Implement LogWithStackTrace().
-  return ::util::InternalErrorBuilder(location)
+  return ::gutils::InternalErrorBuilder(location)
          << "RET_CHECK failure (" << location.file_name() << ":"
          << location.line() << ") ";
 }
 
-::util::StatusBuilder RetCheckFailSlowPath(::util::SourceLocation location,
-                                           const char* condition) {
-  return ::util::RetCheckFailSlowPath(location) << condition;
+::gutils::StatusBuilder RetCheckFailSlowPath(::gutils::SourceLocation location,
+                                             const char* condition) {
+  return ::gutils::RetCheckFailSlowPath(location) << condition;
 }
 
-::util::StatusBuilder RetCheckFailSlowPath(::util::SourceLocation location,
-                                           const char* condition,
-                                           const ::absl::Status& status) {
-  return ::util::RetCheckFailSlowPath(location)
+::gutils::StatusBuilder RetCheckFailSlowPath(::gutils::SourceLocation location,
+                                             const char* condition,
+                                             const ::absl::Status& status) {
+  return ::gutils::RetCheckFailSlowPath(location)
          << condition << " returned " << status << " ";
 }
 
-}  // namespace util
+}  // namespace gutils

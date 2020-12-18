@@ -19,12 +19,12 @@
 
 #include "absl/status/status.h"
 #include "glog/logging.h"
+#include "gutils/status_macros.h"
+#include "gutils/statusor.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/ast_constructors.h"
 #include "p4_constraints/frontend/token.h"
 #include "p4_constraints/quote.h"
-#include "util/status_macros.h"
-#include "util/statusor.h"
 
 namespace p4_constraints {
 
@@ -127,20 +127,20 @@ int TokenPrecedence(Token::Kind kind) {
 
 // -- Error handling -----------------------------------------------------------
 
-util::StatusBuilder ParseError(const SourceLocation& start,
-                               const SourceLocation& end) {
-  return util::InvalidArgumentErrorBuilder(UTIL_LOC)
+gutils::StatusBuilder ParseError(const SourceLocation& start,
+                                 const SourceLocation& end) {
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
          << QuoteSourceLocation(start, end) << "Parse error: ";
 }
 
-util::StatusBuilder ParseError(Token token) {
+gutils::StatusBuilder ParseError(Token token) {
   return ParseError(token.start_location, token.end_location);
 }
 
 // Returns an error status indicating that the given token came as a surprise,
 // since one of the given other tokens was expected.
 absl::Status Unexpected(Token token, const std::vector<Token::Kind>& expected) {
-  util::StatusBuilder error = ParseError(token);
+  gutils::StatusBuilder error = ParseError(token);
   if (token.kind == Token::UNEXPECTED_CHAR) {
     // Slightly awkward phrasing because the unexpected character may actually
     // be further back in the input, see "known limitation" in lexer.h.
@@ -164,7 +164,7 @@ absl::Status Unexpected(Token token, const std::vector<Token::Kind>& expected) {
 // -- Actual parsing -----------------------------------------------------------
 
 // Tries to parse a token of the given kind and fails if it sees anything else.
-util::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
+gutils::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
   Token token = tokens->Next();
   if (token.kind != kind) return Unexpected(token, {kind});
   return {token};
@@ -205,8 +205,8 @@ util::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //     | ('==' | '!=' | '>' | '>=' | '<' | '<=') constraint
 //
 // extension is then right-recursive and can be implemented using a while loop.
-util::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
-                                                TokenStream* tokens) {
+gutils::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
+                                                  TokenStream* tokens) {
   // Try to parse an 'initial' AST.
   Expression ast;
   const Token token = tokens->Next();
@@ -327,7 +327,7 @@ util::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
 
 // -- Public interface ---------------------------------------------------------
 
-util::StatusOr<Expression> ParseConstraint(const std::vector<Token>& tokens) {
+gutils::StatusOr<Expression> ParseConstraint(const std::vector<Token>& tokens) {
   TokenStream token_stream(tokens);
   ASSIGN_OR_RETURN(Expression ast, ParseConstraintAbove(0, &token_stream));
   RETURN_IF_ERROR(ExpectTokenKind(Token::END_OF_INPUT, &token_stream).status());

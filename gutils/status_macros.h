@@ -16,20 +16,20 @@
 #define IREE_BASE_INTERNAL_STATUS_MACROS_H_
 
 #include "absl/status/status.h"
-#include "util/source_location.h"
-#include "util/status_builder.h"
-#include "util/statusor.h"
+#include "gutils/source_location.h"
+#include "gutils/status_builder.h"
+#include "gutils/statusor.h"
 
 // Evaluates an expression that produces a `absl::Status`. If the status is not
 // ok, returns it from the current function.
 #define RETURN_IF_ERROR(expr)                                   \
   STATUS_MACROS_IMPL_ELSE_BLOCKER_                              \
-  if (util::status_macro_internal::StatusAdaptorForMacros       \
+  if (gutils::status_macro_internal::StatusAdaptorForMacros     \
           status_macro_internal_adaptor = {(expr), IREE_LOC}) { \
   } else /* NOLINT */                                           \
     return status_macro_internal_adaptor.Consume()
 
-// Executes an expression `rexpr` that returns a `util::StatusOr<T>`. On OK,
+// Executes an expression `rexpr` that returns a `gutils::StatusOr<T>`. On OK,
 // moves its value into the variable defined by `lhs`, otherwise returns
 // from the current function.
 #define ASSIGN_OR_RETURN(...)                                                \
@@ -58,7 +58,7 @@
                                              error_expression)          \
   auto statusor = (rexpr);                                              \
   if (ABSL_PREDICT_FALSE(!statusor.ok())) {                             \
-    util::StatusBuilder _(std::move(statusor).status(), IREE_LOC);      \
+    gutils::StatusBuilder _(std::move(statusor).status(), IREE_LOC);    \
     (void)_; /* error_expression is allowed to not use this variable */ \
     return (error_expression);                                          \
   }                                                                     \
@@ -72,7 +72,7 @@
 #define STATUS_MACROS_IMPL_ELSE_BLOCKER_ switch (0) case 0: default:  // NOLINT
 // clang-format on
 
-namespace util {
+namespace gutils {
 namespace status_macro_internal {
 
 // Provides a conversion to bool so that it can be used inside an if statement
@@ -103,6 +103,6 @@ class StatusAdaptorForMacros {
 };
 
 }  // namespace status_macro_internal
-}  // namespace util
+}  // namespace gutils
 
 #endif  // IREE_BASE_INTERNAL_STATUS_MACROS_H_

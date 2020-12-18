@@ -18,9 +18,9 @@
 #include <sstream>
 
 #include "absl/status/status.h"
-#include "util/source_location.h"
+#include "gutils/source_location.h"
 
-namespace util {
+namespace gutils {
 
 // Creates a status based on an original_status, but enriched with additional
 // information. The builder implicitly converts to Status and StatusOr<T>
@@ -129,6 +129,6 @@ StatusBuilder UnimplementedErrorBuilder(
 StatusBuilder UnknownErrorBuilder(
     SourceLocation location IREE_LOC_CURRENT_DEFAULT_ARG);
 
-}  // namespace util
+}  // namespace gutils
 
 #endif  // IREE_BASE_INTERNAL_STATUS_BUILDER_H_

@@ -16,7 +16,7 @@
 // Based on http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4519.pdf.
 //
 // To define a function that has access to the source location of the
-// callsite, define it with a parameter of type `util::SourceLocation`. The
+// callsite, define it with a parameter of type `gutils::SourceLocation`. The
 // caller can then invoke the function, passing `IREE_LOC` as the argument.
 
 #ifndef IREE_BASE_INTERNAL_SOURCE_LOCATION_H_
@@ -41,7 +41,7 @@
 
 #undef IREE_INTERNAL_HAS_KEYWORD
 
-namespace util {
+namespace gutils {
 
 // Class representing a specific location in the source code of a program.
 class SourceLocation {
@@ -93,7 +93,7 @@ class SourceLocation {
   // Do not invoke this constructor directly. Instead, use the `IREE_LOC` macro
   // below.
   //
-  // `file_name` must outlive all copies of the `util::SourceLocation` object,
+  // `file_name` must outlive all copies of the `gutils::SourceLocation` object,
   // so in practice it should be a string literal.
   constexpr SourceLocation(std::uint_least32_t line, const char* file_name)
       : line_(line), file_name_(file_name) {}
@@ -111,28 +111,29 @@ class SourceLocation {
   const char* file_name_;
 };
 
-}  // namespace util
+}  // namespace gutils
 
-// If a function takes an `util::SourceLocation` parameter, pass this as the
+// If a function takes an `gutils::SourceLocation` parameter, pass this as the
 // argument.
-#define IREE_LOC ::util::SourceLocation::DoNotInvokeDirectly(__LINE__, __FILE__)
-#define UTIL_LOC IREE_LOC
+#define IREE_LOC \
+  ::gutils::SourceLocation::DoNotInvokeDirectly(__LINE__, __FILE__)
+#define GUTILS_LOC IREE_LOC
 
 // IREE_LOC_CURRENT_DEFAULT_ARG
 //
-// Specifies that a function should use `util::SourceLocation::current()` on
+// Specifies that a function should use `gutils::SourceLocation::current()` on
 // platforms where it will return useful information, but require explicitly
 // passing `IREE_LOC` on platforms where it would return dummy information.
 //
 // Usage:
 //
 //   void MyLog(absl::string_view msg,
-//              util::SourceLocation loc IREE_LOC_CURRENT_DEFAULT_ARG) {
+//              gutils::SourceLocation loc IREE_LOC_CURRENT_DEFAULT_ARG) {
 //     std::cout << loc.file_name() << "@" << loc.line() << ": " << msg;
 //   }
 //
 #if IREE_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT
-#define IREE_LOC_CURRENT_DEFAULT_ARG = ::util::SourceLocation::current()
+#define IREE_LOC_CURRENT_DEFAULT_ARG = ::gutils::SourceLocation::current()
 #else
 #define IREE_LOC_CURRENT_DEFAULT_ARG
 #endif
