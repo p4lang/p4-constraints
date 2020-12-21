@@ -22,12 +22,12 @@ cc_library(
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:quote",
+        "@com_github_google_glog//:glog",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
-        "@com_google_glog//:glog",
     ],
 )
 
@@ -74,12 +74,12 @@ cc_library(
         "//p4_constraints:quote",
         "//p4_constraints/frontend:lexer",
         "//p4_constraints/frontend:parser",
+        "@com_github_google_glog//:glog",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:variant",
-        "@com_google_glog//:glog",
         "@com_googlesource_code_re2//:re2",
     ],
 )
