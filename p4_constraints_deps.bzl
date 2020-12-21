@@ -12,9 +12,9 @@ def p4_constraints_deps():
             strip_prefix = "abseil-cpp-20200225.2",
             sha256 = "f41868f7a938605c92936230081175d1eae87f6ea2c248f41077c8f88316f111",
         )
-    if not native.existing_rule("com_google_glog"):
+    if not native.existing_rule("com_github_google_glog"):
         http_archive(
-            name = "com_google_glog",
+            name = "com_github_google_glog",
             urls = ["https://github.com/google/glog/archive/v0.4.0.tar.gz"],
             strip_prefix = "glog-0.4.0",
             sha256 = "f28359aeba12f30d73d9e4711ef356dc842886968112162bc73002645139c39c",
