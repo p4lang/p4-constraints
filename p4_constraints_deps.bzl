@@ -8,9 +8,9 @@ def p4_constraints_deps():
     if not native.existing_rule("com_google_absl"):
         http_archive(
             name = "com_google_absl",
-            url = "https://github.com/abseil/abseil-cpp/archive/20200225.2.tar.gz",
-            strip_prefix = "abseil-cpp-20200225.2",
-            sha256 = "f41868f7a938605c92936230081175d1eae87f6ea2c248f41077c8f88316f111",
+            url = "https://github.com/abseil/abseil-cpp/archive/20200923.tar.gz",
+            strip_prefix = "abseil-cpp-20200923",
+            sha256 = "b3744a4f7a249d5eaf2309daad597631ce77ea62e0fc6abffbab4b4c3dc0fc08",
         )
     if not native.existing_rule("com_github_google_glog"):
         http_archive(
@@ -30,9 +30,9 @@ def p4_constraints_deps():
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            url = "https://github.com/protocolbuffers/protobuf/releases/download/v3.12.3/protobuf-all-3.12.3.tar.gz",
-            strip_prefix = "protobuf-3.12.3",
-            sha256 = "1a83f0525e5c8096b7b812181865da3c8637de88f9777056cefbf51a1eb0b83f",
+            url = "https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/protobuf-all-3.14.0.tar.gz",
+            strip_prefix = "protobuf-3.14.0",
+            sha256 = "6dd0f6b20094910fbb7f1f7908688df01af2d4f6c5c21331b9f636048674aebf",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
         http_archive(
