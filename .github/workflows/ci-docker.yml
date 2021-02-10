@@ -14,14 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
-        
+
     - name: Mount bazel cache
       uses: actions/cache@v2
       with:
-        path: "~/.cache/bazel"  # See https://docs.bazel.build/versions/master/output_directories.html
-        key: bazel_docker_
+        # See https://docs.bazel.build/versions/master/output_directories.html
+        path: "~/.cache/bazel"
+        # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
+        key: ${{ runner.os }}-docker-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
+        restore-keys: |
+          ${{ runner.os }}-docker-
+          ${{ runner.os }}-
 
     - name: Build Docker image
       run: docker build --tag p4-constraints .
@@ -33,17 +36,17 @@ jobs:
     
     - name: Build p4-constraints
       env:
-        CMD: bazel build //p4_constraints/...
+        CMD: bazel build //p4_constraints/...  --distinct_host_configuration=false
       run: docker run -v $HOME/.cache/bazel:/root/.cache/bazel:Z --tty p4-constraints $CMD
 
     - name: Unit test
       env:
-        CMD: bazel test //p4_constraints/... --test_output=errors
+        CMD: bazel test //p4_constraints/... --test_output=errors  --distinct_host_configuration=false
       run: docker run -v $HOME/.cache/bazel:/root/.cache/bazel:Z --tty p4-constraints $CMD
 
     - name: Gold test
       env:
-        CMD: bazel test //e2e-test/... --test_output=errors
+        CMD: bazel test //e2e-test/... --test_output=errors  --distinct_host_configuration=false
       run: docker run -v $HOME/.cache/bazel:/root/.cache/bazel:Z --tty p4-constraints $CMD
 
     - name: Prepare for caching
