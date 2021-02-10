@@ -23,13 +23,13 @@
 #include <algorithm>
 #include <string>
 
-#include "absl/strings/string_view.h"
+#include "re2/stringpiece.h"
 #include "absl/strings/substitute.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/io/tokenizer.h"
-#include "google/protobuf/message.h"
-#include "google/protobuf/text_format.h"
-#include "google/protobuf/util/message_differencer.h"
+#include "net/google::protobuf/public/descriptor.h"
+#include "net/google::protobuf/io/public/tokenizer.h"
+#include "net/google::protobuf/public/message.h"
+#include "net/google::protobuf/public/text_format.h"
+#include "net/google::protobuf/util/public/message_differencer.h"
 
 // #include "tensorflow/core/platform/test.h"
 
@@ -39,7 +39,7 @@ namespace gutils {
 namespace testing {
 namespace internal {
 
-using absl::string_view;
+using re2::StringPiece;
 
 // Utilities.
 

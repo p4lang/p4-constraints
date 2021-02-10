@@ -29,36 +29,35 @@ namespace p4_constraints {
 namespace ast {
 
 // Returns an AST given a TRUE or FALSE token, or an error Status otherwise.
-gutils::StatusOr<ast::Expression> MakeBooleanConstant(Token boolean);
+absl::StatusOr<ast::Expression> MakeBooleanConstant(Token boolean);
 
 // Returns an AST given a BINARY/OCTARY/DECIMAL/HEXADEC token, or an error
 // Status otherwise.
-gutils::StatusOr<ast::Expression> MakeIntegerConstant(Token numeral);
+absl::StatusOr<ast::Expression> MakeIntegerConstant(Token numeral);
 
 // Returns an AST `a` such that `a.key() == "id1.id2...idn"` if given ID tokens
 // `{t1, ..., tn}` such that `idi == ti.text`, or an error Status otherwise.
-gutils::StatusOr<ast::Expression> MakeKey(
-    absl::Span<const Token> key_fragments);
+absl::StatusOr<ast::Expression> MakeKey(absl::Span<const Token> key_fragments);
 
 // Returns an AST (with the given operand) when given a BANG ('!') token,
 // or an error Status otherwise.
-gutils::StatusOr<ast::Expression> MakeBooleanNegation(Token bang_token,
-                                                      ast::Expression operand);
+absl::StatusOr<ast::Expression> MakeBooleanNegation(Token bang_token,
+                                                    ast::Expression operand);
 
 // Returns an AST (with the given operand) when given a MINUS ('-') token,
 // or an error Status otherwise.
-gutils::StatusOr<ast::Expression> MakeArithmeticNegation(
-    Token minus_token, ast::Expression operand);
+absl::StatusOr<ast::Expression> MakeArithmeticNegation(Token minus_token,
+                                                       ast::Expression operand);
 
 // Returns an AST (with the given operands) when given  a AND, OR, or IMPLIES
 // token, or an error Status otherwise.
-gutils::StatusOr<ast::Expression> MakeBinaryExpression(Token binop_token,
-                                                       ast::Expression left,
-                                                       ast::Expression right);
+absl::StatusOr<ast::Expression> MakeBinaryExpression(Token binop_token,
+                                                     ast::Expression left,
+                                                     ast::Expression right);
 
 // Returns an AST when given an ID token `field`, or an error Status otherwise.
-gutils::StatusOr<ast::Expression> MakeFieldAccess(ast::Expression expr,
-                                                  Token field);
+absl::StatusOr<ast::Expression> MakeFieldAccess(ast::Expression expr,
+                                                Token field);
 
 }  // namespace ast
 }  // namespace p4_constraints

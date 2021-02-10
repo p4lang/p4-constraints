@@ -24,7 +24,7 @@
 
 namespace p4_constraints {
 
-namespace {  // internal only
+namespace {
 
 // Returns a string explaining the source location interval, e.g.:
 //    - succinct (when file is given): "path/to/file:12:20-25:"

@@ -25,7 +25,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/string_view.h"
+#include "re2/stringpiece.h"
 #include "glog/logging.h"
 #include "gutils/ret_check.h"
 #include "gutils/status_macros.h"
@@ -64,7 +64,7 @@ std::string P4IDToString(uint32_t p4_object_id) {
 // -- Parsing P4RT table entries -----------------------------------------------
 
 // See https://p4.org/p4runtime/spec/master/P4Runtime-Spec.html#sec-bytestrings.
-gutils::StatusOr<Integer> ParseP4RTInteger(const std::string& int_str) {
+absl::StatusOr<Integer> ParseP4RTInteger(const std::string& int_str) {
   mpz_class integer;
   const char* chars = int_str.c_str();
   const size_t char_count = strlen(chars);
@@ -79,7 +79,7 @@ gutils::StatusOr<Integer> ParseP4RTInteger(const std::string& int_str) {
 }
 
 // Returns (table key name, table key value)-pair.
-gutils::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
+absl::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
     const p4::v1::FieldMatch& p4field, const TableInfo& table_info) {
   auto it = table_info.keys_by_id.find(p4field.field_id());
   if (it == table_info.keys_by_id.end()) {
@@ -137,8 +137,8 @@ gutils::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
   }
 }
 
-gutils::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
-                                        const TableInfo& table_info) {
+absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
+                                      const TableInfo& table_info) {
   absl::flat_hash_map<std::string, EvalResult> keys;
   for (const p4::v1::FieldMatch& field : entry.match()) {
     ASSIGN_OR_RETURN(auto kv, ParseKey(field, table_info),
@@ -164,8 +164,8 @@ gutils::StatusBuilder TypeError(const ast::SourceLocation& start,
 // -- Auxiliary evaluators -----------------------------------------------------
 
 // Like Eval, but ensuring the result is a bool.
-gutils::StatusOr<bool> EvalToBool(const Expression& expr,
-                                  const TableEntry& entry) {
+absl::StatusOr<bool> EvalToBool(const Expression& expr,
+                                const TableEntry& entry) {
   ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry));
   if (absl::holds_alternative<bool>(result)) return absl::get<bool>(result);
   return TypeError(expr.start_location(), expr.end_location())
@@ -173,8 +173,8 @@ gutils::StatusOr<bool> EvalToBool(const Expression& expr,
 }
 
 // Like Eval, but ensuring the result is an Integer.
-gutils::StatusOr<Integer> EvalToInt(const Expression& expr,
-                                    const TableEntry& entry) {
+absl::StatusOr<Integer> EvalToInt(const Expression& expr,
+                                  const TableEntry& entry) {
   ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry));
   if (absl::holds_alternative<Integer>(result))
     return absl::get<Integer>(result);
@@ -182,9 +182,9 @@ gutils::StatusOr<Integer> EvalToInt(const Expression& expr,
          << "expected expression of integral type";
 }
 
-gutils::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
-                                           const Expression& expr,
-                                           const TableEntry& entry) {
+absl::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
+                                         const Expression& expr,
+                                         const TableEntry& entry) {
   ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry));
   if (!absl::holds_alternative<Integer>(result))
     return TypeError(expr.start_location(), expr.end_location())
@@ -233,10 +233,10 @@ gutils::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
   }
 }
 
-gutils::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
-                                            const Expression& left_expr,
-                                            const Expression& right_expr,
-                                            const TableEntry& entry) {
+absl::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
+                                          const Expression& left_expr,
+                                          const Expression& right_expr,
+                                          const TableEntry& entry) {
   switch (binop) {
     // (In-)Equality comparison.
     case ast::EQ:
@@ -307,39 +307,39 @@ gutils::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
 }
 
 struct EvalFieldAccess {
-  const absl::string_view field;
+  const re2::StringPiece field;
 
   absl::Status Error(const std::string& type) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "value of type " << type << " has no field " << field;
   }
 
-  gutils::StatusOr<EvalResult> operator()(const Exact& exact) {
+  absl::StatusOr<EvalResult> operator()(const Exact& exact) {
     if (field == "value") return {exact.value};
     return Error("exact");
   }
 
-  gutils::StatusOr<EvalResult> operator()(const Ternary& ternary) {
+  absl::StatusOr<EvalResult> operator()(const Ternary& ternary) {
     if (field == "value") return {ternary.value};
     if (field == "mask") return {ternary.mask};
     return Error("ternary");
   }
 
-  gutils::StatusOr<EvalResult> operator()(const Lpm& lpm) {
+  absl::StatusOr<EvalResult> operator()(const Lpm& lpm) {
     if (field == "value") return {lpm.value};
     if (field == "prefix_length") return {lpm.prefix_length};
     return Error("lpm");
   }
 
-  gutils::StatusOr<EvalResult> operator()(const Range& range) {
+  absl::StatusOr<EvalResult> operator()(const Range& range) {
     if (field == "low") return {range.low};
     if (field == "high") return {range.high};
     return Error("range");
   }
 
-  gutils::StatusOr<EvalResult> operator()(bool b) { return Error("bool"); }
+  absl::StatusOr<EvalResult> operator()(bool b) { return Error("bool"); }
 
-  gutils::StatusOr<EvalResult> operator()(const Integer& i) {
+  absl::StatusOr<EvalResult> operator()(const Integer& i) {
     return Error("int");
   }
 };
@@ -351,8 +351,8 @@ struct EvalFieldAccess {
 //
 // Eval (without underscore) is a thin wrapper around Eval_, see further down;
 // Eval_ should never be called directly, except by Eval.
-gutils::StatusOr<EvalResult> Eval_(const Expression& expr,
-                                   const TableEntry& entry) {
+absl::StatusOr<EvalResult> Eval_(const Expression& expr,
+                                 const TableEntry& entry) {
   switch (expr.expression_case()) {
     case Expression::kBooleanConstant:
       return {expr.boolean_constant()};
@@ -398,7 +398,7 @@ gutils::StatusOr<EvalResult> Eval_(const Expression& expr,
       const Expression& composite_expr = expr.field_access().expr();
       const std::string& field = expr.field_access().field();
       ASSIGN_OR_RETURN(EvalResult composite_value, Eval(composite_expr, entry));
-      gutils::StatusOr<EvalResult> result =
+      absl::StatusOr<EvalResult> result =
           absl::visit(EvalFieldAccess{.field = field}, composite_value);
       if (!result.ok()) {
         return TypeError(expr.start_location(), expr.end_location())
@@ -451,8 +451,8 @@ absl::Status DynamicTypeCheck(const Expression& expr, const EvalResult result) {
 
 // Wraps Eval_ with dynamic type check to ease debugging. Never call Eval_
 // directly; call Eval instead.
-gutils::StatusOr<EvalResult> Eval(const Expression& expr,
-                                  const TableEntry& entry) {
+absl::StatusOr<EvalResult> Eval(const Expression& expr,
+                                const TableEntry& entry) {
   ASSIGN_OR_RETURN(EvalResult result, Eval_(expr, entry));
   RETURN_IF_ERROR(DynamicTypeCheck(expr, result));
   return result;
@@ -462,8 +462,8 @@ gutils::StatusOr<EvalResult> Eval(const Expression& expr,
 
 // -- Public interface ---------------------------------------------------------
 
-gutils::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
-                                            const ConstraintInfo& context) {
+absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
+                                          const ConstraintInfo& context) {
   using ::p4_constraints::internal_interpreter::EvalToBool;
   using ::p4_constraints::internal_interpreter::P4IDToString;
   using ::p4_constraints::internal_interpreter::ParseEntry;

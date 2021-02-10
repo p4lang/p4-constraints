@@ -196,16 +196,16 @@
 #include <string>   // NOLINT
 #include <vector>   // NOLINT
 
-#include "absl/strings/string_view.h"
+#include "re2/stringpiece.h"
 #include "glog/logging.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/io/zero_copy_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
-#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
-#include "google/protobuf/message.h"
-#include "google/protobuf/text_format.h"
-#include "google/protobuf/util/field_comparator.h"
-#include "google/protobuf/util/message_differencer.h"
+#include "net/google::protobuf/public/descriptor.h"
+#include "net/google::protobuf/io/public/zero_copy_stream.h"
+#include "net/google::protobuf/io/public/zero_copy_stream_impl.h"
+#include "net/google::protobuf/io/public/zero_copy_stream_impl_lite.h"
+#include "net/google::protobuf/public/message.h"
+#include "net/google::protobuf/public/text_format.h"
+#include "net/google::protobuf/util/public/field_comparator.h"
+#include "net/google::protobuf/util/public/message_differencer.h"
 
 namespace gutils {
 namespace testing {
@@ -486,7 +486,7 @@ class ProtoMatcherBase {
   std::unique_ptr<ProtoComparison> comp_;
 };
 
-// Returns a copy of the given proto2 message.
+// Returns a copy of the given google::protobuf message.
 inline google::protobuf::Message* CloneProto2(
     const google::protobuf::Message& src) {
   google::protobuf::Message* clone = src.New();
@@ -679,7 +679,7 @@ class WhenDeserializedMatcherBase {
     return MatchAndExplain(&input, listener);
   }
 
-  bool MatchAndExplain(absl::string_view sp,
+  bool MatchAndExplain(re2::StringPiece sp,
                        ::testing::MatchResultListener* listener) const {
     google::protobuf::io::ArrayInputStream input(sp.data(), sp.size());
     return MatchAndExplain(&input, listener);

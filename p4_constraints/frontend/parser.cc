@@ -28,7 +28,7 @@
 
 namespace p4_constraints {
 
-namespace {  // internal only
+namespace {
 
 using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::SourceLocation;
@@ -164,7 +164,7 @@ absl::Status Unexpected(Token token, const std::vector<Token::Kind>& expected) {
 // -- Actual parsing -----------------------------------------------------------
 
 // Tries to parse a token of the given kind and fails if it sees anything else.
-gutils::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
+absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
   Token token = tokens->Next();
   if (token.kind != kind) return Unexpected(token, {kind});
   return {token};
@@ -205,8 +205,8 @@ gutils::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //     | ('==' | '!=' | '>' | '>=' | '<' | '<=') constraint
 //
 // extension is then right-recursive and can be implemented using a while loop.
-gutils::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
-                                                  TokenStream* tokens) {
+absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
+                                                TokenStream* tokens) {
   // Try to parse an 'initial' AST.
   Expression ast;
   const Token token = tokens->Next();
@@ -327,7 +327,7 @@ gutils::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
 
 // -- Public interface ---------------------------------------------------------
 
-gutils::StatusOr<Expression> ParseConstraint(const std::vector<Token>& tokens) {
+absl::StatusOr<Expression> ParseConstraint(const std::vector<Token>& tokens) {
   TokenStream token_stream(tokens);
   ASSIGN_OR_RETURN(Expression ast, ParseConstraintAbove(0, &token_stream));
   RETURN_IF_ERROR(ExpectTokenKind(Token::END_OF_INPUT, &token_stream).status());

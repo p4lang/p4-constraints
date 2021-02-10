@@ -22,3 +22,5 @@ cc_binary(
         "@com_google_protobuf//:protobuf",
     ],
 )
+
+buildifier(name = "%buildifier")
