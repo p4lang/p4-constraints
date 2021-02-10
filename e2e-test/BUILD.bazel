@@ -37,3 +37,5 @@ filegroup(
     name = "p4_files",
     srcs = glob(["*.p4"]),
 )
+
+buildifier(name = "%buildifier")

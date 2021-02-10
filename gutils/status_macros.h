@@ -29,7 +29,7 @@
   } else /* NOLINT */                                           \
     return status_macro_internal_adaptor.Consume()
 
-// Executes an expression `rexpr` that returns a `gutils::StatusOr<T>`. On OK,
+// Executes an expression `rexpr` that returns a `absl::StatusOr<T>`. On OK,
 // moves its value into the variable defined by `lhs`, otherwise returns
 // from the current function.
 #define ASSIGN_OR_RETURN(...)                                                \

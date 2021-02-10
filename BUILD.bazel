@@ -4,8 +4,4 @@ package(licenses = ["notice"])
 
 exports_files(["LICENSE"])
 
-buildifier(
-    name = "buildifier",
-    exclude_patterns = ["./third_party/**"],
-    lint_mode = "fix",
-)
+buildifier(name = "%buildifier")

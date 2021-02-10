@@ -25,7 +25,7 @@
 //
 // Example client usage for a StatusOr<T>, where T is not a pointer:
 //
-//  ::gutils::StatusOr<float> result = DoBigCalculationThatCouldFail();
+//  ::absl::StatusOr<float> result = DoBigCalculationThatCouldFail();
 //  if (result.ok()) {
 //    float answer = result.ValueOrDie();
 //    printf("Big calculation yielded: %f", answer);
@@ -35,7 +35,7 @@
 //
 // Example client usage for a StatusOr<T*>:
 //
-//  ::gutils::StatusOr<Foo*> result = FooFactory::MakeNewFoo(arg);
+//  ::absl::StatusOr<Foo*> result = FooFactory::MakeNewFoo(arg);
 //  if (result.ok()) {
 //    std::unique_ptr<Foo> foo(result.ValueOrDie());
 //    foo->DoSomethingCool();
@@ -45,7 +45,7 @@
 //
 // Example client usage for a StatusOr<std::unique_ptr<T>>:
 //
-//  ::gutils::StatusOr<std::unique_ptr<Foo>> result =
+//  ::absl::StatusOr<std::unique_ptr<Foo>> result =
 //    FooFactory::MakeNewFoo(arg);
 //  if (result.ok()) {
 //    std::unique_ptr<Foo> foo = std::move(result.ValueOrDie());
@@ -56,7 +56,7 @@
 //
 // Example factory implementation returning StatusOr<T*>:
 //
-//  ::gutils::StatusOr<Foo*> FooFactory::MakeNewFoo(int arg) {
+//  ::absl::StatusOr<Foo*> FooFactory::MakeNewFoo(int arg) {
 //    if (arg <= 0) {
 //      return ::gutils::InvalidArgumentError("Arg must be positive");
 //    } else {

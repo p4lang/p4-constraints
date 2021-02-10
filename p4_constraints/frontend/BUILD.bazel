@@ -44,7 +44,7 @@ cc_library(
         "//p4_constraints:ast_cc_proto",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/strings",
-        "@com_googlesource_code_re2//:re2",
+        "@com_googlesource_code_re2//",
     ],
 )
 
@@ -86,12 +86,7 @@ cc_library(
     name = "ast_constructors",
     srcs = ["ast_constructors.cc"],
     hdrs = ["ast_constructors.h"],
-    # GMP is a system dependency for now.
-    # Building it with Bazel would be better, but it's not obvious how to do it.
-    linkopts = [
-        "-lgmp",
-        "-lgmpxx",
-    ],
+    linkopts = ["-lgmpxx"],
     deps = [
         ":token",
         "//gutils:ret_check",
@@ -100,3 +95,5 @@ cc_library(
         "@com_google_absl//absl/types:span",
     ],
 )
+
+buildifier(name = "%buildifier")

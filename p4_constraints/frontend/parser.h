@@ -25,7 +25,7 @@
 
 namespace p4_constraints {
 
-gutils::StatusOr<ast::Expression> ParseConstraint(
+absl::StatusOr<ast::Expression> ParseConstraint(
     const std::vector<Token>& tokens);
 }
 

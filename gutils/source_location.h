@@ -127,7 +127,7 @@ class SourceLocation {
 //
 // Usage:
 //
-//   void MyLog(absl::string_view msg,
+//   void MyLog(re2::StringPiece msg,
 //              gutils::SourceLocation loc IREE_LOC_CURRENT_DEFAULT_ARG) {
 //     std::cout << loc.file_name() << "@" << loc.line() << ": " << msg;
 //   }

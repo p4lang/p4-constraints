@@ -19,7 +19,7 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
-#include "google/protobuf/util/message_differencer.h"
+#include "net/google::protobuf/util/public/message_differencer.h"
 #include "p4_constraints/ast.pb.h"
 
 namespace p4_constraints {

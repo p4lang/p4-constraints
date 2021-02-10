@@ -7,12 +7,7 @@ cc_library(
     name = "interpreter",
     srcs = ["interpreter.cc"],
     hdrs = ["interpreter.h"],
-    # GMP is a system dependency for now.
-    # Building it with Bazel would be better, but it's not obvious how to do it.
-    linkopts = [
-        "-lgmp",
-        "-lgmpxx",
-    ],
+    linkopts = ["-lgmpxx"],
     deps = [
         ":constraint_info",
         "//gutils:ret_check",
@@ -33,12 +28,7 @@ cc_test(
     name = "interpreter_test",
     size = "small",
     srcs = ["interpreter_test.cc"],
-    # GMP is a system dependency for now.
-    # Building it with Bazel would be better, but it's not obvious how to do it.
-    linkopts = [
-        "-lgmp",
-        "-lgmpxx",
-    ],
+    linkopts = ["-lgmpxx"],
     deps = [
         ":constraint_info",
         ":interpreter",
@@ -78,7 +68,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:variant",
-        "@com_googlesource_code_re2//:re2",
+        "@com_googlesource_code_re2//",
     ],
 )
 
@@ -97,3 +87,5 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+buildifier(name = "%buildifier")

@@ -16,7 +16,7 @@
 #define MEDIAPIPE_PORT_PARSE_TEXT_PROTO_H_
 
 #include "glog/logging.h"
-#include "google/protobuf/text_format.h"
+#include "net/google::protobuf/public/text_format.h"
 
 namespace gutils {
 
