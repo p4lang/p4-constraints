@@ -30,7 +30,7 @@
 
 namespace p4_constraints {
 
-namespace {  // internal only
+namespace {
 
 using ::p4_constraints::ast::BinaryExpression;
 using ::p4_constraints::ast::Expression;
@@ -120,7 +120,7 @@ void WrapWithCast(Expression* expr, Type type) {
 // LeastUpperBound(left.type(), right.type()) exists, Unify returns successfully
 // and mutates the expressions by wrapping them with type casts to the least
 // upper bound. Otherwise, Unify returns an InvalidArgument Status.
-gutils::StatusOr<Type> Unify(Expression* left, Expression* right) {
+absl::StatusOr<Type> Unify(Expression* left, Expression* right) {
   const absl::optional<Type> least_upper_bound =
       LeastUpperBound(left->type(), right->type());
   if (!least_upper_bound.has_value()) {

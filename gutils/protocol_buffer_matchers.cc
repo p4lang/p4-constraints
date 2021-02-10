@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <string>
 
-#include "absl/strings/string_view.h"
+#include "re2/stringpiece.h"
 #include "absl/strings/substitute.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/io/tokenizer.h"
@@ -39,7 +39,7 @@ namespace gutils {
 namespace testing {
 namespace internal {
 
-using absl::string_view;
+using re2::StringPiece;
 
 // Utilities.
 

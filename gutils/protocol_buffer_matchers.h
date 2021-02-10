@@ -196,7 +196,7 @@
 #include <string>   // NOLINT
 #include <vector>   // NOLINT
 
-#include "absl/strings/string_view.h"
+#include "re2/stringpiece.h"
 #include "glog/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/io/zero_copy_stream.h"
@@ -679,7 +679,7 @@ class WhenDeserializedMatcherBase {
     return MatchAndExplain(&input, listener);
   }
 
-  bool MatchAndExplain(absl::string_view sp,
+  bool MatchAndExplain(re2::StringPiece sp,
                        ::testing::MatchResultListener* listener) const {
     google::protobuf::io::ArrayInputStream input(sp.data(), sp.size());
     return MatchAndExplain(&input, listener);
