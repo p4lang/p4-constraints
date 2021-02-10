@@ -1,4 +1,4 @@
-name: "native build & test"
+name: native build & test
 
 on:
   push:
@@ -10,40 +10,63 @@ on:
     - cron: "0 0 * * *"
 
 jobs:
+
   build:
-    runs-on: ubuntu-latest
+    # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
+    runs-on: ubuntu-20.04
     env:
       BAZEL: bazelisk-linux-amd64
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
-    
+
     - name: Mount bazel cache
       uses: actions/cache@v2
       with:
-        path: "~/.cache/bazel"  # See https://docs.bazel.build/versions/master/output_directories.html
-        key: bazel
+        # See https://docs.bazel.build/versions/master/output_directories.html
+        path: "~/.cache/bazel"
+        # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
+        key: ${{ runner.os }}-build-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
+        restore-keys: |
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+
+    - name: Install p4c system dependencies (Flex, Bison, GMP)
+      run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
 
     - name: Install bazelisk
       run: |
-        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.4.0/$BAZEL"
+        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.4/$BAZEL"
         chmod +x $BAZEL
 
     - name: Build
-      run: ./$BAZEL build //p4_constraints/...
+      run: ./$BAZEL build //... --distinct_host_configuration=false
 
-    - name: Unit test
-      run: ./$BAZEL test //p4_constraints/... --test_output=errors
+  test:
+    # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
+    runs-on: ubuntu-20.04
+    env:
+      BAZEL: bazelisk-linux-amd64
+    steps:
+    - uses: actions/checkout@v2
 
-    - name: Install & build gold test dependencies (p4c)
+    - name: Mount bazel cache
+      uses: actions/cache@v2
+      with:
+        # See https://docs.bazel.build/versions/master/output_directories.html
+        path: "~/.cache/bazel"
+        # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
+        key: ${{ runner.os }}-test-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
+        restore-keys: |
+          ${{ runner.os }}-test-
+          ${{ runner.os }}-
+
+    - name: Install p4c system dependencies (Flex, Bison, GMP)
+      run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
+
+    - name: Install bazelisk
       run: |
-        sudo apt-get update
-        sudo apt-get install bison flex libfl-dev libgmp-dev
-        bazel build //e2e-test/...
+        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.4/$BAZEL"
+        chmod +x $BAZEL
 
-    - name: Gold test
-      run: ./$BAZEL test //e2e-test/... --test_output=errors
-
-    - name: Sanity check  # This step should be subsumed by the previous steps.
-      run: ./$BAZEL build //... && ./$BAZEL test //...
+    - name: Test
+      run: ./$BAZEL test //... --test_output=errors --distinct_host_configuration=false
