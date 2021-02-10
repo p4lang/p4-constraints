@@ -23,10 +23,10 @@ namespace {
 
 // Returns a Status that is identical to `s` except that the message()
 // has been augmented by adding `msg` to the end of the original message.
-absl::Status Annotate(const absl::Status& s, absl::string_view msg) {
+absl::Status Annotate(const absl::Status& s, re2::StringPiece msg) {
   if (s.ok() || msg.empty()) return s;
 
-  absl::string_view new_msg = msg;
+  re2::StringPiece new_msg = msg;
   std::string annotated;
   if (!s.message().empty()) {
     absl::StrAppend(&annotated, s.message(), "; ", msg);
@@ -85,7 +85,7 @@ absl::Status StatusBuilder::CreateStatus() && {
 }
 
 absl::Status StatusBuilder::JoinMessageToStatus(absl::Status s,
-                                                absl::string_view msg) {
+                                                re2::StringPiece msg) {
   if (msg.empty()) return s;
   return Annotate(s, msg);
 }

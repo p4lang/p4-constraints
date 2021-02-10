@@ -20,7 +20,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
+#include "re2/stringpiece.h"
 #include "absl/strings/strip.h"
 #include "absl/types/variant.h"
 #include "gutils/ret_check.h"
@@ -36,12 +36,12 @@
 
 namespace p4_constraints {
 
-namespace {  // internal only
+namespace {
 
 using p4::config::v1::MatchField;
 using p4::config::v1::Table;
 
-gutils::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
+absl::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
     const Table& table) {
   // We expect .p4 files to have the following format:
   // ```p4
@@ -60,7 +60,7 @@ gutils::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
 
   ast::SourceLocation location;
   int line = 0;
-  absl::string_view constraint = "";
+  re2::StringPiece constraint = "";
   for (re2::StringPiece annotation : table.preamble().annotations()) {
     if (RE2::Consume(&annotation, file_annotation,
                      location.mutable_file_path()))
@@ -92,7 +92,7 @@ gutils::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
   return ParseConstraint(Tokenize(constraint_str, location));
 }
 
-gutils::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
+absl::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
   ast::Type type;
   switch (key.match_case()) {
     case MatchField::kMatchType:
@@ -123,7 +123,7 @@ gutils::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
   }
 }
 
-gutils::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
+absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
   absl::flat_hash_map<uint32_t, KeyInfo> keys_by_id;
   absl::flat_hash_map<std::string, KeyInfo> keys_by_name;
 
@@ -167,7 +167,7 @@ absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
   std::vector<absl::Status> errors;
 
   for (const Table& table : p4info.tables()) {
-    gutils::StatusOr<TableInfo> table_info = ParseTableInfo(table);
+    absl::StatusOr<TableInfo> table_info = ParseTableInfo(table);
     if (!table_info.ok()) {
       errors.push_back(table_info.status());
     } else if (!info.insert({table.preamble().id(), table_info.ValueOrDie()})

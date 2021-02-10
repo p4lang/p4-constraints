@@ -59,7 +59,7 @@ uint32_t CoerceToTableId(uint32_t table_id) {
 }
 
 int main(int argc, char** argv) {
-  const absl::string_view usage[] = {"usage:", argv[0], kUsage};
+  const re2::StringPiece usage[] = {"usage:", argv[0], kUsage};
   absl::SetProgramUsageMessage(absl::StrJoin(usage, " "));
   std::vector<char*> positional_args = absl::ParseCommandLine(argc, argv);
 
@@ -133,8 +133,7 @@ int main(int argc, char** argv) {
     entry.set_table_id(CoerceToTableId(entry.table_id()));
 
     // Check entry.
-    gutils::StatusOr<bool> result =
-        EntryMeetsConstraint(entry, constraint_info);
+    absl::StatusOr<bool> result = EntryMeetsConstraint(entry, constraint_info);
     if (!result.ok()) {
       std::cout << "Error: " << result.status() << "\n\n";
       continue;

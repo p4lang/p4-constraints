@@ -67,7 +67,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   absl::Status CreateStatus() &&;
 
   static absl::Status JoinMessageToStatus(absl::Status s,
-                                          absl::string_view msg);
+                                          re2::StringPiece msg);
 
   // The status that the result will be based on.
   absl::Status status_;

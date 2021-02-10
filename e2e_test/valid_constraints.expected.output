@@ -1,0 +1,8 @@
+third_party/p4lang_p4_constraints/e2e_test/table_entries/accept_all_entries_1.pb.txt: constraint satisfied
+
+third_party/p4lang_p4_constraints/e2e_test/table_entries/acl_table_1.pb.txt: constraint violated
+
+third_party/p4lang_p4_constraints/e2e_test/table_entries/reject_all_entries_1.pb.txt: constraint violated
+
+third_party/p4lang_p4_constraints/e2e_test/table_entries/unknown_table_entry.pb.txt: Error: INVALID_ARGUMENT: table entry with unknown table ID 0 (full ID: 33554432 (0x02000000))
+
