@@ -36,8 +36,8 @@ namespace p4_constraints {
 // exists. Returns an InvalidArgument Status if the entry belongs to a table not
 // present in ConstraintInfo, or if it is inconsistent with the table definition
 // in ConstraintInfo.
-gutils::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
-                                            const ConstraintInfo& context);
+absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
+                                          const ConstraintInfo& context);
 
 // -- END OF PUBLIC INTERFACE --------------------------------------------------
 
@@ -97,8 +97,8 @@ struct TableEntry {
   // TODO(smolkaj): once we support actions, they will be added here.
 };
 
-gutils::StatusOr<EvalResult> Eval(const ast::Expression& expr,
-                                  const TableEntry& entry);
+absl::StatusOr<EvalResult> Eval(const ast::Expression& expr,
+                                const TableEntry& entry);
 
 }  // namespace internal_interpreter
 

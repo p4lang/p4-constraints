@@ -34,8 +34,8 @@
 #include "absl/strings/str_join.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
-#include "google/protobuf/text_format.h"
+#include "net/google::protobuf/io/public/zero_copy_stream_impl.h"
+#include "net/google::protobuf/public/text_format.h"
 #include "gutils/statusor.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
@@ -59,7 +59,7 @@ uint32_t CoerceToTableId(uint32_t table_id) {
 }
 
 int main(int argc, char** argv) {
-  const absl::string_view usage[] = {"usage:", argv[0], kUsage};
+  const re2::StringPiece usage[] = {"usage:", argv[0], kUsage};
   absl::SetProgramUsageMessage(absl::StrJoin(usage, " "));
   std::vector<char*> positional_args = absl::ParseCommandLine(argc, argv);
 
@@ -133,8 +133,7 @@ int main(int argc, char** argv) {
     entry.set_table_id(CoerceToTableId(entry.table_id()));
 
     // Check entry.
-    gutils::StatusOr<bool> result =
-        EntryMeetsConstraint(entry, constraint_info);
+    absl::StatusOr<bool> result = EntryMeetsConstraint(entry, constraint_info);
     if (!result.ok()) {
       std::cout << "Error: " << result.status() << "\n\n";
       continue;
