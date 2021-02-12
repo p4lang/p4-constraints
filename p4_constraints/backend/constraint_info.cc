@@ -36,7 +36,7 @@
 
 namespace p4_constraints {
 
-namespace {  // internal only
+namespace {
 
 using p4::config::v1::MatchField;
 using p4::config::v1::Table;

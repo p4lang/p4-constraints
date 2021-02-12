@@ -30,7 +30,7 @@
 namespace p4_constraints {
 namespace ast {
 
-namespace {  // internal only
+namespace {
 
 // -- Auxiliary conversion functions -------------------------------------------
 

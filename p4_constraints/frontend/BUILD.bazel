@@ -86,8 +86,6 @@ cc_library(
     name = "ast_constructors",
     srcs = ["ast_constructors.cc"],
     hdrs = ["ast_constructors.h"],
-    # GMP is a system dependency for now.
-    # Building it with Bazel would be better, but it's not obvious how to do it.
     linkopts = [
         "-lgmp",
         "-lgmpxx",
