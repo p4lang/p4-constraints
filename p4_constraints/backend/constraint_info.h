@@ -29,6 +29,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/types/variant.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
@@ -65,8 +66,8 @@ using ConstraintInfo = absl::flat_hash_map<uint32_t, TableInfo>;
 //
 // Parses all tables and their constraint annotations into an in-memory
 // representation suitable for constraint checking. Returns parsed
-// representation, or a nonempty list of error statuses if parsing fails.
-absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
+// representation, or an error statuses if parsing fails.
+absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info);
 
 }  // namespace p4_constraints
