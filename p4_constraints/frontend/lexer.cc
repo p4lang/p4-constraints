@@ -27,7 +27,7 @@
 
 namespace p4_constraints {
 
-namespace {  // internal only
+namespace {
 
 // Consumes characters from the input until the string "*/" appears or the input
 // is exhausted, updating the given SourceLocation accordingly.
