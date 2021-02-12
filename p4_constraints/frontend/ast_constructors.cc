@@ -20,10 +20,10 @@
 #include <string>
 #include <utility>
 
+#include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "gutils/ret_check.h"
 #include "gutils/status_macros.h"
-#include "gutils/statusor.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/token.h"
 
@@ -35,7 +35,7 @@ namespace {
 // -- Auxiliary conversion functions -------------------------------------------
 
 // Converts token.h to ast.proto representation.
-gutils::StatusOr<ast::BinaryOperator> ConvertBinaryOperator(Token::Kind binop) {
+absl::StatusOr<ast::BinaryOperator> ConvertBinaryOperator(Token::Kind binop) {
   switch (binop) {
     case Token::AND:
     case Token::SEMICOLON:
@@ -62,7 +62,7 @@ gutils::StatusOr<ast::BinaryOperator> ConvertBinaryOperator(Token::Kind binop) {
   }
 }
 
-gutils::StatusOr<std::string> ConvertNumeral(Token numeral_token) {
+absl::StatusOr<std::string> ConvertNumeral(Token numeral_token) {
   mpz_class numeral;
   switch (numeral_token.kind) {
     case Token::BINARY:
@@ -101,7 +101,7 @@ ast::Expression LocatedExpression(const ast::SourceLocation& start_location,
 
 // -- Public AST constructors --------------------------------------------------
 
-gutils::StatusOr<ast::Expression> MakeBooleanConstant(Token boolean) {
+absl::StatusOr<ast::Expression> MakeBooleanConstant(Token boolean) {
   RET_CHECK(boolean.kind == Token::TRUE || boolean.kind == Token::FALSE)
       << "expected boolean, got " << boolean.kind;
   ast::Expression ast =
@@ -110,7 +110,7 @@ gutils::StatusOr<ast::Expression> MakeBooleanConstant(Token boolean) {
   return ast;
 }
 
-gutils::StatusOr<ast::Expression> MakeIntegerConstant(Token numeral) {
+absl::StatusOr<ast::Expression> MakeIntegerConstant(Token numeral) {
   ASSIGN_OR_RETURN(std::string numeral_str, ConvertNumeral(numeral));
   ast::Expression ast =
       LocatedExpression(numeral.start_location, numeral.end_location);
@@ -118,8 +118,8 @@ gutils::StatusOr<ast::Expression> MakeIntegerConstant(Token numeral) {
   return ast;
 }
 
-gutils::StatusOr<ast::Expression> MakeBooleanNegation(Token bang_token,
-                                                      ast::Expression operand) {
+absl::StatusOr<ast::Expression> MakeBooleanNegation(Token bang_token,
+                                                    ast::Expression operand) {
   RET_CHECK_EQ(bang_token.kind, Token::BANG);
   ast::Expression ast =
       LocatedExpression(bang_token.start_location, operand.end_location());
@@ -127,7 +127,7 @@ gutils::StatusOr<ast::Expression> MakeBooleanNegation(Token bang_token,
   return ast;
 }
 
-gutils::StatusOr<ast::Expression> MakeArithmeticNegation(
+absl::StatusOr<ast::Expression> MakeArithmeticNegation(
     Token minus_token, ast::Expression operand) {
   RET_CHECK_EQ(minus_token.kind, Token::MINUS);
   ast::Expression ast =
@@ -136,8 +136,7 @@ gutils::StatusOr<ast::Expression> MakeArithmeticNegation(
   return ast;
 }
 
-gutils::StatusOr<ast::Expression> MakeKey(
-    absl::Span<const Token> key_fragments) {
+absl::StatusOr<ast::Expression> MakeKey(absl::Span<const Token> key_fragments) {
   RET_CHECK_GT(key_fragments.size(), 0);
   ast::Expression ast = LocatedExpression(key_fragments.front().start_location,
                                           key_fragments.back().end_location);
@@ -151,9 +150,9 @@ gutils::StatusOr<ast::Expression> MakeKey(
   return ast;
 }
 
-gutils::StatusOr<ast::Expression> MakeBinaryExpression(Token binop_token,
-                                                       ast::Expression left,
-                                                       ast::Expression right) {
+absl::StatusOr<ast::Expression> MakeBinaryExpression(Token binop_token,
+                                                     ast::Expression left,
+                                                     ast::Expression right) {
   ast::Expression ast =
       LocatedExpression(left.start_location(), right.end_location());
   ast::BinaryExpression* binexpr = ast.mutable_binary_expression();
@@ -166,8 +165,8 @@ gutils::StatusOr<ast::Expression> MakeBinaryExpression(Token binop_token,
   return ast;
 }
 
-gutils::StatusOr<ast::Expression> MakeFieldAccess(ast::Expression expr,
-                                                  Token field) {
+absl::StatusOr<ast::Expression> MakeFieldAccess(ast::Expression expr,
+                                                Token field) {
   RET_CHECK_EQ(field.kind, Token::ID);
   ast::Expression ast =
       LocatedExpression(expr.start_location(), field.end_location);
