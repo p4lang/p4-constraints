@@ -21,6 +21,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/types/variant.h"
@@ -160,7 +161,7 @@ absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
 
 }  // namespace
 
-absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
+absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info) {
   // Allocate output.
   absl::flat_hash_map<uint32_t, TableInfo> info;
@@ -176,8 +177,14 @@ absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
                        << "duplicate table: " << table.DebugString());
     }
   }
-  if (!errors.empty()) return errors;
-  return info;
+  if (errors.empty()) return info;
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+         << "P4Info to constraint info translation failed with the following "
+            "errors:\n- "
+         << absl::StrJoin(errors, "\n- ",
+                          [](std::string* out, const absl::Status& status) {
+                            absl::StrAppend(out, status.message(), "\n");
+                          });
 }
 
 }  // namespace p4_constraints

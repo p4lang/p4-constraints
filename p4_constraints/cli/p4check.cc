@@ -94,16 +94,11 @@ int main(int argc, char** argv) {
   }
 
   // Parse constraints and report potential errors.
-  absl::variant<ConstraintInfo, std::vector<absl::Status>> info_or_errors =
-      P4ToConstraintInfo(p4info);
-  if (absl::holds_alternative<std::vector<absl::Status>>(info_or_errors)) {
-    const auto& errors = absl::get<std::vector<absl::Status>>(info_or_errors);
-    for (const absl::Status& error : errors) {
-      std::cerr << error.message() << "\n\n";
-    }
+  absl::StatusOr<ConstraintInfo> constraint_info = P4ToConstraintInfo(p4info);
+  if (!constraint_info.ok()) {
+    std::cerr << constraint_info.status().message();
     return 1;
   }
-  const auto& constraint_info = absl::get<ConstraintInfo>(info_or_errors);
 
   // Check table entries, if any where given.
   for (const char* entry_filename :
@@ -133,7 +128,7 @@ int main(int argc, char** argv) {
     entry.set_table_id(CoerceToTableId(entry.table_id()));
 
     // Check entry.
-    absl::StatusOr<bool> result = EntryMeetsConstraint(entry, constraint_info);
+    absl::StatusOr<bool> result = EntryMeetsConstraint(entry, *constraint_info);
     if (!result.ok()) {
       std::cout << "Error: " << result.status() << "\n\n";
       continue;
