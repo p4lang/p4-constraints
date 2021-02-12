@@ -20,9 +20,9 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "glog/logging.h"
 #include "gutils/status_macros.h"
-#include "gutils/statusor.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
@@ -120,7 +120,7 @@ void WrapWithCast(Expression* expr, Type type) {
 // LeastUpperBound(left.type(), right.type()) exists, Unify returns successfully
 // and mutates the expressions by wrapping them with type casts to the least
 // upper bound. Otherwise, Unify returns an InvalidArgument Status.
-gutils::StatusOr<Type> Unify(Expression* left, Expression* right) {
+absl::StatusOr<Type> Unify(Expression* left, Expression* right) {
   const absl::optional<Type> least_upper_bound =
       LeastUpperBound(left->type(), right->type());
   if (!least_upper_bound.has_value()) {

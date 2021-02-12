@@ -21,9 +21,9 @@
 #include <utility>
 #include <vector>
 
+#include "absl/status/statusor.h"
 #include "gutils/protocol_buffer_matchers.h"
 #include "gutils/status_matchers.h"
-#include "gutils/statusor.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/token.h"
 
@@ -287,7 +287,7 @@ TEST_F(ParserTest, Negative) {
     auto result = ParseConstraint(tokens);
     if (result.ok()) {
       FAIL() << "Expected parsing to fail, but parsed "
-             << result.ValueOrDie().DebugString();
+             << result.value().DebugString();
     }
   }
 }
