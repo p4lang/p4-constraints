@@ -30,7 +30,7 @@
 
 namespace p4_constraints {
 
-namespace {  // internal only
+namespace {
 
 using ::p4_constraints::ast::BinaryExpression;
 using ::p4_constraints::ast::Expression;

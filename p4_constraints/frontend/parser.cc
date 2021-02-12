@@ -28,7 +28,7 @@
 
 namespace p4_constraints {
 
-namespace {  // internal only
+namespace {
 
 using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::SourceLocation;
