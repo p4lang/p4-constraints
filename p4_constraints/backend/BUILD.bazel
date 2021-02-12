@@ -7,8 +7,6 @@ cc_library(
     name = "interpreter",
     srcs = ["interpreter.cc"],
     hdrs = ["interpreter.h"],
-    # GMP is a system dependency for now.
-    # Building it with Bazel would be better, but it's not obvious how to do it.
     linkopts = [
         "-lgmp",
         "-lgmpxx",
@@ -24,6 +22,7 @@ cc_library(
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
     ],
@@ -33,8 +32,6 @@ cc_test(
     name = "interpreter_test",
     size = "small",
     srcs = ["interpreter_test.cc"],
-    # GMP is a system dependency for now.
-    # Building it with Bazel would be better, but it's not obvious how to do it.
     linkopts = [
         "-lgmp",
         "-lgmpxx",
@@ -76,6 +73,7 @@ cc_library(
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:variant",
         "@com_googlesource_code_re2//:re2",

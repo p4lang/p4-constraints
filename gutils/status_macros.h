@@ -16,9 +16,9 @@
 #define IREE_BASE_INTERNAL_STATUS_MACROS_H_
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "gutils/source_location.h"
 #include "gutils/status_builder.h"
-#include "gutils/statusor.h"
 
 // Evaluates an expression that produces a `absl::Status`. If the status is not
 // ok, returns it from the current function.
@@ -29,7 +29,7 @@
   } else /* NOLINT */                                           \
     return status_macro_internal_adaptor.Consume()
 
-// Executes an expression `rexpr` that returns a `gutils::StatusOr<T>`. On OK,
+// Executes an expression `rexpr` that returns a `absl::StatusOr<T>`. On OK,
 // moves its value into the variable defined by `lhs`, otherwise returns
 // from the current function.
 #define ASSIGN_OR_RETURN(...)                                                \
@@ -62,7 +62,7 @@
     (void)_; /* error_expression is allowed to not use this variable */ \
     return (error_expression);                                          \
   }                                                                     \
-  lhs = std::move(statusor).ValueOrDie()
+  lhs = std::move(statusor).value()
 
 // Internal helper for concatenating macro values.
 #define STATUS_MACROS_IMPL_CONCAT_INNER_(x, y) x##y

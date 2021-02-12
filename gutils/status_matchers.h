@@ -23,9 +23,9 @@
 #include <memory>
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
-#include "gutils/statusor.h"
 
 #undef EXPECT_OK
 #undef ASSERT_OK
@@ -35,11 +35,11 @@ namespace gutils {
 
 namespace internal {
 
-// Implements a gMock matcher that checks that an gutils::StaturOr<T> has an OK
+// Implements a gMock matcher that checks that an absl::StaturOr<T> has an OK
 // status and that the contained T value matches another matcher.
 template <typename T>
 class IsOkAndHoldsMatcher
-    : public ::testing::MatcherInterface<const StatusOr<T> &> {
+    : public ::testing::MatcherInterface<const absl::StatusOr<T> &> {
  public:
   template <typename MatcherT>
   IsOkAndHoldsMatcher(MatcherT &&value_matcher)
@@ -59,7 +59,7 @@ class IsOkAndHoldsMatcher
 
   // From testing::MatcherInterface.
   bool MatchAndExplain(
-      const StatusOr<T> &status_or,
+      const absl::StatusOr<T> &status_or,
       ::testing::MatchResultListener *listener) const override {
     if (!status_or.ok()) {
       *listener << "which is not OK";
@@ -68,7 +68,7 @@ class IsOkAndHoldsMatcher
 
     ::testing::StringMatchResultListener value_listener;
     bool is_a_match =
-        value_matcher_.MatchAndExplain(status_or.ValueOrDie(), &value_listener);
+        value_matcher_.MatchAndExplain(status_or.value(), &value_listener);
     std::string value_explanation = value_listener.str();
     if (!value_explanation.empty()) {
       *listener << absl::StrCat("which contains a value ", value_explanation);
@@ -87,9 +87,9 @@ class IsOkAndHoldsMatcher
 // expectation. However, the value type T is not provided when IsOkAndHolds() is
 // invoked. The value type is only inferable when the gUnit framework invokes
 // the matcher with a value. Consequently, the IsOkAndHolds() function must
-// return an object that is implicitly convertible to a matcher for StatusOr<T>.
-// gUnit refers to such an object as a polymorphic matcher, since it can be used
-// to match with more than one type of value.
+// return an object that is implicitly convertible to a matcher for
+// absl::StatusOr<T>. gUnit refers to such an object as a polymorphic matcher,
+// since it can be used to match with more than one type of value.
 template <typename ValueMatcherT>
 class IsOkAndHoldsGenerator {
  public:
@@ -97,7 +97,7 @@ class IsOkAndHoldsGenerator {
       : value_matcher_(std::move(value_matcher)) {}
 
   template <typename T>
-  operator ::testing::Matcher<const StatusOr<T> &>() const {
+  operator ::testing::Matcher<const absl::StatusOr<T> &>() const {
     return ::testing::MakeMatcher(new IsOkAndHoldsMatcher<T>(value_matcher_));
   }
 
@@ -106,7 +106,7 @@ class IsOkAndHoldsGenerator {
 };
 
 // Implements a gMock matcher for checking error-code expectations on
-// absl::Status and gutils::StatusOr objects.
+// absl::Status and absl::StatusOr objects.
 template <typename Enum, typename Matchee>
 class StatusMatcher : public ::testing::MatcherInterface<Matchee> {
  public:
@@ -173,7 +173,7 @@ class StatusMatcher : public ::testing::MatcherInterface<Matchee> {
 // StatusMatcherGenerator is an intermediate object returned by
 // gutils::testing::status::StatusIs().
 // It implements implicit type-cast operators to supported matcher types:
-// Matcher<const absl::Status &> and Matcher<const StatusOr<T> &>. These
+// Matcher<const absl::Status &> and Matcher<const absl::StatusOr<T> &>. These
 // typecast operators create gMock matchers that test OK expectations on a
 // status container.
 template <typename Enum>
@@ -189,12 +189,12 @@ class StatusIsMatcherGenerator {
                                                                 message_));
   }
 
-  // Type-cast operator for Matcher<const gutils::StatusOr<T> &>.
+  // Type-cast operator for Matcher<const absl::StatusOr<T> &>.
   template <class T>
-  operator ::testing::Matcher<const StatusOr<T> &>() const {
+  operator ::testing::Matcher<const absl::StatusOr<T> &>() const {
     return ::testing::MakeMatcher(
-        new internal::StatusMatcher<Enum, const StatusOr<T> &>(code_,
-                                                               message_));
+        new internal::StatusMatcher<Enum, const absl::StatusOr<T> &>(code_,
+                                                                     message_));
   }
 
  private:
@@ -206,7 +206,7 @@ class StatusIsMatcherGenerator {
 };
 
 // Implements a gMock matcher that checks whether a status container (e.g.
-// absl::Status or gutils::StatusOr<T>) has an OK status.
+// absl::Status or absl::StatusOr<T>) has an OK status.
 template <class T>
 class IsOkMatcherImpl : public ::testing::MatcherInterface<T> {
  public:
@@ -241,7 +241,7 @@ class IsOkMatcherImpl : public ::testing::MatcherInterface<T> {
 
 // IsOkMatcherGenerator is an intermediate object returned by gutils::IsOk().
 // It implements implicit type-cast operators to supported matcher types:
-// Matcher<const absl::Status &> and Matcher<const StatusOr<T> &>. These
+// Matcher<const absl::Status &> and Matcher<const absl::StatusOr<T> &>. These
 // typecast operators create gMock matchers that test OK expectations on a
 // status container.
 class IsOkMatcherGenerator {
@@ -252,11 +252,11 @@ class IsOkMatcherGenerator {
         new internal::IsOkMatcherImpl<const absl::Status &>());
   }
 
-  // Type-cast operator for Matcher<const gutils::StatusOr<T> &>.
+  // Type-cast operator for Matcher<const absl::StatusOr<T> &>.
   template <class T>
-  operator ::testing::Matcher<const StatusOr<T> &>() const {
+  operator ::testing::Matcher<const absl::StatusOr<T> &>() const {
     return ::testing::MakeMatcher(
-        new internal::IsOkMatcherImpl<const StatusOr<T> &>());
+        new internal::IsOkMatcherImpl<const absl::StatusOr<T> &>());
   }
 };
 
@@ -267,16 +267,16 @@ namespace status {
 
 namespace internal = ::gutils::internal;
 
-// Returns a gMock matcher that expects an gutils::StatusOr<T> object to have an
+// Returns a gMock matcher that expects an absl::StatusOr<T> object to have an
 // OK status and for the contained T object to match |value_matcher|.
 //
 // Example:
 //
-//     StatusOr<string> raven_speech_result = raven.Speak();
+//     absl::StatusOr<string> raven_speech_result = raven.Speak();
 //     EXPECT_THAT(raven_speech_result, IsOkAndHolds(HasSubstr("nevermore")));
 //
 // If foo is an object of type T and foo_result is an object of type
-// StatusOr<T>, you can write:
+// absl::StatusOr<T>, you can write:
 //
 //     EXPECT_THAT(foo_result, IsOkAndHolds(foo));
 //
@@ -305,7 +305,7 @@ internal::StatusIsMatcherGenerator<Enum> StatusIs(Enum code,
 }
 
 // Returns an internal::IsOkMatcherGenerator, which may be typecast to a
-// Matcher<absl::Status> or Matcher<gutils::StatusOr<T>>. These gMock
+// Matcher<absl::Status> or Matcher<absl::StatusOr<T>>. These gMock
 // matchers test that a given status container has an OK status.
 inline internal::IsOkMatcherGenerator IsOk() {
   return internal::IsOkMatcherGenerator();
@@ -315,11 +315,11 @@ inline internal::IsOkMatcherGenerator IsOk() {
 }  // namespace testing
 
 // Macros for testing the results of functions that return absl::Status or
-// gutils::StatusOr<T> (for any type T).
+// absl::StatusOr<T> (for any type T).
 #define EXPECT_OK(rexpr) EXPECT_THAT(rexpr, ::gutils::testing::status::IsOk())
 #define ASSERT_OK(rexpr) ASSERT_THAT(rexpr, ::gutils::testing::status::IsOk())
 
-// Executes an expression that returns an gutils::StatusOr<T>, and assigns the
+// Executes an expression that returns an absl::StatusOr<T>, and assigns the
 // contained variable to lhs if the error code is OK.
 // If the absl::Status is non-OK, generates a test failure and returns from the
 // current function, which must have a void return type.
@@ -328,9 +328,9 @@ inline internal::IsOkMatcherGenerator IsOk() {
 //   ASSERT_OK_AND_ASSIGN(ValueType value, MaybeGetValue(arg));
 //
 // The value assignment example might expand into:
-//   StatusOr<ValueType> status_or_value = MaybeGetValue(arg);
+//   absl::StatusOr<ValueType> status_or_value = MaybeGetValue(arg);
 //   ASSERT_OK(status_or_value.status());
-//   ValueType value = status_or_value.ValueOrDie();
+//   ValueType value = status_or_value.value();
 #define ASSERT_OK_AND_ASSIGN(lhs, rexpr)                                  \
   IREE_ASSERT_OK_AND_ASSIGN_IMPL(                                         \
       IREE_STATUS_MACROS_CONCAT_NAME(_status_or_value, __COUNTER__), lhs, \
@@ -339,22 +339,21 @@ inline internal::IsOkMatcherGenerator IsOk() {
 #define IREE_ASSERT_OK_AND_ASSIGN_IMPL(statusor, lhs, rexpr) \
   auto statusor = (rexpr);                                   \
   ASSERT_OK(statusor.status()) << statusor.status();         \
-  lhs = std::move(statusor.ValueOrDie())
+  lhs = std::move(statusor.value())
 #define IREE_STATUS_MACROS_CONCAT_NAME(x, y) \
   IREE_STATUS_MACROS_CONCAT_IMPL(x, y)
 #define IREE_STATUS_MACROS_CONCAT_IMPL(x, y) x##y
 
-// Implements the PrintTo() method for gutils::StatusOr<T>. This method is
-// used by gUnit to print gutils::StatusOr<T> objects for debugging. The
+// Implements the PrintTo() method for absl::StatusOr<T>. This method is
+// used by gUnit to print absl::StatusOr<T> objects for debugging. The
 // implementation relies on gUnit for printing values of T when a
-// gutils::StatusOr<T> object is OK and contains a value.
+// absl::StatusOr<T> object is OK and contains a value.
 template <typename T>
-void PrintTo(const StatusOr<T> &statusor, std::ostream *os) {
+void PrintTo(const absl::StatusOr<T> &statusor, std::ostream *os) {
   if (!statusor.ok()) {
     *os << statusor.status();
   } else {
-    *os << absl::StrCat("OK: ",
-                        ::testing::PrintToString(statusor.ValueOrDie()));
+    *os << absl::StrCat("OK: ", ::testing::PrintToString(statusor.value()));
   }
 }
 

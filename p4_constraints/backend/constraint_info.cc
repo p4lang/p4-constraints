@@ -20,12 +20,13 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/types/variant.h"
 #include "gutils/ret_check.h"
 #include "gutils/status_macros.h"
-#include "gutils/statusor.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/type_checker.h"
@@ -41,7 +42,7 @@ namespace {
 using p4::config::v1::MatchField;
 using p4::config::v1::Table;
 
-gutils::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
+absl::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
     const Table& table) {
   // We expect .p4 files to have the following format:
   // ```p4
@@ -92,7 +93,7 @@ gutils::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
   return ParseConstraint(Tokenize(constraint_str, location));
 }
 
-gutils::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
+absl::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
   ast::Type type;
   switch (key.match_case()) {
     case MatchField::kMatchType:
@@ -123,7 +124,7 @@ gutils::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
   }
 }
 
-gutils::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
+absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
   absl::flat_hash_map<uint32_t, KeyInfo> keys_by_id;
   absl::flat_hash_map<std::string, KeyInfo> keys_by_name;
 
@@ -160,24 +161,30 @@ gutils::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
 
 }  // namespace
 
-absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
+absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info) {
   // Allocate output.
   absl::flat_hash_map<uint32_t, TableInfo> info;
   std::vector<absl::Status> errors;
 
   for (const Table& table : p4info.tables()) {
-    gutils::StatusOr<TableInfo> table_info = ParseTableInfo(table);
+    absl::StatusOr<TableInfo> table_info = ParseTableInfo(table);
     if (!table_info.ok()) {
       errors.push_back(table_info.status());
-    } else if (!info.insert({table.preamble().id(), table_info.ValueOrDie()})
+    } else if (!info.insert({table.preamble().id(), table_info.value()})
                     .second) {
       errors.push_back(gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
                        << "duplicate table: " << table.DebugString());
     }
   }
-  if (!errors.empty()) return errors;
-  return info;
+  if (errors.empty()) return info;
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+         << "P4Info to constraint info translation failed with the following "
+            "errors:\n\n-"
+         << absl::StrJoin(errors, "\n\n- ",
+                          [](std::string* out, const absl::Status& status) {
+                            absl::StrAppend(out, status.ToString());
+                          });
 }
 
 }  // namespace p4_constraints

@@ -31,12 +31,12 @@
 #include "absl/flags/parse.h"
 #include "absl/flags/usage.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/text_format.h"
-#include "gutils/statusor.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
@@ -94,16 +94,11 @@ int main(int argc, char** argv) {
   }
 
   // Parse constraints and report potential errors.
-  absl::variant<ConstraintInfo, std::vector<absl::Status>> info_or_errors =
-      P4ToConstraintInfo(p4info);
-  if (absl::holds_alternative<std::vector<absl::Status>>(info_or_errors)) {
-    const auto& errors = absl::get<std::vector<absl::Status>>(info_or_errors);
-    for (const absl::Status& error : errors) {
-      std::cerr << error.message() << "\n\n";
-    }
+  absl::StatusOr<ConstraintInfo> constraint_info = P4ToConstraintInfo(p4info);
+  if (!constraint_info.ok()) {
+    std::cerr << constraint_info.status().message();
     return 1;
   }
-  const auto& constraint_info = absl::get<ConstraintInfo>(info_or_errors);
 
   // Check table entries, if any where given.
   for (const char* entry_filename :
@@ -133,14 +128,13 @@ int main(int argc, char** argv) {
     entry.set_table_id(CoerceToTableId(entry.table_id()));
 
     // Check entry.
-    gutils::StatusOr<bool> result =
-        EntryMeetsConstraint(entry, constraint_info);
+    absl::StatusOr<bool> result = EntryMeetsConstraint(entry, *constraint_info);
     if (!result.ok()) {
       std::cout << "Error: " << result.status() << "\n\n";
       continue;
     }
-    std::cout << "constraint "
-              << (result.ValueOrDie() ? "satisfied" : "violated") << "\n\n";
+    std::cout << "constraint " << (result.value() ? "satisfied" : "violated")
+              << "\n\n";
   }
 
   return 0;
