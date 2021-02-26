@@ -101,6 +101,8 @@ message Type {
     Ternary ternary = 7;
     Lpm lpm = 8;
     Range range = 9;
+    // `optional` is a reserved name, so we use `optional_match` instead.
+    Optional optional_match = 10;
   }
 
   // Before type-checking, types may be unknown.
@@ -139,6 +141,11 @@ message Type {
 
   // Range match, aka "Range<W>".
   message Range {
+    int32 bitwidth = 1;  // required
+  }
+
+  // Optional match, aka "Optional<W>".
+  message Optional {
     int32 bitwidth = 1;  // required
   }
 }

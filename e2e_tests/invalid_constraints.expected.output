@@ -61,3 +61,9 @@ Type error: expected type int, got bool
 84 |     !false -> -8 == -0b1000 || !1
    |                                 ^
 Type error: expected type bool, got int
+
+- e2e_tests/invalid_constraints.p4:92:5-21:
+   |   @entry_restriction("
+92 |     optional_key > 10;
+   |     ^^^^^^^^^^^^^^^^^
+Type error: operand type optional<32> does not support ordered comparison

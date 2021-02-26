@@ -73,10 +73,18 @@ table:
 | exact        | k::value         | bit\<W\>   |
 | ternary      | k::value         | bit\<W\>   |
 |              | k::mask          | bit\<W\>   |
+| optional     | k::value         | bit\<W\>   |
+|              | k::mask          | bit\<W\>   |
 | lpm          | k::value         | bit\<W\>   |
 |              | k::prefix_length | int        |
 | range        | k::low           | bit\<W\>   |
 |              | k::high          | bit\<W\>   |
+
+Note that an `optional` match is just a restricted kind of `ternary` match whose mask always satisfies the following constraint:
+```
+// Exact match or wildcard match.
+optional_match_key::mask == 0 || optional_match_key::mask == -1
+```
 
 When `k` is of type `bool`, everything behaves precisely as if `k` was of type
 `bit<1>`, with the boolean constant `true` and `false` being mapped to `1` and

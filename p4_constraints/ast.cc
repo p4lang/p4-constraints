@@ -64,9 +64,13 @@ std::string TypeName(const Type& type) {
       return absl::StrCat("bit<", type.lpm().bitwidth(), ">");
     case Type::kRange:
       return absl::StrCat("range<", type.range().bitwidth(), ">");
-    default:
-      return "???";
+    case Type::kOptionalMatch:
+      return absl::StrCat("optional<", type.optional_match().bitwidth(), ">");
+    case Type::TYPE_NOT_SET:
+      break;
   }
+  LOG(DFATAL) << "invalid type: " << type.DebugString();
+  return "???";
 }
 
 std::ostream& operator<<(std::ostream& os, const Type& type) {
@@ -97,8 +101,10 @@ absl::optional<int> TypeBitwidth(const Type& type) {
       return type.lpm().bitwidth();
     case Type::kRange:
       return type.range().bitwidth();
+    case Type::kOptionalMatch:
+      return type.optional_match().bitwidth();
     default:
-      return {};
+      return absl::nullopt;
   }
 }
 
@@ -119,6 +125,9 @@ bool SetTypeBitwidth(Type* type, int bitwidth) {
     case Type::kRange:
       type->mutable_range()->set_bitwidth(bitwidth);
       return true;
+    case Type::kOptionalMatch:
+      type->mutable_optional_match()->set_bitwidth(bitwidth);
+      return true;
     default:
       return false;
   }
@@ -129,35 +138,38 @@ Type TypeCaseToType(Type::TypeCase type_case) {
   switch (type_case) {
     case Type::kUnknown:
       type.mutable_unknown();
-      break;
+      return type;
     case Type::kUnsupported:
       type.mutable_unsupported();
-      break;
+      return type;
     case Type::kBoolean:
       type.mutable_boolean();
-      break;
+      return type;
     case Type::kArbitraryInt:
       type.mutable_arbitrary_int();
-      break;
+      return type;
     case Type::kFixedUnsigned:
       type.mutable_fixed_unsigned();
-      break;
+      return type;
     case Type::kExact:
       type.mutable_exact();
-      break;
+      return type;
     case Type::kTernary:
       type.mutable_ternary();
-      break;
+      return type;
     case Type::kLpm:
       type.mutable_lpm();
-      break;
+      return type;
     case Type::kRange:
       type.mutable_range();
+      return type;
+    case Type::kOptionalMatch:
+      type.mutable_optional_match();
+      return type;
+    case Type::TYPE_NOT_SET:
       break;
-    default:
-      LOG(DFATAL) << "unknown type case: " << type_case;
   }
-  DCHECK_EQ(type.type_case(), type_case);
+  LOG(DFATAL) << "invalid type case: " << type_case;
   return type;
 }
 

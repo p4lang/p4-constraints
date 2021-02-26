@@ -64,7 +64,7 @@ std::string P4IDToString(uint32_t p4_object_id) {
 // -- Parsing P4RT table entries -----------------------------------------------
 
 // See https://p4.org/p4runtime/spec/master/P4Runtime-Spec.html#sec-bytestrings.
-absl::StatusOr<Integer> ParseP4RTInteger(const std::string& int_str) {
+static absl::StatusOr<Integer> ParseP4RTInteger(const std::string& int_str) {
   mpz_class integer;
   const char* chars = int_str.c_str();
   const size_t char_count = strlen(chars);
@@ -76,6 +76,11 @@ absl::StatusOr<Integer> ParseP4RTInteger(const std::string& int_str) {
   mpz_import(integer.get_mpz_t(), char_count, most_significant_first, char_size,
              endian, nails, chars);
   return integer;
+}
+
+static Integer MaxValueForBitwidth(int bitwidth) {
+  // 2^bitwidth - 1
+  return (mpz_class(1) << bitwidth) - mpz_class(1);
 }
 
 // Returns (table key name, table key value)-pair.
@@ -130,6 +135,18 @@ absl::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
       return {std::make_pair(key.name, Range{.low = low, .high = high})};
     }
 
+    case p4::v1::FieldMatch::kOptional: {
+      RET_CHECK_EQ(key.type.type_case(), Type::kOptionalMatch)
+          << "P4RT table entry inconsistent with P4 program";
+      ASSIGN_OR_RETURN(
+          Integer value, ParseP4RTInteger(p4field.optional().value()),
+          _ << " while parsing field 'value' of optional key " << key.name);
+      return {std::make_pair(
+          key.name, Ternary{.value = value,
+                            .mask = MaxValueForBitwidth(
+                                key.type.optional_match().bitwidth())})};
+    }
+
     default:
       return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
              << "unsupported P4RT field match type "
@@ -139,17 +156,53 @@ absl::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
 
 absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
                                       const TableInfo& table_info) {
+  // Parse all keys that are explicitly present.
   absl::flat_hash_map<std::string, EvalResult> keys;
   for (const p4::v1::FieldMatch& field : entry.match()) {
-    ASSIGN_OR_RETURN(auto kv, ParseKey(field, table_info),
-                     _ << " while parsing P4RT table entry");
+    ASSIGN_OR_RETURN(auto kv, ParseKey(field, table_info));
     auto result = keys.insert(kv);
     if (result.second == false) {
       return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-             << "Unable to parse P4RT table entry: duplicate match on key "
-             << kv.first << " with ID " << P4IDToString(field.field_id());
+             << "duplicate match on key " << kv.first << " with ID "
+             << P4IDToString(field.field_id());
     }
   }
+
+  // Use default value for omitted keys.
+  // See Section 9.1.1. of the P4runtime specification.
+  for (const auto& [name, key_info] : table_info.keys_by_name) {
+    if (keys.contains(name)) continue;
+    switch (key_info.type.type_case()) {
+      case ast::Type::kExact:
+        return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+               << "missing exact match key '" << key_info.name << "'";
+      case ast::Type::kTernary:
+      case ast::Type::kOptionalMatch:
+        keys[name] = Ternary{};
+        continue;
+      case ast::Type::kLpm:
+        keys[name] = Lpm{};
+        continue;
+      case ast::Type::kRange:
+        keys[name] = Range{
+            .low = mpz_class(0),
+            .high = MaxValueForBitwidth(key_info.type.range().bitwidth()),
+        };
+        continue;
+      case ast::Type::kBoolean:
+      case ast::Type::kArbitraryInt:
+      case ast::Type::kFixedUnsigned:
+      case ast::Type::kUnknown:
+      case ast::Type::kUnsupported:
+      case ast::Type::TYPE_NOT_SET:
+        break;
+    }
+    return gutils::InternalErrorBuilder(GUTILS_LOC)
+           << "Key '" << key_info.name
+           << "' of invalid match type detected at runtime: "
+           << key_info.type.DebugString();
+  }
+
   return TableEntry{.table_name = table_info.name, .keys = keys};
 }
 
@@ -186,51 +239,53 @@ absl::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
                                          const Expression& expr,
                                          const TableEntry& entry) {
   ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry));
-  if (!absl::holds_alternative<Integer>(result))
-    return TypeError(expr.start_location(), expr.end_location())
-           << "expected expression of (or castable to) type " << type;
-  const Integer value = absl::get<Integer>(result);
-  const Integer one = mpz_class(1);
-  const Integer zero = mpz_class(0);
-  const int bitwidth = TypeBitwidth(type).value_or(-1);
-  DCHECK_NE(bitwidth, -1) << "can only cast to fixed-size types";
-  switch (type.type_case()) {
-    // int ~~> bit<W>
-    //   n |~> n mod 2^W
-    case Type::kFixedUnsigned: {
-      Integer domain_size = one << bitwidth;  // 2^W
-      Integer fixed_value = value % domain_size;
-      // operator% may return negative values.
-      if (fixed_value < zero) fixed_value += domain_size;
-      return {fixed_value};
+  if (absl::holds_alternative<Integer>(result)) {
+    const Integer value = absl::get<Integer>(result);
+    const Integer one = mpz_class(1);
+    const Integer zero = mpz_class(0);
+    const int bitwidth = TypeBitwidth(type).value_or(-1);
+    DCHECK_NE(bitwidth, -1) << "can only cast to fixed-size types";
+    switch (type.type_case()) {
+      // int ~~> bit<W>
+      //   n |~> n mod 2^W
+      case Type::kFixedUnsigned: {
+        Integer domain_size = one << bitwidth;  // 2^W
+        Integer fixed_value = value % domain_size;
+        // operator% may return negative values.
+        if (fixed_value < zero) fixed_value += domain_size;
+        return {fixed_value};
+      }
+
+      // bit<W> ~~> Exact<W>
+      //      n |~> Exact { value = n }
+      case Type::kExact:
+        return {Exact{.value = value}};
+
+      // bit<W> ~~> Ternary<W>/Optional<W>
+      //      n |~> Ternary { value = n; mask = 2^W-1 }
+      case Type::kTernary:
+      case Type::kOptionalMatch: {
+        Integer mask = (one << bitwidth) - one;  // 2^W - 1
+        return {Ternary{.value = value, .mask = mask}};
+      }
+
+      // bit<W> ~~> LPM<W>
+      //      n |~> LPM { value = n; prefix_length = W }
+      case Type::kLpm:
+        return {Lpm{.value = value, .prefix_length = mpz_class(bitwidth)}};
+
+      // bit<W> ~~> Range<W>
+      //      n |~> Range { low = n; high = n }
+      case Type::kRange:
+        return {Range{.low = value, .high = value}};
+
+      default:
+        break;
     }
-
-    // bit<W> ~~> Exact<W>
-    //      n |~> Exact { value = n }
-    case Type::kExact:
-      return {Exact{.value = value}};
-
-    // bit<W> ~~> Ternary<W>
-    //      n |~> Ternary { value = n; mask = 2^W-1 }
-    case Type::kTernary: {
-      Integer mask = (one << bitwidth) - one;  // 2^W - 1
-      return {Ternary{.value = value, .mask = mask}};
-    }
-
-    // bit<W> ~~> LPM<W>
-    //      n |~> LPM { value = n; prefix_length = W }
-    case Type::kLpm:
-      return {Lpm{.value = value, .prefix_length = mpz_class(bitwidth)}};
-
-    // bit<W> ~~> Range<W>
-    //      n |~> Range { low = n; high = n }
-    case Type::kRange:
-      return {Range{.low = value, .high = value}};
-
-    default:
-      return gutils::InternalErrorBuilder(GUTILS_LOC)
-             << "don't know how to cast to type " << type;
   }
+  return TypeError(expr.start_location(), expr.end_location())
+         << "cannot cast expression of type " << expr.type() << " to type "
+         << type;
 }
 
 absl::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
@@ -336,12 +391,9 @@ struct EvalFieldAccess {
     if (field == "high") return {range.high};
     return Error("range");
   }
+  absl::StatusOr<EvalResult> operator()(bool) { return Error("bool"); }
 
-  absl::StatusOr<EvalResult> operator()(bool b) { return Error("bool"); }
-
-  absl::StatusOr<EvalResult> operator()(const Integer& i) {
-    return Error("int");
-  }
+  absl::StatusOr<EvalResult> operator()(const Integer&) { return Error("int"); }
 };
 
 // -- Main evaluator -----------------------------------------------------------
@@ -367,9 +419,10 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
 
     case Expression::kKey: {
       auto it = entry.keys.find(expr.key());
-      if (it == entry.keys.end())
+      if (it == entry.keys.end()) {
         TypeError(expr.start_location(), expr.end_location())
             << "unknown key " << expr.key() << " in table " << entry.table_name;
+      }
       return it->second;
     }
 
@@ -408,13 +461,10 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
     }
 
     case Expression::EXPRESSION_NOT_SET:
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-             << "invalid expression: " << expr.DebugString();
-
-    default:
-      return gutils::UnimplementedErrorBuilder(GUTILS_LOC)
-             << "unknown expression case: " << expr.expression_case();
+      break;
   }
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+         << "invalid expression: " << expr.DebugString();
 }
 
 // -- Sanity checking ----------------------------------------------------------
@@ -424,25 +474,30 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
 absl::Status DynamicTypeCheck(const Expression& expr, const EvalResult result) {
   switch (expr.type().type_case()) {
     case Type::kBoolean:
-      if (absl::holds_alternative<bool>(result)) return {};
+      if (absl::holds_alternative<bool>(result)) return absl::OkStatus();
       break;
     case Type::kArbitraryInt:
     case Type::kFixedUnsigned:
-      if (absl::holds_alternative<Integer>(result)) return {};
+      if (absl::holds_alternative<Integer>(result)) return absl::OkStatus();
       break;
     case Type::kExact:
-      if (absl::holds_alternative<Exact>(result)) return {};
+      if (absl::holds_alternative<Exact>(result)) return absl::OkStatus();
       break;
     case Type::kTernary:
-      if (absl::holds_alternative<Ternary>(result)) return {};
+      if (absl::holds_alternative<Ternary>(result)) return absl::OkStatus();
       break;
     case Type::kLpm:
-      if (absl::holds_alternative<Lpm>(result)) return {};
+      if (absl::holds_alternative<Lpm>(result)) return absl::OkStatus();
       break;
     case Type::kRange:
-      if (absl::holds_alternative<Range>(result)) return {};
+      if (absl::holds_alternative<Range>(result)) return absl::OkStatus();
       break;
-    default:
+    case Type::kOptionalMatch:
+      if (absl::holds_alternative<Ternary>(result)) return absl::OkStatus();
+      break;
+    case Type::kUnknown:
+    case Type::kUnsupported:
+    case Type::TYPE_NOT_SET:
       break;
   }
   return TypeError(expr.start_location(), expr.end_location())
@@ -476,7 +531,9 @@ absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
            << "table entry with unknown table ID "
            << P4IDToString(entry.table_id());
   const TableInfo& table_info = it->second;
-  ASSIGN_OR_RETURN(TableEntry parsed_entry, ParseEntry(entry, table_info));
+  ASSIGN_OR_RETURN(TableEntry parsed_entry, ParseEntry(entry, table_info),
+                   _ << " while parsing P4RT table entry for table '"
+                     << table_info.name << "':");
 
   // Check if entry satisfies table constraint (if present).
   if (!table_info.constraint.has_value()) {
