@@ -58,41 +58,48 @@ class EntryMeetsConstraintTest : public ::testing::Test {
   const Type kTernary32 = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }");
   const Type kLpm32 = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }");
   const Type kRange32 = ParseTextProtoOrDie<Type>("range { bitwidth: 32 }");
+  const Type kOptional32 =
+      ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
 
   const TableInfo kTableInfo{
-      .id = 0,
+      .id = 1,
       .name = "table",
       .constraint = {},  // To be filled in later.
-      .keys_by_id = {},  // Not needed for testing.
+      .keys_by_id =
+          {
+              {1, {1, "exact32", kExact32}},
+              // For testing purposes, fine to omit the other keys here.
+          },
       .keys_by_name = {
-          {"unknown", {0, "unknown", kUnknown}},
-          {"unsupported", {0, "unsupported", kUnsupported}},
-          {"bool", {0, "bool", kBool}},
-          {"int", {0, "int", kArbitraryInt}},
-          {"bit16", {0, "bit16", kFixedUnsigned16}},
-          {"bit32", {0, "bit32", kFixedUnsigned32}},
-          {"exact32", {0, "exact32", kExact32}},
-          {"ternary32", {0, "ternary32", kTernary32}},
-          {"lpm32", {0, "lpm32", kLpm32}},
-          {"range32", {0, "range32", kRange32}},
+          {"exact32", {1, "exact32", kExact32}},
+          {"ternary32", {2, "ternary32", kTernary32}},
+          {"lpm32", {3, "lpm32", kLpm32}},
+          {"range32", {4, "range32", kRange32}},
+          {"optional32", {5, "optional32", kOptional32}},
       }};
 
   const TableEntry kParsedEntry{
       .table_name = "table",
       .keys = {
-          {"unknown", {false}},
-          {"unsupported", {false}},
-          {"bool", {true}},
-          {"int", {mpz_class("-1")}},
-          {"bit16", {mpz_class("42")}},
-          {"bit32", {mpz_class("200")}},
-          {"exact32", {Exact{.value = mpz_class("13")}}},
+          {"exact32", {Exact{.value = mpz_class(42)}}},
           {"ternary32",
-           {Ternary{.value = mpz_class("12"), .mask = mpz_class("128")}}},
+           {Ternary{.value = mpz_class(12), .mask = mpz_class(128)}}},
           {"lpm32",
-           {Lpm{.value = mpz_class("0"), .prefix_length = mpz_class("32")}}},
-          {"range32", {Range{.low = mpz_class("5"), .high = mpz_class("500")}}},
+           {Lpm{.value = mpz_class(0), .prefix_length = mpz_class(32)}}},
+          {"range32", {Range{.low = mpz_class(5), .high = mpz_class(500)}}},
+          {"optional32",
+           {Ternary{.value = mpz_class(12),
+                    .mask = (mpz_class(1) << 32) - mpz_class(1)}}},
       }};
+
+  const p4::v1::TableEntry kTableEntry =
+      ParseTextProtoOrDie<p4::v1::TableEntry>(R"PROTO(
+        table_id: 1
+        match {
+          field_id: 1
+          exact { value: "1234" }
+        }
+      )PROTO");
 
   ConstraintInfo MakeConstraintInfo(const Expression& expr) {
     TableInfo table_info = kTableInfo;
@@ -126,33 +133,32 @@ class EvalTest : public EntryMeetsConstraintTest {};
 
 TEST_F(EntryMeetsConstraintTest, EmptyExpressionErrors) {
   Expression expr;
-  p4::v1::TableEntry entry;
-  EXPECT_THAT(EntryMeetsConstraint(entry, MakeConstraintInfo(expr)),
+  EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(expr)),
               StatusIs(StatusCode::kInvalidArgument));
 }
 
 TEST_F(EntryMeetsConstraintTest, BooleanConstants) {
-  p4::v1::TableEntry entry;
   auto const_true = ExpressionWithType(kBool, "boolean_constant: true");
   auto const_false = ExpressionWithType(kBool, "boolean_constant: false");
-  EXPECT_THAT(EntryMeetsConstraint(entry, MakeConstraintInfo(const_true)),
+  EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(const_true)),
               IsOkAndHolds(Eq(true)));
-  EXPECT_THAT(EntryMeetsConstraint(entry, MakeConstraintInfo(const_false)),
-              IsOkAndHolds(Eq(false)));
+  EXPECT_THAT(
+      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(const_false)),
+      IsOkAndHolds(Eq(false)));
 }
 
 TEST_F(EntryMeetsConstraintTest, NonBooleanConstraintsAreRejected) {
-  p4::v1::TableEntry entry;
   for (const Type& type : {kArbitraryInt, kFixedUnsigned16, kFixedUnsigned32}) {
     auto expr = ExpressionWithType(type, R"(integer_constant: "42")");
-    EXPECT_THAT(EntryMeetsConstraint(entry, MakeConstraintInfo(expr)),
+    EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(expr)),
                 StatusIs(StatusCode::kInvalidArgument));
   }
 
   // Expressions evaluating to non-scalar values should also be rejected.
   for (std::string key : {"exact32", "ternary32", "lpm32", "range32"}) {
-    EXPECT_THAT(EntryMeetsConstraint(entry, MakeConstraintInfo(KeyExpr(key))),
-                StatusIs(StatusCode::kInvalidArgument));
+    EXPECT_THAT(
+        EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(KeyExpr(key))),
+        StatusIs(StatusCode::kInvalidArgument));
   }
 }
 

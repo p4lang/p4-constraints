@@ -50,8 +50,8 @@ gutils::StatusBuilder TypeError(const SourceLocation& start,
 // Castability of types is given by the following Hasse diagram, where lower
 // types can be cast to higher types (but not vice versa):
 //
-//   exact<W>  ternary<W>  lpm<W>  range<W>
-//           \_________ \ /  _____/
+//   exact<W>  ternary<W>  lpm<W>  range<W>  optional<W>
+//           \_________ \ /  _____/_________/
 //                     bit<W>
 //                       |
 //                  arbitrary_int
@@ -66,6 +66,7 @@ bool StrictlyAboveInCastabilityOrder(const Type& left, const Type& right) {
     case Type::kTernary:
     case Type::kLpm:
     case Type::kRange:
+    case Type::kOptionalMatch:
       switch (right.type_case()) {
         case Type::kFixedUnsigned:
           return TypeBitwidth(left) == TypeBitwidth(right);
@@ -94,7 +95,7 @@ absl::optional<Type> LeastUpperBound(const Type& left, const Type& right) {
   // While it is not true for partial orders in general that
   // LeastUpperBound(x,y) exists iff x >= y or y >= x, it is true for our
   // castability relation.
-  return {};
+  return absl::nullopt;
 }
 
 // Mutates the input expression, wrapping it with a type_cast to the given type.
@@ -106,6 +107,29 @@ void WrapWithCast(Expression* expr, Type type) {
   // Need std::move to make this an O(1)-operation; copying would be O(|expr|).
   *cast.mutable_type_cast() = std::move(*expr);
   *expr = std::move(cast);
+}
+
+// Mutates the input expression, wrapping it with a chain of zero or more type
+// casts to convert it, possibly transitively, to the given target type.
+absl::Status CastTransitivelyTo(Expression* expr, Type target_type) {
+  if (StrictlyAboveInCastabilityOrder(target_type, expr->type()) &&
+      expr->type().type_case() == Type::kArbitraryInt) {
+    // Insert int ~~> bit<W> cast.
+    Type fixed_unsigned;
+    auto bitwidth = TypeBitwidth(target_type).value_or(-1);
+    DCHECK_NE(bitwidth, -1) << "cannot cast to arbitrary-size type";
+    fixed_unsigned.mutable_fixed_unsigned()->set_bitwidth(bitwidth);
+    WrapWithCast(expr, fixed_unsigned);
+  }
+
+  if (StrictlyAboveInCastabilityOrder(target_type, expr->type()) &&
+      expr->type().type_case() == Type::kFixedUnsigned) {
+    // Insert bit<W> ~~> Exact<W>/Ternary<W>/LPM<W>/Range<W>/Optional<W> cast.
+    WrapWithCast(expr, target_type);
+  }
+
+  DCHECK_EQ(expr->type(), target_type) << "unification did not unify types";
+  return absl::OkStatus();
 }
 
 // Attempts to unify the types of the given expressions, returning the
@@ -125,28 +149,10 @@ absl::StatusOr<Type> Unify(Expression* left, Expression* right) {
       LeastUpperBound(left->type(), right->type());
   if (!least_upper_bound.has_value()) {
     return TypeError(left->start_location(), right->end_location())
-           << "cannot unify types " << TypeName(left->type()) << " and "
-           << TypeName(right->type());
+           << "cannot unify types " << left->type() << " and " << right->type();
   }
-  for (Expression* expr : {left, right}) {
-    if (StrictlyAboveInCastabilityOrder(*least_upper_bound, expr->type()) &&
-        expr->type().type_case() == Type::kArbitraryInt) {
-      // Insert int ~~> bit<W> cast.
-      Type fixed_unsigned;
-      auto bitwidth = TypeBitwidth(*least_upper_bound).value_or(-1);
-      DCHECK_NE(bitwidth, -1) << "cannot cast to arbitrary-size type";
-      fixed_unsigned.mutable_fixed_unsigned()->set_bitwidth(bitwidth);
-      WrapWithCast(expr, fixed_unsigned);
-    }
-
-    if (StrictlyAboveInCastabilityOrder(*least_upper_bound, expr->type()) &&
-        expr->type().type_case() == Type::kFixedUnsigned) {
-      WrapWithCast(expr, *least_upper_bound);
-    }
-
-    DCHECK_EQ(*least_upper_bound, expr->type())
-        << "unification did not unify types";
-  }
+  RETURN_IF_ERROR(CastTransitivelyTo(left, *least_upper_bound));
+  RETURN_IF_ERROR(CastTransitivelyTo(right, *least_upper_bound));
   return *least_upper_bound;
 }
 
@@ -164,6 +170,8 @@ const auto* const kFieldTypes =
         {std::make_tuple(Type::kLpm, "prefix_length"), Type::kArbitraryInt},
         {std::make_tuple(Type::kRange, "low"), Type::kFixedUnsigned},
         {std::make_tuple(Type::kRange, "high"), Type::kFixedUnsigned},
+        {std::make_tuple(Type::kOptionalMatch, "value"), Type::kFixedUnsigned},
+        {std::make_tuple(Type::kOptionalMatch, "mask"), Type::kFixedUnsigned},
     };
 
 absl::optional<Type> FieldTypeOfCompositeType(const Type& composite_type,
@@ -175,7 +183,7 @@ absl::optional<Type> FieldTypeOfCompositeType(const Type& composite_type,
   absl::optional<int> bitwidth = TypeBitwidth(composite_type);
   if (!bitwidth.has_value()) {
     LOG(DFATAL) << "expected composite type " << composite_type
-                << "to have bitwidth";
+                << " to have bitwidth";
   }
   SetTypeBitwidth(&field_type, bitwidth.value_or(-1));
   return {field_type};
@@ -298,10 +306,11 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       return absl::OkStatus();
     }
 
-    default:
-      return gutils::InternalErrorBuilder(GUTILS_LOC)
-             << "unknown expression case: " << expr->expression_case();
+    case Expression::EXPRESSION_NOT_SET:
+      break;
   }
+  return TypeError(expr->start_location(), expr->end_location())
+         << "unexpected expression: " << expr->DebugString();
 }
 
 }  // namespace p4_constraints

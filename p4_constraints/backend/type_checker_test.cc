@@ -53,6 +53,8 @@ class InferAndCheckTypesTest : public ::testing::Test {
   const Type kTernary32 = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }");
   const Type kLpm32 = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }");
   const Type kRange32 = ParseTextProtoOrDie<Type>("range { bitwidth: 32 }");
+  const Type kOptional32 =
+      ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
 
   const TableInfo kTableInfo{
       0,
@@ -76,11 +78,11 @@ class InferAndCheckTypesTest : public ::testing::Test {
 TEST_F(InferAndCheckTypesTest, InvalidExpressions) {
   Expression expr = ParseTextProtoOrDie<Expression>("");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
-              StatusIs(StatusCode::kInternal));
+              StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>("boolean_negation {}");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
-              StatusIs(StatusCode::kInternal));
+              StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>("type_cast {}");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
@@ -88,7 +90,7 @@ TEST_F(InferAndCheckTypesTest, InvalidExpressions) {
 
   expr = ParseTextProtoOrDie<Expression>("binary_expression {}");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
-              StatusIs(StatusCode::kInternal));
+              StatusIs(StatusCode::kInvalidArgument));
 }
 
 TEST_F(InferAndCheckTypesTest, BooleanConstant) {
@@ -159,7 +161,7 @@ TEST_F(InferAndCheckTypesTest, BooleanNegationOfBooleansTypeChecks) {
 TEST_F(InferAndCheckTypesTest, BooleanNegationOfNonBooleansDoesNotTypeCheck) {
   Expression expr = ParseTextProtoOrDie<Expression>("boolean_negation {}");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
-              StatusIs(StatusCode::kInternal));
+              StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>(R"PROTO(
     boolean_negation { integer_constant: "0" }
@@ -201,7 +203,7 @@ TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfIntTypeChecks) {
 TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfNonIntDoesNotTypeChecks) {
   Expression expr = ParseTextProtoOrDie<Expression>("arithmetic_negation {}");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
-              StatusIs(StatusCode::kInternal));
+              StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>(R"(
     arithmetic_negation { boolean_constant: true }

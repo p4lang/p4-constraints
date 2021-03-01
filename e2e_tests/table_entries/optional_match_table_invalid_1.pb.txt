@@ -1,0 +1,8 @@
+table_id: 4
+match {
+  field_id: 1  # hdr.ipv4.dst_addr
+  optional {
+    # Illegal: constraint only allows wildcard match.
+    value: "123"
+  }
+}

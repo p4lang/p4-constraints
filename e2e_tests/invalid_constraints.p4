@@ -85,6 +85,17 @@ control invalid_constraints(inout headers_t headers,
   ")
   table boolean_negation_of_integer { actions = {} key = {} }
 
+
+  @file(__FILE__)
+  @line(__LINE__)
+  @entry_restriction("
+    optional_key > 10;
+  ")
+  table optional_does_not_support_ordered_comparison {
+    key = { headers.ipv4.dst_addr : optional  @name("optional_key"); }
+    actions = {}
+  }
+
   apply {
     forgot_quotes.apply();
     forgot_quotes_with_srcloc.apply();
@@ -99,6 +110,7 @@ control invalid_constraints(inout headers_t headers,
     scalar_has_no_field.apply();
     arithmetic_negation_of_boolean.apply();
     boolean_negation_of_integer.apply();
+    optional_does_not_support_ordered_comparison.apply();
    }
  }
 

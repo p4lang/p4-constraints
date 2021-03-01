@@ -110,6 +110,9 @@ absl::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
         case MatchField::RANGE:
           type.mutable_range()->set_bitwidth(key.bitwidth());
           return type;
+        case MatchField::OPTIONAL:
+          type.mutable_optional_match()->set_bitwidth(key.bitwidth());
+          return type;
         default:
           return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
                  << "match key of invalid MatchType: "
