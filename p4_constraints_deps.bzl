@@ -35,11 +35,11 @@ def p4_constraints_deps():
             sha256 = "6dd0f6b20094910fbb7f1f7908688df01af2d4f6c5c21331b9f636048674aebf",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
-        http_archive(
+        git_repository(
             name = "com_googlesource_code_re2",
-            url = "https://github.com/google/re2/archive/2020-07-06.tar.gz",
-            strip_prefix = "re2-2020-07-06",
-            sha256 = "2e9489a31ae007c81e90e8ec8a15d62d58a9c18d4fd1603f6441ef248556b41f",
+            # Newest commit on `abseil` branch on 2021-03-05.
+            commit = "72f110e82ccf3a9ae1c9418bfb447c3ba1cf95c2",
+            remote = "https://github.com/google/re2",
         )
     if not native.existing_rule("rules_proto"):
         http_archive(

@@ -37,9 +37,9 @@
 
 #include <vector>
 
+#include "absl/strings/string_view.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/token.h"
-#include "re2/stringpiece.h"
 
 namespace p4_constraints {
 
@@ -47,7 +47,7 @@ namespace p4_constraints {
 // is total; syntax errors are signaled by emitting an UNEXPECTED_CHAR token.
 // The final token in the returned token sequence is guaranteed to be an
 // END_OF_INPUT or UNEXPECTED_CHAR token.
-std::vector<Token> Tokenize(re2::StringPiece input,
+std::vector<Token> Tokenize(absl::string_view input,
                             ast::SourceLocation start_location);
 
 }  // namespace p4_constraints
