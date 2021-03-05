@@ -33,7 +33,6 @@
 #include "p4_constraints/frontend/lexer.h"
 #include "p4_constraints/frontend/parser.h"
 #include "re2/re2.h"
-#include "re2/stringpiece.h"
 
 namespace p4_constraints {
 
@@ -62,7 +61,7 @@ absl::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
   ast::SourceLocation location;
   int line = 0;
   absl::string_view constraint = "";
-  for (re2::StringPiece annotation : table.preamble().annotations()) {
+  for (absl::string_view annotation : table.preamble().annotations()) {
     if (RE2::Consume(&annotation, file_annotation,
                      location.mutable_file_path()))
       continue;

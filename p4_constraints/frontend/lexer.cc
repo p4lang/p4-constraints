@@ -18,12 +18,12 @@
 #include <string>
 #include <vector>
 
+#include "absl/strings/string_view.h"
 #include "glog/logging.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/token.h"
 #include "re2/re2.h"
-#include "re2/stringpiece.h"
 
 namespace p4_constraints {
 
@@ -31,7 +31,7 @@ namespace {
 
 // Consumes characters from the input until the string "*/" appears or the input
 // is exhausted, updating the given SourceLocation accordingly.
-void SwallowMultiLineComment(re2::StringPiece* input,
+void SwallowMultiLineComment(absl::string_view* input,
                              ast::SourceLocation* location) {
   static const LazyRE2 kCommentRegexp{
       // Important: the ordering matters, since the first matching case applies!
@@ -40,9 +40,9 @@ void SwallowMultiLineComment(re2::StringPiece* input,
                               // (first case) did not match.
       "|((?:\\r\\n?)|\\n)"    // Newline.
   };
-  re2::StringPiece end_of_comment = "";
-  re2::StringPiece comment = "";
-  re2::StringPiece newline = "";
+  absl::string_view end_of_comment = "";
+  absl::string_view comment = "";
+  absl::string_view newline = "";
   while (RE2::Consume(input, *kCommentRegexp, &end_of_comment, &comment,
                       &newline)) {
     if (!end_of_comment.empty()) {
@@ -93,8 +93,9 @@ const LazyRE2 kTokenPattern{
 };
 
 // Access capture group in kTokenPattern by name.
-re2::StringPiece CaptureByName(const std::string& group_name,
-                               const std::vector<re2::StringPiece>& captures) {
+absl::string_view CaptureByName(
+    const std::string& group_name,
+    const std::vector<absl::string_view>& captures) {
   auto iter = kTokenPattern->NamedCapturingGroups().find(group_name);
   if (iter != kTokenPattern->NamedCapturingGroups().end()) {
     return captures[iter->second];
@@ -106,7 +107,7 @@ re2::StringPiece CaptureByName(const std::string& group_name,
 
 }  // namespace
 
-std::vector<Token> Tokenize(re2::StringPiece input,
+std::vector<Token> Tokenize(absl::string_view input,
                             ast::SourceLocation start_location) {
   // Output.
   std::vector<Token> tokens;
@@ -119,7 +120,7 @@ std::vector<Token> Tokenize(re2::StringPiece input,
   const int capture_count = kTokenPattern->NumberOfCapturingGroups() + 1;
 
   // We will have RE2 store the strings matched by each capturing group here.
-  std::vector<re2::StringPiece> captures(capture_count);
+  std::vector<absl::string_view> captures(capture_count);
 
   while (kTokenPattern->Match(input, 0, input.size(), RE2::Anchor::ANCHOR_START,
                               captures.data(), capture_count)) {

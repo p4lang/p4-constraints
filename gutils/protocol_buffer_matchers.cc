@@ -178,7 +178,7 @@ class IgnoreFieldPathCriteria
 };
 
 namespace {
-bool Consume(re2::StringPiece* s, re2::StringPiece x) {
+bool Consume(absl::string_view* s, absl::string_view x) {
   // We use the implementation of ABSL's StartsWith here until we can pick up a
   // dependency on Abseil.
   if (x.empty() ||
@@ -209,7 +209,7 @@ ParseFieldPathOrDie(const std::string& relative_field_path,
   const RE2 field_subscript_regex(R"(([^.()[\]]+)\[(\d+)\])");
   const RE2 extension_regex(R"(\(([^)]+)\))");
 
-  re2::StringPiece input(relative_field_path);
+  absl::string_view input(relative_field_path);
   while (!input.empty()) {
     // Consume a dot, except on the first iteration.
     if (input.size() < relative_field_path.size() && !Consume(&input, ".")) {
