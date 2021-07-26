@@ -2,7 +2,7 @@
 
 This file defines targets `run_p4check` and `diff_test`, which are intended to be
 used in conjunction for "golden file testing" as follows:
-```BUILD
+```build
     run_p4check(
         name = "main_p4check",
         src = "main.p4",
