@@ -47,7 +47,7 @@ class EntryMeetsConstraintTest : public ::testing::Test {
  public:
   const Type kUnknown = ParseTextProtoOrDie<Type>("unknown {}");
   const Type kUnsupported =
-      ParseTextProtoOrDie<Type>(R"(unsupported { name: "optional" })");
+      ParseTextProtoOrDie<Type>(R"pb(unsupported { name: "optional" })pb");
   const Type kBool = ParseTextProtoOrDie<Type>("boolean {}");
   const Type kArbitraryInt = ParseTextProtoOrDie<Type>("arbitrary_int {}");
   const Type kFixedUnsigned16 =
@@ -93,13 +93,13 @@ class EntryMeetsConstraintTest : public ::testing::Test {
       }};
 
   const p4::v1::TableEntry kTableEntry =
-      ParseTextProtoOrDie<p4::v1::TableEntry>(R"PROTO(
+      ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
           exact { value: "1234" }
         }
-      )PROTO");
+      )pb");
 
   ConstraintInfo MakeConstraintInfo(const Expression& expr) {
     TableInfo table_info = kTableInfo;

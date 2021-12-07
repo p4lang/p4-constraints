@@ -78,170 +78,173 @@ struct ParserTest : public ::testing::Test {
 };
 
 TEST_F(ParserTest, Positive) {
-  const std::pair<std::vector<Token>, std::string> tests[] = {
-      // Boolean constants.
-      {{kTrue}, "boolean_constant: true"},
-      {{kFalse}, "boolean_constant: false"},
+  const std::pair<std::vector<Token>, std::string> tests[] =
+      {
+          // Boolean constants.
+          {{kTrue}, "boolean_constant: true"},
+          {{kFalse}, "boolean_constant: false"},
 
-      // Tests, comparison operators, numerals.
-      {{kId, kEq, Binary("11")}, R"PROTO(binary_expression: {
-                                           left: { key: "" },
-                                           binop: EQ,
-                                           right: { integer_constant: "3" }
-                                         })PROTO"},
-      {{kId, kNe, Octary("11")}, R"PROTO(binary_expression: {
-                                           left: { key: "" },
-                                           binop: NE,
-                                           right: { integer_constant: "9" }
-                                         })PROTO"},
-      {{kId, kGt, Decimal("11")}, R"PROTO(binary_expression: {
+          // Tests, comparison operators, numerals.
+          {{kId, kEq, Binary("11")}, R"pb(binary_expression: {
                                             left: { key: "" },
-                                            binop: GT,
-                                            right: { integer_constant: "11" }
-                                          })PROTO"},
-      {{kId, kGe, Hexadec("11")}, R"PROTO(binary_expression: {
+                                            binop: EQ,
+                                            right: { integer_constant: "3" }
+                                          })pb"},
+          {{kId, kNe, Octary("11")}, R"pb(binary_expression: {
                                             left: { key: "" },
-                                            binop: GE,
-                                            right: { integer_constant: "17" }
-                                          })PROTO"},
-      {{kId, kLt, Hexadec("1f")}, R"PROTO(binary_expression: {
-                                            left: { key: "" },
-                                            binop: LT,
-                                            right: { integer_constant: "31" }
-                                          })PROTO"},
-      {{kId, kLe, Hexadec("af")},
-       R"PROTO(binary_expression: {
-                 left: { key: "" },
-                 binop: LE,
-                 right: { integer_constant: "175" }
-               })PROTO"},
+                                            binop: NE,
+                                            right: { integer_constant: "9" }
+                                          })pb"},
+          {{kId, kGt, Decimal("11")}, R"pb(binary_expression: {
+                                             left: { key: "" },
+                                             binop: GT,
+                                             right: { integer_constant: "11" }
+                                           })pb"},
+          {{kId, kGe, Hexadec("11")}, R"pb(binary_expression: {
+                                             left: { key: "" },
+                                             binop: GE,
+                                             right: { integer_constant: "17" }
+                                           })pb"},
+          {{kId, kLt, Hexadec("1f")}, R"pb(binary_expression: {
+                                             left: { key: "" },
+                                             binop: LT,
+                                             right: { integer_constant: "31" }
+                                           })pb"},
+          {{kId, kLe, Hexadec("af")},
+           R"pb(binary_expression: {
+                  left: { key: "" },
+                  binop: LE,
+                  right: { integer_constant: "175" }
+                })pb"},
 
-      // Boolean negation.
-      {{kNot, kTrue}, R"(boolean_negation: {boolean_constant: true})"},
-      {{kNot, kFalse}, R"(boolean_negation: {boolean_constant: false})"},
-      {{kNot, kLpar, kId, kEq, Decimal("000123"), kRpar},
-       R"PROTO(boolean_negation: {
-                 binary_expression: {
-                   left: { key: "" },
-                   binop: EQ,
-                   right: { integer_constant: "123" }
-                 }
-               })PROTO"},
-      {{kNot, kNot, kTrue},
-       R"PROTO(boolean_negation: {
-                 boolean_negation: { boolean_constant: true }
-               })PROTO"},
+          // Boolean negation.
+          {{kNot, kTrue}, R"(boolean_negation: {boolean_constant: true})"},
+          {{kNot, kFalse}, R"(boolean_negation: {boolean_constant: false})"},
+          {{kNot, kLpar, kId, kEq, Decimal("000123"), kRpar},
+           R"pb(boolean_negation: {
+                  binary_expression: {
+                    left: { key: "" },
+                    binop: EQ,
+                    right: { integer_constant: "123" }
+                  }
+                })pb"},
+          {{kNot, kNot, kTrue},
+           R"pb(boolean_negation: {
+                  boolean_negation: { boolean_constant: true }
+                })pb"},
 
-      // Binary Boolean operators.
-      {{kTrue, kAnd, kTrue}, R"PROTO(binary_expression: {
+          // Binary Boolean operators.
+          {{kTrue, kAnd, kTrue}, R"pb(binary_expression: {
+                                        left: { boolean_constant: true },
+                                        binop: AND,
+                                        right: { boolean_constant: true }
+                                      })pb"},
+          {{kTrue, kOr, kTrue}, R"pb(binary_expression: {
                                        left: { boolean_constant: true },
-                                       binop: AND,
+                                       binop: OR,
                                        right: { boolean_constant: true }
-                                     })PROTO"},
-      {{kTrue, kOr, kTrue}, R"PROTO(binary_expression: {
-                                      left: { boolean_constant: true },
-                                      binop: OR,
-                                      right: { boolean_constant: true }
-                                    })PROTO"},
-      {{kTrue, kImplies, kTrue}, R"PROTO(binary_expression: {
-                                           left: { boolean_constant: true },
-                                           binop: IMPLIES,
-                                           right: { boolean_constant: true }
-                                         })PROTO"},
+                                     })pb"},
+          {{kTrue, kImplies, kTrue}, R"pb(binary_expression: {
+                                            left: { boolean_constant: true },
+                                            binop: IMPLIES,
+                                            right: { boolean_constant: true }
+                                          })pb"},
 
-      // Associativity.
-      {{kTrue, kAnd, kTrue, kAnd, kTrue},
-       R"PROTO(binary_expression: {
-                 left: {
-                   binary_expression: {
-                     left: { boolean_constant: true },
-                     binop: AND,
-                     right: { boolean_constant: true }
-                   }
-                 },
-                 binop: AND,
-                 right: { boolean_constant: true }
-               })PROTO"},
-      {{kTrue, kAnd, kLpar, kTrue, kAnd, kTrue, kRpar},
-       R"PROTO(binary_expression: {
-                 left: { boolean_constant: true },
-                 binop: AND,
-                 right: {
-                   binary_expression: {
-                     left: { boolean_constant: true },
-                     binop: AND,
-                     right: { boolean_constant: true }
-                   }
-                 }
-               })PROTO"},
-      {{kTrue, kOr, kTrue, kOr, kTrue},
-       R"PROTO(binary_expression: {
-                 left: {
-                   binary_expression: {
-                     left: { boolean_constant: true },
-                     binop: OR,
-                     right: { boolean_constant: true }
-                   }
-                 },
-                 binop: OR,
-                 right: { boolean_constant: true }
-               })PROTO"},
-      {{kTrue, kOr, kLpar, kTrue, kOr, kTrue, kRpar},
-       R"PROTO(binary_expression: {
-                 left: { boolean_constant: true },
-                 binop: OR,
-                 right: {
-                   binary_expression: {
-                     left: { boolean_constant: true },
-                     binop: OR,
-                     right: { boolean_constant: true }
-                   }
-                 }
-               })PROTO"},
+          // Associativity.
+          {{kTrue, kAnd, kTrue, kAnd, kTrue},
+           R"pb(binary_expression: {
+                  left: {
+                    binary_expression: {
+                      left: { boolean_constant: true },
+                      binop: AND,
+                      right: { boolean_constant: true }
+                    }
+                  },
+                  binop: AND,
+                  right: { boolean_constant: true }
+                })pb"},
+          {{kTrue, kAnd, kLpar, kTrue, kAnd, kTrue, kRpar},
+           R"pb(binary_expression: {
+                  left: { boolean_constant: true },
+                  binop: AND,
+                  right: {
+                    binary_expression: {
+                      left: { boolean_constant: true },
+                      binop: AND,
+                      right: { boolean_constant: true }
+                    }
+                  }
+                })pb"},
+          {{kTrue, kOr, kTrue, kOr, kTrue},
+           R"pb(binary_expression: {
+                  left: {
+                    binary_expression: {
+                      left: { boolean_constant: true },
+                      binop: OR,
+                      right: { boolean_constant: true }
+                    }
+                  },
+                  binop: OR,
+                  right: { boolean_constant: true }
+                })pb"},
+          {{kTrue, kOr, kLpar, kTrue, kOr, kTrue, kRpar},
+           R"pb(binary_expression: {
+                  left: { boolean_constant: true },
+                  binop: OR,
+                  right: {
+                    binary_expression: {
+                      left: { boolean_constant: true },
+                      binop: OR,
+                      right: { boolean_constant: true }
+                    }
+                  }
+                })pb"},
 
-      // Precedence.
-      {{kNot, kTrue, kAnd, kTrue, kOr, kTrue, kImplies, kTrue},
-       R"PROTO(binary_expression: {
-                 binop: IMPLIES,
-                 left: {
-                   binary_expression: {
-                     binop: OR,
-                     left: {
-                       binary_expression: {
-                         binop: AND,
-                         left: { boolean_negation: { boolean_constant: true } },
-                         right: { boolean_constant: true },
-                       }
-                     },
-                     right: { boolean_constant: true },
-                   }
-                 }
-               })PROTO"},
-      {{kNot, kTrue, kImplies, kTrue, kOr, kTrue, kAnd, kTrue},
-       R"PROTO(binary_expression: {
-                 binop: IMPLIES,
-                 left: { boolean_negation: { boolean_constant: true } },
-                 right: {
-                   binary_expression: {
-                     binop: OR,
-                     left: { boolean_constant: true },
-                     right: {
-                       binary_expression: {
-                         binop: AND,
-                         left: { boolean_constant: true },
-                         right: { boolean_constant: true },
-                       }
-                     }
-                   }
-                 }
-               })PROTO"},
+          // Precedence.
+          {{kNot, kTrue, kAnd, kTrue, kOr, kTrue, kImplies, kTrue},
+           R"pb(binary_expression: {
+                  binop: IMPLIES,
+                  left: {
+                    binary_expression: {
+                      binop: OR,
+                      left: {
+                        binary_expression: {
+                          binop: AND,
+                          left: {
+                            boolean_negation: { boolean_constant: true }
+                          },
+                          right: { boolean_constant: true },
+                        }
+                      },
+                      right: { boolean_constant: true },
+                    }
+                  }
+                })pb"},
+          {{kNot, kTrue, kImplies, kTrue, kOr, kTrue, kAnd, kTrue},
+           R"pb(binary_expression: {
+                  binop: IMPLIES,
+                  left: { boolean_negation: { boolean_constant: true } },
+                  right: {
+                    binary_expression: {
+                      binop: OR,
+                      left: { boolean_constant: true },
+                      right: {
+                        binary_expression: {
+                          binop: AND,
+                          left: { boolean_constant: true },
+                          right: { boolean_constant: true },
+                        }
+                      }
+                    }
+                  }
+                })pb"},
 
-      // Parenthesis.
-      {{kLpar, kTrue, kRpar}, "boolean_constant: true"},
-      {{kLpar, kLpar, kTrue, kRpar, kRpar}, "boolean_constant: true"},
-      {{kLpar, kLpar, kLpar, kTrue, kRpar, kRpar, kRpar},
-       "boolean_constant: true"},
-  };
+          // Parenthesis.
+          {{kLpar, kTrue, kRpar}, "boolean_constant: true"},
+          {{kLpar, kLpar, kTrue, kRpar, kRpar}, "boolean_constant: true"},
+          {{kLpar, kLpar, kLpar, kTrue, kRpar, kRpar, kRpar},
+           "boolean_constant: true"},
+      };
 
   for (const auto& test : tests) {
     const auto& tokens = test.first;

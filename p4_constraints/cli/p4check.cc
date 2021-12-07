@@ -32,6 +32,7 @@
 #include "absl/flags/usage.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
@@ -56,6 +57,11 @@ constexpr char kUsage[] =
 // See P4Runtime specification, "6.3 ID Allocation for P4Info Objects".
 uint32_t CoerceToTableId(uint32_t table_id) {
   return (table_id & 0x00FFFFFF) | (p4::config::v1::P4Ids::TABLE << 24);
+}
+
+std::string ToString(const absl::Status& status) {
+  return absl::StrCat(absl::StatusCodeToString(status.code()), ": ",
+                      status.message());
 }
 
 int main(int argc, char** argv) {
@@ -130,7 +136,7 @@ int main(int argc, char** argv) {
     // Check entry.
     absl::StatusOr<bool> result = EntryMeetsConstraint(entry, *constraint_info);
     if (!result.ok()) {
-      std::cout << "Error: " << result.status() << "\n\n";
+      std::cout << "Error: " << ToString(result.status()) << "\n\n";
       continue;
     }
     std::cout << "constraint " << (result.value() ? "satisfied" : "violated")
