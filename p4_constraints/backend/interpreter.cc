@@ -156,8 +156,9 @@ absl::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
 
 absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
                                       const TableInfo& table_info) {
-  // Parse all keys that are explicitly present.
   absl::flat_hash_map<std::string, EvalResult> keys;
+
+  // Parse all keys that are explicitly present.
   for (const p4::v1::FieldMatch& field : entry.match()) {
     ASSIGN_OR_RETURN(auto kv, ParseKey(field, table_info));
     auto result = keys.insert(kv);
@@ -203,7 +204,11 @@ absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
            << key_info.type.DebugString();
   }
 
-  return TableEntry{.table_name = table_info.name, .keys = keys};
+  return TableEntry{
+      .table_name = table_info.name,
+      .priority = entry.priority(),
+      .keys = keys,
+  };
 }
 
 // -- Error handling -----------------------------------------------------------
@@ -424,6 +429,16 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
             << "unknown key " << expr.key() << " in table " << entry.table_name;
       }
       return it->second;
+    }
+
+    case Expression::kMetadataAccess: {
+      const std::string metadata_name = expr.metadata_access().metadata_name();
+      if (metadata_name == "priority") {
+        return Integer(entry.priority);
+      } else {
+        return TypeError(expr.start_location(), expr.end_location())
+               << "unknown metadata '" << metadata_name << "'";
+      }
     }
 
     case Expression::kBooleanNegation: {

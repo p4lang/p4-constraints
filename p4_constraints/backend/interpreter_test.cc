@@ -162,6 +162,67 @@ TEST_F(EntryMeetsConstraintTest, NonBooleanConstraintsAreRejected) {
   }
 }
 
+Expression GetPriorityEqualityConstraint(const int32_t priority) {
+  constexpr absl::string_view kPriorityEqualityConstraint = R"pb(
+    type { boolean {} }
+    binary_expression {
+      binop: EQ
+      left {
+        type { arbitrary_int {} }
+        metadata_access { metadata_name: "priority" }
+      }
+      right {
+        type { arbitrary_int {} }
+        integer_constant: "$0"
+      }
+    }
+  )pb";
+
+  return ParseTextProtoOrDie<Expression>(
+      absl::Substitute(kPriorityEqualityConstraint, priority));
+}
+
+TEST_F(EntryMeetsConstraintTest, PriorityConstraintWorksWithDefaultPriority) {
+  const auto expr = GetPriorityEqualityConstraint(0);
+  const auto constraint_check_result =
+      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(expr));
+  ASSERT_THAT(constraint_check_result, IsOkAndHolds(true));
+}
+
+TEST_F(EntryMeetsConstraintTest,
+       PriorityConstraintWorksWithNonDefaultPriority) {
+  constexpr absl::string_view kTableEntryWithPriority = R"pb(
+    table_id: 1
+    match {
+      field_id: 1
+      exact { value: "1234" }
+    }
+    priority: $0
+  )pb";
+
+  const int32_t priority = 10;
+
+  const p4::v1::TableEntry table_entry_with_priority =
+      ParseTextProtoOrDie<p4::v1::TableEntry>(
+          absl::Substitute(kTableEntryWithPriority, priority));
+
+  // Equality to a different priority.
+  {
+    const auto expr = GetPriorityEqualityConstraint(0);
+    const auto constraint_check_result = EntryMeetsConstraint(
+        table_entry_with_priority, MakeConstraintInfo(expr));
+    ASSERT_THAT(constraint_check_result, IsOkAndHolds(false));
+  }
+
+  // Equality to the same priority.
+  {
+    const auto expr = GetPriorityEqualityConstraint(priority);
+    const auto constraint_check_result = EntryMeetsConstraint(
+        table_entry_with_priority, MakeConstraintInfo(expr));
+    ASSERT_THAT(constraint_check_result, IsOkAndHolds(true));
+  }
+}
+
 TEST_F(EvalTest, IntegerConstant) {
   for (auto int_str :
        {"0", "-1", "1", "42", "-9042852073498123679518173785123857"}) {

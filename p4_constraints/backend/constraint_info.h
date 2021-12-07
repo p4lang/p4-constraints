@@ -33,6 +33,7 @@
 #include "absl/types/variant.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/ast.proto.h"
 
 namespace p4_constraints {
 
@@ -69,6 +70,16 @@ using ConstraintInfo = absl::flat_hash_map<uint32_t, TableInfo>;
 // representation, or an error statuses if parsing fails.
 absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info);
+
+// Table entry metadata accessible in the constraint language, e.g. priority.
+struct MetadataInfo {
+  std::string name;
+  ast::Type type;
+};
+
+// Returns information for a given metadata name, std::nullopt for unknown
+// metadata.
+std::optional<MetadataInfo> GetMetadataInfo(absl::string_view metadata_name);
 
 }  // namespace p4_constraints
 

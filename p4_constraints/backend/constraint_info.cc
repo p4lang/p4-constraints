@@ -24,6 +24,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
+#include "absl/types/optional.h"
 #include "absl/types/variant.h"
 #include "gutils/ret_check.h"
 #include "gutils/status_macros.h"
@@ -162,6 +163,19 @@ absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
 }
 
 }  // namespace
+
+std::optional<MetadataInfo> GetMetadataInfo(absl::string_view metadata_name) {
+  // ArbitraryInt ast type.
+  ast::Type arbitrary_int;
+  arbitrary_int.mutable_arbitrary_int();
+
+  if (metadata_name == "priority") {
+    return MetadataInfo{.name = "priority", .type = arbitrary_int};
+  }
+
+  // Unknown metadata.
+  return absl::nullopt;
+}
 
 absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info) {

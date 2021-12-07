@@ -14,6 +14,7 @@
 
 #include "p4_constraints/backend/type_checker.h"
 
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -22,6 +23,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "glog/logging.h"
+#include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
@@ -43,6 +45,12 @@ gutils::StatusBuilder TypeError(const SourceLocation& start,
                                 const SourceLocation& end) {
   return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
          << QuoteSourceLocation(start, end) << "Type error: ";
+}
+
+gutils::StatusBuilder InternalError(const SourceLocation& start,
+                                    const SourceLocation& end) {
+  return gutils::InternalErrorBuilder(GUTILS_LOC)
+         << QuoteSourceLocation(start, end) << "Internal error: ";
 }
 
 // -- Castability & Unification ------------------------------------------------
@@ -215,6 +223,27 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
         return TypeError(expr->start_location(), expr->end_location())
                << "key " << key << " has illegal type "
                << TypeName(expr->type());
+      }
+      return absl::OkStatus();
+    }
+
+    case Expression::kMetadataAccess: {
+      const std::string& metadata_name =
+          expr->metadata_access().metadata_name();
+      const auto metadata_info = GetMetadataInfo(metadata_name);
+      if (metadata_info == std::nullopt) {
+        return TypeError(expr->start_location(), expr->end_location())
+               << "unknown metadata '" << metadata_name << "'";
+      }
+      Type& expr_type = *expr->mutable_type();
+      expr_type = metadata_info->type;
+      if (expr_type.type_case() == Type::kUnknown ||
+          expr_type.type_case() == Type::kUnsupported) {
+        // Since we hardcode the type of metadata in the source code, this line
+        // should never be reached.
+        return InternalError(expr->start_location(), expr->end_location())
+               << "metadata '" << metadata_name << "' has illegal type "
+               << TypeName(expr_type);
       }
       return absl::OkStatus();
     }

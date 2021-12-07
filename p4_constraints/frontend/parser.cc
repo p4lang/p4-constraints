@@ -177,7 +177,7 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //
 //   constraint ::=
 //     | 'true' | 'false'
-//     |  <numeral> | <key>
+//     |  <numeral> | <key> | <metadata_access>
 //     | '!' constraint
 //     | '-' constraint
 //     | '(' constraint ')'
@@ -186,6 +186,7 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //     | constraint ('==' | '!=' | '>' | '>=' | '<' | '<=') constraint
 //
 //   <key> ::= <id> ('.' <id>)*
+//   <metadata_access> ::= '::' <id>
 //
 // As usual (see https://en.wikipedia.org/wiki/Left_recursion), we accomplish
 // this by removing left recursion from the grammar by rewriting it as follows:
@@ -194,7 +195,7 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //
 //   initial ::=
 //     | 'true' | 'false'
-//     | <numeral> | <key>
+//     | <numeral> | <key> | <metadata_access>
 //     | '!' constraint
 //     | '-' constraint
 //     | '(' constraint ')'
@@ -234,6 +235,12 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
       ASSIGN_OR_RETURN(ast, ast::MakeKey(key_fragments));
       break;
     }
+    case Token::DOUBLE_COLON: {
+      ASSIGN_OR_RETURN(const Token metadata_name,
+                       ExpectTokenKind(Token::ID, tokens));
+      ASSIGN_OR_RETURN(ast, ast::MakeMetadataAccess(metadata_name));
+      break;
+    }
     case Token::BANG: {
       ASSIGN_OR_RETURN(
           ast, ParseConstraintAbove(TokenPrecedence(token.kind), tokens));
@@ -254,8 +261,8 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
     default:
       return Unexpected(
           token, {Token::TRUE, Token::FALSE, Token::BINARY, Token::OCTARY,
-                  Token::DECIMAL, Token::HEXADEC, Token::ID, Token::BANG,
-                  Token::MINUS, Token::LPAR});
+                  Token::DECIMAL, Token::HEXADEC, Token::ID,
+                  Token::DOUBLE_COLON, Token::BANG, Token::MINUS, Token::LPAR});
   }
 
   // Try to extend the AST, i.e. parse an 'extension'.

@@ -96,6 +96,13 @@ control invalid_constraints(inout headers_t headers,
     actions = {}
   }
 
+  @file(__FILE__)
+  @line(__LINE__)
+  @entry_restriction("
+    ::unknown > 10;
+  ")
+  table unknown_metadata { actions = {} key = {} }
+
   apply {
     forgot_quotes.apply();
     forgot_quotes_with_srcloc.apply();
@@ -111,6 +118,7 @@ control invalid_constraints(inout headers_t headers,
     arithmetic_negation_of_boolean.apply();
     boolean_negation_of_integer.apply();
     optional_does_not_support_ordered_comparison.apply();
+    unknown_metadata.apply();
    }
  }
 
