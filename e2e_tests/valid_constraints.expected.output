@@ -6,6 +6,8 @@ e2e_tests/table_entries/optional_match_table_invalid_1.pb.txt: constraint violat
 
 e2e_tests/table_entries/optional_match_table_valid_1.pb.txt: constraint satisfied
 
+e2e_tests/table_entries/optional_match_table_valid_max_priority.pb.txt: constraint violated
+
 e2e_tests/table_entries/reject_all_entries_1.pb.txt: constraint violated
 
 e2e_tests/table_entries/unknown_table_entry.pb.txt: Error: INVALID_ARGUMENT: table entry with unknown table ID 0 (full ID: 33554432 (0x02000000))

@@ -60,6 +60,8 @@ control valid_constraints(inout headers_t hdr,
     hdr.ipv4.dst_addr == 10 || hdr.ipv4.dst_addr != 10;
     // A real constraint: only wildcard match is okay.
     hdr.ipv4.dst_addr::mask == 0;
+    // A constraint on metadata.
+    ::priority < 0x7fffffff;
   ")
   @id(4)
   table optional_match_table {

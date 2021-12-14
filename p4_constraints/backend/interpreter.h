@@ -126,6 +126,7 @@ inline std::ostream& operator<<(std::ostream& os, const Range& range) {
 // Parsed representation of p4::v1::TableEntry.
 struct TableEntry {
   std::string table_name;
+  int32_t priority;
   // All table keys, by name.
   // In contrast to p4::v1::TableEntry, all keys must be present, i.e. this must
   // be a total map from key names to values.

@@ -443,4 +443,12 @@ TEST_F(InferAndCheckTypesTest, FieldAccess_AccessFieldOfScalarExpression) {
   }
 }
 
+TEST_F(InferAndCheckTypesTest, MetadataAccessTypeChecks) {
+  Expression expr = ParseTextProtoOrDie<Expression>(R"pb(
+    metadata_access { metadata_name: "priority" }
+  )pb");
+  ASSERT_OK(InferAndCheckTypes(&expr, kTableInfo)) << expr.DebugString();
+  EXPECT_EQ(expr.type(), kArbitraryInt) << expr.DebugString();
+}
+
 }  // namespace p4_constraints

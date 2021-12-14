@@ -73,6 +73,7 @@ struct ParserTest : public ::testing::Test {
   const Token kLpar = DummyToken(Token::LPAR);
   const Token kRpar = DummyToken(Token::RPAR);
   const Token kId = DummyToken(Token::ID);
+  const Token kDoubleColon = DummyToken(Token::DOUBLE_COLON);
   const Token kEndOfFile = DummyToken(Token::END_OF_INPUT);
   const Token kUnexpectedChar = DummyToken(Token::UNEXPECTED_CHAR);
 };
@@ -244,6 +245,9 @@ TEST_F(ParserTest, Positive) {
           {{kLpar, kLpar, kTrue, kRpar, kRpar}, "boolean_constant: true"},
           {{kLpar, kLpar, kLpar, kTrue, kRpar, kRpar, kRpar},
            "boolean_constant: true"},
+
+          // Metadata access.
+          {{kDoubleColon, kId}, R"pb(metadata_access { metadata_name: "" })pb"},
       };
 
   for (const auto& test : tests) {

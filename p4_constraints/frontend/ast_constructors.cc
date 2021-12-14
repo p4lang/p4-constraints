@@ -62,7 +62,7 @@ absl::StatusOr<ast::BinaryOperator> ConvertBinaryOperator(Token::Kind binop) {
   }
 }
 
-absl::StatusOr<std::string> ConvertNumeral(Token numeral_token) {
+absl::StatusOr<std::string> ConvertNumeral(const Token& numeral_token) {
   mpz_class numeral;
   switch (numeral_token.kind) {
     case Token::BINARY:
@@ -101,7 +101,7 @@ ast::Expression LocatedExpression(const ast::SourceLocation& start_location,
 
 // -- Public AST constructors --------------------------------------------------
 
-absl::StatusOr<ast::Expression> MakeBooleanConstant(Token boolean) {
+absl::StatusOr<ast::Expression> MakeBooleanConstant(const Token& boolean) {
   RET_CHECK(boolean.kind == Token::TRUE || boolean.kind == Token::FALSE)
       << "expected boolean, got " << boolean.kind;
   ast::Expression ast =
@@ -110,7 +110,7 @@ absl::StatusOr<ast::Expression> MakeBooleanConstant(Token boolean) {
   return ast;
 }
 
-absl::StatusOr<ast::Expression> MakeIntegerConstant(Token numeral) {
+absl::StatusOr<ast::Expression> MakeIntegerConstant(const Token& numeral) {
   ASSIGN_OR_RETURN(std::string numeral_str, ConvertNumeral(numeral));
   ast::Expression ast =
       LocatedExpression(numeral.start_location, numeral.end_location);
@@ -118,7 +118,7 @@ absl::StatusOr<ast::Expression> MakeIntegerConstant(Token numeral) {
   return ast;
 }
 
-absl::StatusOr<ast::Expression> MakeBooleanNegation(Token bang_token,
+absl::StatusOr<ast::Expression> MakeBooleanNegation(const Token& bang_token,
                                                     ast::Expression operand) {
   RET_CHECK_EQ(bang_token.kind, Token::BANG);
   ast::Expression ast =
@@ -128,7 +128,7 @@ absl::StatusOr<ast::Expression> MakeBooleanNegation(Token bang_token,
 }
 
 absl::StatusOr<ast::Expression> MakeArithmeticNegation(
-    Token minus_token, ast::Expression operand) {
+    const Token& minus_token, ast::Expression operand) {
   RET_CHECK_EQ(minus_token.kind, Token::MINUS);
   ast::Expression ast =
       LocatedExpression(minus_token.start_location, operand.end_location());
@@ -150,7 +150,14 @@ absl::StatusOr<ast::Expression> MakeKey(absl::Span<const Token> key_fragments) {
   return ast;
 }
 
-absl::StatusOr<ast::Expression> MakeBinaryExpression(Token binop_token,
+absl::StatusOr<ast::Expression> MakeMetadataAccess(const Token& metadata_name) {
+  ast::Expression ast = LocatedExpression(metadata_name.start_location,
+                                          metadata_name.end_location);
+  ast.mutable_metadata_access()->set_metadata_name(metadata_name.text);
+  return ast;
+}
+
+absl::StatusOr<ast::Expression> MakeBinaryExpression(const Token& binop_token,
                                                      ast::Expression left,
                                                      ast::Expression right) {
   ast::Expression ast =
@@ -166,7 +173,7 @@ absl::StatusOr<ast::Expression> MakeBinaryExpression(Token binop_token,
 }
 
 absl::StatusOr<ast::Expression> MakeFieldAccess(ast::Expression expr,
-                                                Token field) {
+                                                const Token& field) {
   RET_CHECK_EQ(field.kind, Token::ID);
   ast::Expression ast =
       LocatedExpression(expr.start_location(), field.end_location);
