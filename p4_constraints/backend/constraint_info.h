@@ -33,7 +33,6 @@
 #include "absl/types/variant.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
-#include "p4_constraints/ast.proto.h"
 
 namespace p4_constraints {
 
