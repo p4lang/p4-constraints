@@ -16,17 +16,41 @@ header ethernet_t {
 header ipv4_t {
   ipv4_addr_t src_addr;
   ipv4_addr_t dst_addr;
+  bit<8> protocol;
 }
 
 header ipv6_t {
   ipv6_addr_t src_addr;
   ipv6_addr_t dst_addr;
+  bit<8> next_header;
+}
+
+header udp_t {
+  bit<16> src_port;
+  bit<16> dst_port;
+  bit<16> hdr_length;
+  bit<16> checksum;
+}
+
+header tcp_t {
+  bit<16> src_port;
+  bit<16> dst_port;
+  bit<32> seq_no;
+  bit<32> ack_no;
+  bit<4> data_offset;
+  bit<4> res;
+  bit<8> flags;
+  bit<16> window;
+  bit<16> checksum;
+  bit<16> urgent_ptr;
 }
 
 struct headers_t {
   ethernet_t ethernet;
   ipv4_t ipv4;
   ipv6_t ipv6;
+  udp_t udp;
+  tcp_t tcp;
 }
 
 struct local_metadata_t {

@@ -69,11 +69,30 @@ control valid_constraints(inout headers_t hdr,
     actions = {}
   }
 
+  @file(__FILE__)
+  @line(__LINE__)
+  @entry_restriction("
+    // Only allow IP field matches for IP packets.
+    ip_protocol::mask != 0 -> (ether_type == 0x0800 || ether_type == 0x86dd);
+    // Only allow l4_dst_port matches for TCP/UDP packets.
+    l4_dst_port::mask != 0 -> (ip_protocol == 6 || ip_protocol == 17);
+  ")
+  @id(5)
+  table regression_2022_03_09_table {
+    key = {
+      hdr.ethernet.ether_type : ternary @name("ether_type") @id(1);
+      hdr.ipv4.protocol : ternary @name("ip_protocol") @id(2);
+      hdr.tcp.dst_port : ternary @name("l4_dst_port") @id(3);
+    }
+    actions = {}
+  }
+
   apply {
     accept_all_entries.apply();
     reject_all_entries.apply();
     vrf_classifier_table.apply();
     optional_match_table.apply();
+    regression_2022_03_09_table.apply();
   }
 }
 
