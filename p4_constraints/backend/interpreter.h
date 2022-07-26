@@ -27,10 +27,22 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 
 namespace p4_constraints {
+
+// Checks if a given table entry satisfies the entry constraint attached to its
+// associated table. Returns the empty string if this is the case, or a
+// human-readable nonempty string explaining why it is not the case otherwise.
+// This function has the same runtime on successes as `EntryMeetsConstraint`
+// and longer runtimes on failure (by a constant factor) and should generally be
+// preferred. Returns an InvalidArgument Status if the entry belongs to a table
+// not present in ConstraintInfo, or if it is inconsistent with the table
+// definition in ConstraintInfo.
+absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
+    const p4::v1::TableEntry& entry, const ConstraintInfo& context);
 
 // Checks if a given table entry satisfies the entry constraint attached to its
 // associated table. Returns true if this is the case or if no constraint
@@ -117,6 +129,9 @@ inline std::ostream& operator<<(std::ostream& os, const Range& range) {
                                range.low.get_str(), range.high.get_str());
 }
 
+// Converts EvalResult to readable string.
+std::string EvalResultToString(const EvalResult& result);
+
 // TODO(smolkaj): The code below does not compile with C++11. Find workaround.
 // inline std::ostream& operator<<(std::ostream& os, const EvalResult& result) {
 //   absl::visit([&](const auto& result) { os << result; }, result);
@@ -134,6 +149,10 @@ struct TableEntry {
   // TODO(smolkaj): once we support actions, they will be added here.
 };
 
+// Parses p4::v1::TableEntry
+absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
+                                      const TableInfo& table_info);
+
 // Used to memoize evaluation results to avoid re-computation.
 using EvaluationCache = absl::flat_hash_map<const ast::Expression*, bool>;
 
@@ -145,7 +164,25 @@ absl::StatusOr<EvalResult> Eval(const ast::Expression& expr,
                                 const TableEntry& entry,
                                 EvaluationCache* eval_cache);
 
-// Same as `Eval` except forces bool result.
+// Provides a minimal explanation for why `expression` resolved to true/false
+// under `entry` as a pointer to a subexpression that implies the result.
+// In the formal sense, finds the smallest subexpression `s` of `e` such that:
+//
+//  eval(s, entry1) == eval(s, entry2)  =>  eval(e, entry1) == eval(e, entry2)
+//
+// In the special case where eval(e, entry1) == false, this is equivalent to
+//
+//           eval(e, entry2)  =>  eval(s, entry2) != eval(s, entry1)
+//
+// Uses `eval_cache` and `size_cache` to avoid recomputation, allowing it to run
+// in linear time. Given current language specification, search only requires
+// traversal of nodes with type boolean. Traversal of non-boolean nodes or an
+// invalid AST will return InternalError Status.
+absl::StatusOr<const ast::Expression*> MinimalSubexpressionLeadingToEvalResult(
+    const ast::Expression& expression, const TableEntry& entry,
+    EvaluationCache& eval_cache, ast::SizeCache& size_cache);
+
+// Same as `Eval` except forces boolean result.
 absl::StatusOr<bool> EvalToBool(const ast::Expression& expr,
                                 const TableEntry& entry,
                                 EvaluationCache* eval_cache);

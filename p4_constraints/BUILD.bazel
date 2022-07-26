@@ -27,10 +27,9 @@ cc_test(
     srcs = ["ast_test.cc"],
     deps = [
         ":ast",
-        "//gutils:status",
+        ":ast_cc_proto",
+        "//gutils:parse_text_proto",
         "//gutils:status_matchers",
-        "//p4_constraints/frontend:lexer",
-        "//p4_constraints/frontend:parser",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",

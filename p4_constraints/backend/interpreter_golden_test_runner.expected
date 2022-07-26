@@ -1,0 +1,220 @@
+=== INPUT ===
+--- Constraint ---
+true;
+--- Table Entry ---
+Table Name:"table"
+Priority:0
+Key Info
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+=== OUTPUT ===
+
+=== INPUT ===
+--- Constraint ---
+exact32::value != 10 || exact32::value == 10;
+--- Table Entry ---
+Table Name:"table"
+Priority:0
+Key Info
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+=== OUTPUT ===
+
+=== INPUT ===
+--- Constraint ---
+exact32::value > 6 && exact32::value < 5;
+--- Table Entry ---
+Table Name:"table"
+Priority:0
+Key Info
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+=== OUTPUT ===
+All entries must satisfy:
+
+start_location 	 {
+  column: 22
+}
+end_location {
+  column: 40
+}
+type {
+  boolean {
+  }
+}
+binary_expression {
+  binop: LT
+  left {
+    start_location {
+      column: 22
+    }
+    end_location {
+      column: 36
+    }
+    type {
+      fixed_unsigned {
+        bitwidth: 32
+      }
+    }
+    field_access {
+      field: "value"
+      expr {
+        start_location {
+          column: 22
+        }
+        end_location {
+          column: 29
+        }
+        type {
+          exact {
+            bitwidth: 32
+          }
+        }
+        key: "exact32"
+      }
+    }
+  }
+  right {
+    start_location {
+      column: 39
+    }
+    end_location {
+      column: 40
+    }
+    type {
+      fixed_unsigned {
+        bitwidth: 32
+      }
+    }
+    type_cast {
+      start_location {
+        column: 39
+      }
+      end_location {
+        column: 40
+      }
+      type {
+        arbitrary_int {
+        }
+      }
+      integer_constant: "5"
+    }
+  }
+}
+
+But your entry did not
+>>>Entry Info<<<
+Table Name:"table"
+Priority:0
+Key Info
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== INPUT ===
+--- Constraint ---
+exact32::value > 5 && !(exact32::value == 10);
+--- Table Entry ---
+Table Name:"table"
+Priority:0
+Key Info
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+=== OUTPUT ===
+All entries must not satisfy:
+
+start_location 	 {
+  column: 24
+}
+end_location {
+  column: 44
+}
+type {
+  boolean {
+  }
+}
+binary_expression {
+  binop: EQ
+  left {
+    start_location {
+      column: 24
+    }
+    end_location {
+      column: 38
+    }
+    type {
+      fixed_unsigned {
+        bitwidth: 32
+      }
+    }
+    field_access {
+      field: "value"
+      expr {
+        start_location {
+          column: 24
+        }
+        end_location {
+          column: 31
+        }
+        type {
+          exact {
+            bitwidth: 32
+          }
+        }
+        key: "exact32"
+      }
+    }
+  }
+  right {
+    start_location {
+      column: 42
+    }
+    end_location {
+      column: 44
+    }
+    type {
+      fixed_unsigned {
+        bitwidth: 32
+      }
+    }
+    type_cast {
+      start_location {
+        column: 42
+      }
+      end_location {
+        column: 44
+      }
+      type {
+        arbitrary_int {
+        }
+      }
+      integer_constant: "10"
+    }
+  }
+}
+
+But your entry did
+>>>Entry Info<<<
+Table Name:"table"
+Priority:0
+Key Info
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+

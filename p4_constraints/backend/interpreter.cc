@@ -19,15 +19,22 @@
 #include <stddef.h>
 
 #include <cstring>
+#include <iostream>
+#include <limits>
 #include <string>
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/variant.h"
 #include "glog/logging.h"
+#include "gutils/ordered_map.h"
+#include "gutils/overload.h"
 #include "gutils/ret_check.h"
 #include "gutils/status_macros.h"
 #include "p4/v1/p4runtime.pb.h"
@@ -59,6 +66,32 @@ std::string P4IDToString(uint32_t p4_object_id) {
   }
   return absl::StrFormat("%d (full ID: %d (0x%.8x))", id_without_type_prefix,
                          p4_object_id, p4_object_id);
+}
+
+std::string EvalResultToString(const EvalResult& result) {
+  return absl::visit(
+      gutils::Overload{
+          [](bool result) -> std::string { return result ? "true" : "false"; },
+          [](const Integer& result) { return result.get_str(); },
+          [](const Exact& result) {
+            return absl::StrFormat("Exact{.value = %s}",
+                                   result.value.get_str());
+          },
+          [](const Ternary& result) {
+            return absl::StrFormat("Ternary{.value = %s, .mask = %s}",
+                                   result.value.get_str(),
+                                   result.mask.get_str());
+          },
+          [](const Lpm& result) {
+            return absl::StrFormat("Lpm{.value = %s, .prefix_length = %s}",
+                                   result.value.get_str(),
+                                   result.prefix_length.get_str());
+          },
+          [](const Range& result) {
+            return absl::StrFormat("Range{.low = %s, .high = %s}",
+                                   result.low.get_str(), result.high.get_str());
+          }},
+      result);
 }
 
 // -- Parsing P4RT table entries -----------------------------------------------
@@ -415,6 +448,146 @@ struct EvalFieldAccess {
   absl::StatusOr<EvalResult> operator()(const Integer&) { return Error("int"); }
 };
 
+// -- Explainer ----------------------------------------------------------------
+
+absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
+    const Expression& expression, const TableEntry& entry,
+    EvaluationCache& eval_cache, ast::SizeCache& size_cache) {
+  switch (expression.expression_case()) {
+    case Expression::kBooleanConstant:
+      return &expression;
+
+    case Expression::kBooleanNegation: {
+      return MinimalSubexpressionLeadingToEvalResult(
+          expression.boolean_negation(), entry, eval_cache, size_cache);
+    }
+
+    case Expression::kBinaryExpression: {
+      const ast::BinaryExpression& binexpr = expression.binary_expression();
+      const ast::BinaryOperator& binop = binexpr.binop();
+      switch (binop) {
+        // Search terminates on non-boolean comparisons because descendants
+        // are all non-boolean, so no refinement is possible.
+        case ast::EQ:
+        case ast::NE:
+        case ast::GT:
+        case ast::GE:
+        case ast::LT:
+        case ast::LE:
+          return &expression;
+
+        // Boolean comparisons may require further search to find minimal
+        // reason, if no such refinement is possible, terminate search.
+        // AND      was  False -> search false component(s)
+        // OR       was  True  -> search true component(s)
+        // IMPLIES  was  True  -> search false antecedent and/or true consequent
+        // AND      was  True  -> terminate search
+        // OR       was  False -> terminate search
+        // IMPLIES  was  False -> terminate search
+        case ast::AND:
+        case ast::OR:
+        case ast::IMPLIES: {
+          ASSIGN_OR_RETURN(bool left_result_is_true,
+                           EvalToBool(binexpr.left(), entry, &eval_cache));
+          ASSIGN_OR_RETURN(bool right_result_is_true,
+                           EvalToBool(binexpr.right(), entry, &eval_cache));
+
+          std::vector<const Expression*> candidate_subexpressions;
+
+          switch (binop) {
+            case ast::AND: {
+              if (!left_result_is_true)
+                candidate_subexpressions.push_back(&binexpr.left());
+              if (!right_result_is_true)
+                candidate_subexpressions.push_back(&binexpr.right());
+              break;
+            }
+            case ast::OR: {
+              if (left_result_is_true)
+                candidate_subexpressions.push_back(&binexpr.left());
+              if (right_result_is_true)
+                candidate_subexpressions.push_back(&binexpr.right());
+              break;
+            }
+            case ast::IMPLIES: {
+              if (!left_result_is_true)
+                candidate_subexpressions.push_back(&binexpr.left());
+              if (right_result_is_true)
+                candidate_subexpressions.push_back(&binexpr.right());
+              break;
+            }
+            default:
+              return gutils::InternalErrorBuilder()
+                     << "unreachable code reached";
+          }
+
+          if (candidate_subexpressions.empty()) return &expression;
+          // Returns `MinimalSubexpressionLeadingToEvalResult` of sole candidate
+          if (candidate_subexpressions.size() == 1) {
+            return MinimalSubexpressionLeadingToEvalResult(
+                *candidate_subexpressions[0], entry, eval_cache, size_cache);
+          }
+          // Returns the `MinimalSubexpressionLeadingToEvalResult` from the
+          // candidate who has the smallest such subexpresson.
+          ASSIGN_OR_RETURN(
+              auto* subexpression_0,
+              MinimalSubexpressionLeadingToEvalResult(
+                  *candidate_subexpressions[0], entry, eval_cache, size_cache));
+          ASSIGN_OR_RETURN(
+              auto* subexpression_1,
+              MinimalSubexpressionLeadingToEvalResult(
+                  *candidate_subexpressions[1], entry, eval_cache, size_cache));
+          ASSIGN_OR_RETURN(int size_0,
+                           ast::Size(*subexpression_0, &size_cache));
+          ASSIGN_OR_RETURN(int size_1,
+                           ast::Size(*subexpression_1, &size_cache));
+          return size_0 <= size_1 ? subexpression_0 : subexpression_1;
+        }
+
+        default:
+          return gutils::InternalErrorBuilder(GUTILS_LOC)
+                 << "unknown binary operator "
+                 << ast::BinaryOperator_Name(binop)
+                 << " encountered at runtime";
+      }
+    }
+
+    default:
+      return gutils::InternalErrorBuilder(GUTILS_LOC)
+             << "Explanation search should terminate at boolean expressions\n "
+             << "Non-boolean expression reached: " << expression.DebugString();
+  }
+}
+
+// Returns human readable explanation of constraint violation.
+absl::StatusOr<std::string> ExplainConstraintViolation(
+    const Expression& expr, const TableEntry& entry,
+    EvaluationCache& eval_cache, ast::SizeCache& size_cache) {
+  ASSIGN_OR_RETURN(const ast::Expression* explanation,
+                   MinimalSubexpressionLeadingToEvalResult(
+                       expr, entry, eval_cache, size_cache));
+  ASSIGN_OR_RETURN(bool truth_value,
+                   EvalToBool(*explanation, entry, &eval_cache));
+  // Ordered for determinism when golden testing.
+  std::string key_info = absl::StrJoin(
+      gutils::Ordered(entry.keys), "\n", [](std::string* out, auto pair) {
+        absl::StrAppend(out, "Key:\"", pair.first,
+                        "\" -> Value: ", EvalResultToString(pair.second));
+      });
+  // TODO(b/241957581): Find better representation for explanation. Consider
+  // modifying quote function to use string in constraint info
+  return absl::StrFormat(
+      "All entries must %ssatisfy:"
+      "\n\n%s\n"
+      "But your entry did%s\n"
+      ">>>Entry Info<<<\n"
+      "Table Name:\"%s\"\n"
+      "Priority:%d\n"
+      "Key Info\n"
+      "%s\n",
+      (truth_value ? "not " : ""), explanation->DebugString(),
+      (truth_value ? "" : " not"), entry.table_name, entry.priority, key_info);
+}
 // -- Main evaluator -----------------------------------------------------------
 
 // Evaluates Expression over given table entry, returning EvalResult if
@@ -584,6 +757,51 @@ absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
   }
   // No explanation is returned so no cache is provided.
   return EvalToBool(constraint, parsed_entry, /*eval_cache=*/nullptr);
+}
+
+absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
+    const p4::v1::TableEntry& entry, const ConstraintInfo& context) {
+  using ::p4_constraints::ast::SizeCache;
+  using ::p4_constraints::internal_interpreter::EvalToBool;
+  using ::p4_constraints::internal_interpreter::EvaluationCache;
+  using ::p4_constraints::internal_interpreter::P4IDToString;
+  using ::p4_constraints::internal_interpreter::ParseEntry;
+  using ::p4_constraints::internal_interpreter::TableEntry;
+
+  // Find table associated with entry and parse the entry.
+  const auto it = context.find(entry.table_id());
+  if (it == context.end())
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+           << "table entry with unknown table ID "
+           << P4IDToString(entry.table_id());
+  const TableInfo& table_info = it->second;
+  ASSIGN_OR_RETURN(const TableEntry parsed_entry, ParseEntry(entry, table_info),
+                   _ << " while parsing P4RT table entry for table '"
+                     << table_info.name << "':");
+
+  // Check if entry satisfies table constraint (if present).
+  if (!table_info.constraint.has_value()) {
+    VLOG(1) << "Table \"" << table_info.name
+            << "\" has no constraint; accepting entry unconditionally.";
+    return "";
+  }
+  const Expression& constraint = table_info.constraint.value();
+  if (constraint.type().type_case() != Type::kBoolean) {
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+           << "table " << table_info.name
+           << " has non-boolean constraint: " << constraint.DebugString();
+  }
+
+  EvaluationCache eval_cache;
+  ASSIGN_OR_RETURN(bool entry_satisfies_constraint,
+                   EvalToBool(constraint, parsed_entry, &eval_cache));
+
+  if (entry_satisfies_constraint) {
+    return "";
+  }
+  SizeCache size_cache;
+  return ExplainConstraintViolation(constraint, parsed_entry, eval_cache,
+                                    size_cache);
 }
 
 }  // namespace p4_constraints

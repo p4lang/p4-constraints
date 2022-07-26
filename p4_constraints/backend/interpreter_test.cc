@@ -25,11 +25,13 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "gutils/parse_text_proto.h"
 #include "gutils/status_matchers.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/ast.proto.h"
 #include "p4_constraints/backend/constraint_info.h"
@@ -39,6 +41,7 @@
 
 namespace p4_constraints {
 namespace internal_interpreter {
+namespace {
 
 using ::absl::StatusCode;
 using ::gutils::ParseTextProtoOrDie;
@@ -135,31 +138,46 @@ class EntryMeetsConstraintTest : public ::testing::Test {
     *expr.mutable_type() = type;
     return expr;
   }
+
+  Expression BinaryExpr(const Expression& left, const Expression& right,
+                        ast::BinaryOperator binop) {
+    Expression expr;
+    expr.mutable_binary_expression()->set_binop(binop);
+    *expr.mutable_binary_expression()->mutable_left() = left;
+    *expr.mutable_binary_expression()->mutable_right() = right;
+    *expr.mutable_type() = kBool;
+    return expr;
+  }
 };
 
 class EvalTest : public EntryMeetsConstraintTest {};
 class EvalToBoolCacheTest : public EntryMeetsConstraintTest {};
+class MinimalSubexpressionLeadingToEvalResultTest
+    : public EntryMeetsConstraintTest {};
 
 TEST_F(EntryMeetsConstraintTest, EmptyExpressionErrors) {
-  Expression expr;
-  EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(expr)),
+  const Expression kExpr;
+  EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(kExpr)),
               StatusIs(StatusCode::kInvalidArgument));
 }
 
 TEST_F(EntryMeetsConstraintTest, BooleanConstants) {
-  Expression const_true = ExpressionWithType(kBool, "boolean_constant: true");
-  Expression const_false = ExpressionWithType(kBool, "boolean_constant: false");
-  EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(const_true)),
+  const Expression kConstTrue =
+      ExpressionWithType(kBool, "boolean_constant: true");
+  const Expression kConstFalse =
+      ExpressionWithType(kBool, "boolean_constant: false");
+  EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(kConstTrue)),
               IsOkAndHolds(Eq(true)));
   EXPECT_THAT(
-      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(const_false)),
+      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(kConstFalse)),
       IsOkAndHolds(Eq(false)));
 }
 
 TEST_F(EntryMeetsConstraintTest, NonBooleanConstraintsAreRejected) {
   for (const Type& type : {kArbitraryInt, kFixedUnsigned16, kFixedUnsigned32}) {
-    Expression expr = ExpressionWithType(type, R"(integer_constant: "42")");
-    EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(expr)),
+    const Expression kExpr =
+        ExpressionWithType(type, R"(integer_constant: "42")");
+    EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(kExpr)),
                 StatusIs(StatusCode::kInvalidArgument));
   }
 
@@ -192,10 +210,10 @@ Expression GetPriorityEqualityConstraint(const int32_t priority) {
 }
 
 TEST_F(EntryMeetsConstraintTest, PriorityConstraintWorksWithDefaultPriority) {
-  const Expression expr = GetPriorityEqualityConstraint(0);
+  const Expression kExpr = GetPriorityEqualityConstraint(0);
   const auto constraint_check_result =
-      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(expr));
-  ASSERT_THAT(constraint_check_result, IsOkAndHolds(true));
+      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(kExpr));
+  ASSERT_THAT(constraint_check_result, IsOkAndHolds(Eq(true)));
 }
 
 TEST_F(EntryMeetsConstraintTest,
@@ -217,18 +235,18 @@ TEST_F(EntryMeetsConstraintTest,
 
   // Equality to a different priority.
   {
-    const Expression expr = GetPriorityEqualityConstraint(0);
+    const Expression kExpr = GetPriorityEqualityConstraint(0);
     const auto constraint_check_result = EntryMeetsConstraint(
-        table_entry_with_priority, MakeConstraintInfo(expr));
-    ASSERT_THAT(constraint_check_result, IsOkAndHolds(false));
+        table_entry_with_priority, MakeConstraintInfo(kExpr));
+    ASSERT_THAT(constraint_check_result, IsOkAndHolds(Eq(false)));
   }
 
   // Equality to the same priority.
   {
-    const Expression expr = GetPriorityEqualityConstraint(priority);
+    const Expression kExpr = GetPriorityEqualityConstraint(priority);
     const auto constraint_check_result = EntryMeetsConstraint(
-        table_entry_with_priority, MakeConstraintInfo(expr));
-    ASSERT_THAT(constraint_check_result, IsOkAndHolds(true));
+        table_entry_with_priority, MakeConstraintInfo(kExpr));
+    ASSERT_THAT(constraint_check_result, IsOkAndHolds(Eq(true)));
   }
 }
 
@@ -237,10 +255,10 @@ TEST_F(EvalTest, IntegerConstant) {
        {"0", "-1", "1", "42", "-9042852073498123679518173785123857"}) {
     for (const Type& type :
          {kArbitraryInt, kFixedUnsigned16, kFixedUnsigned32}) {
-      Expression expr = ExpressionWithType(
+      const Expression kExpr = ExpressionWithType(
           type, absl::Substitute(R"(integer_constant: "$0")", int_str));
       EvalResult result = mpz_class(int_str);
-      EXPECT_THAT(Eval(expr, TableEntry{}, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(kExpr, TableEntry{}, nullptr), IsOkAndHolds(Eq(result)));
     }
   }
 }
@@ -248,14 +266,14 @@ TEST_F(EvalTest, IntegerConstant) {
 TEST_F(EvalTest, Key) {
   for (auto& name_and_key_info : kTableInfo.keys_by_name) {
     auto key_name = name_and_key_info.first;
-    Expression expr = KeyExpr(key_name);
+    const Expression kExpr = KeyExpr(key_name);
     EvalResult result = kParsedEntry.keys.find(key_name)->second;
-    if (expr.type().type_case() == Type::kUnknown ||
-        expr.type().type_case() == Type::kUnsupported) {
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr),
+    if (kExpr.type().type_case() == Type::kUnknown ||
+        kExpr.type().type_case() == Type::kUnsupported) {
+      EXPECT_THAT(Eval(kExpr, kParsedEntry, nullptr),
                   StatusIs(StatusCode::kInternal));
     } else {
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(kExpr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
     }
   }
 }
@@ -292,7 +310,7 @@ TEST_F(EvalTest, TypeCast) {
 
   for (int n : {-1, 42}) {
     const Integer unsigned_n = (n == -1) ? max_uint32 : mpz_class(n);
-    Expression arbitrary_int = ExpressionWithType(
+    const Expression arbitrary_int = ExpressionWithType(
         kArbitraryInt, absl::Substitute(R"(integer_constant: "$0")", n));
 
     Expression fixed32 = ExpressionWithType(kFixedUnsigned32, "");
@@ -323,12 +341,12 @@ TEST_F(EvalTest, TypeCast) {
 }
 
 TEST_F(EvalTest, BinaryExpression_BooleanArguments) {
-  const Expression const_true =
+  const Expression kConstTrue =
       ExpressionWithType(kBool, "boolean_constant: true");
-  const Expression const_false =
+  const Expression kConstFalse =
       ExpressionWithType(kBool, "boolean_constant: false");
   auto boolean = [&](bool boolean) -> Expression {
-    return boolean ? const_true : const_false;
+    return boolean ? kConstTrue : kConstFalse;
   };
 
   for (bool left : {true, false}) {
@@ -507,14 +525,18 @@ TEST_F(EvalTest, FieldAccess) {
 }
 
 TEST_F(EvalToBoolCacheTest, CacheGetsPopulatedForBooleanConstant) {
-  Expression const_true = ExpressionWithType(kBool, "boolean_constant: true");
-  Expression const_false = ExpressionWithType(kBool, "boolean_constant: false");
+  const Expression kConstTrue =
+      ExpressionWithType(kBool, "boolean_constant: true");
+  const Expression kConstFalse =
+      ExpressionWithType(kBool, "boolean_constant: false");
+
   EvaluationCache eval_cache;
-  ASSERT_OK(EvalToBool(const_true, TableEntry{}, &eval_cache));
-  EXPECT_THAT(eval_cache, UnorderedElementsAre(Pair(&const_true, true)));
-  ASSERT_OK(EvalToBool(const_false, TableEntry{}, &eval_cache));
-  EXPECT_THAT(eval_cache, UnorderedElementsAre(Pair(&const_true, true),
-                                               Pair(&const_false, false)));
+  ASSERT_OK(EvalToBool(kConstTrue, TableEntry{}, &eval_cache));
+  EXPECT_THAT(eval_cache, UnorderedElementsAre(Pair(&kConstTrue, true)));
+
+  ASSERT_OK(EvalToBool(kConstFalse, TableEntry{}, &eval_cache));
+  EXPECT_THAT(eval_cache, UnorderedElementsAre(Pair(&kConstTrue, true),
+                                               Pair(&kConstFalse, false)));
 }
 
 TEST_F(EvalToBoolCacheTest, CacheGetsPopulatedForBooleanNegation) {
@@ -542,6 +564,8 @@ TEST_F(EvalToBoolCacheTest, CacheGetsPopulatedForBooleanNegation) {
   }
 }
 
+// TODO(b/242329489): Consider using raw proto strings in these unit tests
+// instead in order to decouple this unit from the lexer and parser.
 absl::StatusOr<Expression> MakeTypedConstraintFromString(
     absl::string_view constraint_string,
     const p4_constraints::TableInfo& table_context) {
@@ -549,64 +573,260 @@ absl::StatusOr<Expression> MakeTypedConstraintFromString(
       Expression constraint,
       ParseConstraint(Tokenize(constraint_string, ast::SourceLocation())));
   RETURN_IF_ERROR(InferAndCheckTypes(&constraint, table_context));
+  std::cout << constraint.DebugString();
   return constraint;
 }
 
 TEST_F(EvalToBoolCacheTest, CacheGetsPopulatedForBooleanComparison) {
-  ASSERT_OK_AND_ASSIGN(Expression constraint, MakeTypedConstraintFromString(
-                                                  "true && false;", kTableInfo))
-  EvaluationCache eval_cache;
-  ASSERT_OK(EvalToBool(constraint, kParsedEntry, &eval_cache));
-  ASSERT_OK_AND_ASSIGN(bool result1,
-                       EvalToBool(constraint, kParsedEntry, nullptr));
   ASSERT_OK_AND_ASSIGN(
-      bool result2,
-      EvalToBool(constraint.binary_expression().left(), kParsedEntry, nullptr));
-  ASSERT_OK_AND_ASSIGN(bool result3,
-                       EvalToBool(constraint.binary_expression().right(),
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("true && false;", kTableInfo))
+  EvaluationCache eval_cache;
+  ASSERT_OK(EvalToBool(kConstraint, kParsedEntry, &eval_cache));
+
+  ASSERT_OK_AND_ASSIGN(bool result1,
+                       EvalToBool(kConstraint, kParsedEntry, nullptr));
+  ASSERT_OK_AND_ASSIGN(bool result2,
+                       EvalToBool(kConstraint.binary_expression().left(),
                                   kParsedEntry, nullptr));
+  ASSERT_OK_AND_ASSIGN(bool result3,
+                       EvalToBool(kConstraint.binary_expression().right(),
+                                  kParsedEntry, nullptr));
+
   EXPECT_THAT(eval_cache,
               UnorderedElementsAre(
-                  Pair(&constraint, result1),
-                  Pair(&constraint.binary_expression().left(), result2),
-                  Pair(&constraint.binary_expression().right(), result3)));
+                  Pair(&kConstraint, result1),
+                  Pair(&kConstraint.binary_expression().left(), result2),
+                  Pair(&kConstraint.binary_expression().right(), result3)));
 }
 
 TEST_F(EvalToBoolCacheTest, CacheRespectsShortCircuit) {
-  ASSERT_OK_AND_ASSIGN(Expression constraint, MakeTypedConstraintFromString(
-                                                  "true || false;", kTableInfo))
-  EvaluationCache eval_cache;
-  ASSERT_OK(EvalToBool(constraint, kParsedEntry, &eval_cache));
-  ASSERT_OK_AND_ASSIGN(bool result1,
-                       EvalToBool(constraint, kParsedEntry, nullptr));
   ASSERT_OK_AND_ASSIGN(
-      bool result2,
-      EvalToBool(constraint.binary_expression().left(), kParsedEntry, nullptr));
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("true || false;", kTableInfo))
+  EvaluationCache eval_cache;
+  ASSERT_OK(EvalToBool(kConstraint, kParsedEntry, &eval_cache));
+  ASSERT_OK(EvalToBool(kConstraint, kParsedEntry, &eval_cache));
+  ASSERT_OK_AND_ASSIGN(bool result1,
+                       EvalToBool(kConstraint, kParsedEntry, nullptr));
+  ASSERT_OK_AND_ASSIGN(bool result2,
+                       EvalToBool(kConstraint.binary_expression().left(),
+                                  kParsedEntry, nullptr));
   EXPECT_THAT(eval_cache,
               UnorderedElementsAre(
-                  Pair(&constraint, result1),
-                  Pair(&constraint.binary_expression().left(), result2)));
+                  Pair(&kConstraint, result1),
+                  Pair(&kConstraint.binary_expression().left(), result2)));
 }
 
 TEST_F(EvalToBoolCacheTest, CacheGetsPopulatedForNonBooleanComparison) {
   ASSERT_OK_AND_ASSIGN(
-      Expression constraint,
+      const Expression kConstraint,
       MakeTypedConstraintFromString("exact32::value == 10;", kTableInfo))
   EvaluationCache eval_cache;
-  ASSERT_OK(EvalToBool(constraint, kParsedEntry, &eval_cache));
+  ASSERT_OK(EvalToBool(kConstraint, kParsedEntry, &eval_cache));
   ASSERT_OK_AND_ASSIGN(bool result1,
-                       EvalToBool(constraint, kParsedEntry, nullptr));
-  EXPECT_THAT(eval_cache, UnorderedElementsAre(Pair(&constraint, result1)));
+                       EvalToBool(kConstraint, kParsedEntry, nullptr));
+  EXPECT_THAT(eval_cache, UnorderedElementsAre(Pair(&kConstraint, result1)));
 }
 
 TEST_F(EvalToBoolCacheTest, CacheIsUsed) {
-  ASSERT_OK_AND_ASSIGN(Expression constraint, MakeTypedConstraintFromString(
-                                                  "true || true;", kTableInfo))
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("true || true;", kTableInfo))
   EvaluationCache eval_cache;
-  eval_cache.insert({&constraint, false});
-  EXPECT_THAT(EvalToBool(constraint, kParsedEntry, &eval_cache),
-              IsOkAndHolds(false));
+  eval_cache.insert({&kConstraint, false});
+  ASSERT_OK(EvalToBool(kConstraint, kParsedEntry, &eval_cache));
+  EXPECT_THAT(eval_cache.size(), Eq(1));
+  EXPECT_THAT(*EvalToBool(kConstraint, kParsedEntry, &eval_cache), Eq(false));
 }
 
+absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResultHelper(
+    const Expression& kConstraint) {
+  EvaluationCache eval_cache;
+  ast::SizeCache size_cache;
+  return MinimalSubexpressionLeadingToEvalResult(kConstraint, TableEntry{},
+                                                 eval_cache, size_cache);
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainBoolConstantIsConstant) {
+  const Expression kConstTrue =
+      ExpressionWithType(kBool, "boolean_constant: true");
+  const Expression kConstFalse =
+      ExpressionWithType(kBool, "boolean_constant: false");
+
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstTrue),
+              IsOkAndHolds(Eq(&kConstTrue)));
+
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstFalse),
+              IsOkAndHolds(Eq(&kConstFalse)));
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainNegationIsInnerExpression) {
+  for (bool boolean : {true, false}) {
+    auto inner_expr = ExpressionWithType(
+        kBool, absl::Substitute("boolean_constant: $0", boolean));
+    auto expr = ExpressionWithType(kBool, "");
+    // Create a chain of 5 nested negations.
+    for (int i = 0; i < 4; i++) {
+      *expr.mutable_boolean_negation() = inner_expr;
+      inner_expr = expr;
+      expr = ExpressionWithType(kBool, "");
+    }
+    *expr.mutable_boolean_negation() = inner_expr;
+    const auto* result = &expr;
+    // Get the location of the inner most expression.
+    for (int i = 0; i < 5; i++) {
+      result = &(result->boolean_negation());
+    }
+    const auto* root = &expr;
+    // Check that all negations provide return inner most expression.
+    for (int i = 0; i < 5; i++) {
+      EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(*root),
+                  IsOkAndHolds(Eq(result)));
+      root = &(root->boolean_negation());
+    }
+  }
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainNonBooleanComparisonIsComparison) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("exact32::value == 10;", kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint)));
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainIntegerConstantIsError) {
+  for (auto int_str :
+       {"0", "-1", "1", "42", "-9042852073498123679518173785123857"}) {
+    for (const Type& type :
+         {kArbitraryInt, kFixedUnsigned16, kFixedUnsigned32}) {
+      auto expr = ExpressionWithType(
+          type, absl::Substitute(R"(integer_constant: "$0")", int_str));
+      EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(expr),
+                  StatusIs(StatusCode::kInternal));
+    }
+  }
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest, ExplainKeyIsError) {
+  for (auto& name_and_key_info : kTableInfo.keys_by_name) {
+    auto key_name = name_and_key_info.first;
+    auto expr = KeyExpr(key_name);
+    EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(expr),
+                StatusIs(StatusCode::kInternal));
+  }
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest, ExplainTrueANDIsAND) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("true && true;", kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint)));
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainSingleFalseANDIsFalseArg) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("true && false;", kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint.binary_expression().right())));
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainDoubleFalseANDIsLeftArg) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("false && false;", kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint.binary_expression().left())));
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainSingleTrueORIsTrueArg) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("true || false;", kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint.binary_expression().left())));
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainDoubleTrueORIsLeftArg) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("true || true;", kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint.binary_expression().left())));
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest, ExplainFalseORIsOR) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("false || false;", kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint)));
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainTrueIMPLIESWithFalseAncedentIsFalseAntecedent) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("false -> false;", kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint.binary_expression().left())));
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainTrueIMPLIESWithTrueConsequentIsTrueConsequent) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("true -> true;", kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint.binary_expression().right())));
+}
+
+TEST_F(
+    MinimalSubexpressionLeadingToEvalResultTest,
+    ExplainTrueIMPLIESWithFalseAntecedentAndTrueConsequentIsFalseAntecedent) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("false -> true;", kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint.binary_expression().left())));
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainFalseIMPLIESIsIMPLIES) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString("true -> false;", kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint)));
+}
+
+TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
+       ExplainLargeConstraint1IsSmallestReason) {
+  ASSERT_OK_AND_ASSIGN(
+      const Expression kConstraint,
+      MakeTypedConstraintFromString(
+          "(false || false) && (!(true -> true) && (false || false));",
+          kTableInfo));
+  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
+              IsOkAndHolds(Eq(&kConstraint.binary_expression()
+                                   .right()
+                                   .binary_expression()
+                                   .left()
+                                   .boolean_negation()
+                                   .binary_expression()
+                                   .right())));
+}
+}  // namespace
 }  // namespace internal_interpreter
 }  // namespace p4_constraints
