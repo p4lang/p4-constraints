@@ -134,11 +134,23 @@ struct TableEntry {
   // TODO(smolkaj): once we support actions, they will be added here.
 };
 
+// Used to memoize evaluation results to avoid re-computation.
+using EvaluationCache = absl::flat_hash_map<const ast::Expression*, bool>;
+
+// Evaluates `expr` over entry to an `EvalResult`. Returns error status if AST
+// is malformed. `eval_cache` holds boolean results, useful for avoiding
+// recomputation when an explanation is desired. Passing a nullptr for
+// `eval-cache` disables caching.
 absl::StatusOr<EvalResult> Eval(const ast::Expression& expr,
-                                const TableEntry& entry);
+                                const TableEntry& entry,
+                                EvaluationCache* eval_cache);
+
+// Same as `Eval` except forces bool result.
+absl::StatusOr<bool> EvalToBool(const ast::Expression& expr,
+                                const TableEntry& entry,
+                                EvaluationCache* eval_cache);
 
 }  // namespace internal_interpreter
-
 }  // namespace p4_constraints
 
 #endif  // P4_CONSTRAINTS_BACKEND_INTERPRETER_H_
