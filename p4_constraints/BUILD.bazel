@@ -12,9 +12,28 @@ cc_library(
     hdrs = ["ast.h"],
     deps = [
         ":ast_cc_proto",
+        "//gutils:status",
         "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
+    ],
+)
+
+cc_test(
+    name = "ast_test",
+    size = "small",
+    srcs = ["ast_test.cc"],
+    deps = [
+        ":ast",
+        "//gutils:status",
+        "//gutils:status_matchers",
+        "//p4_constraints/frontend:lexer",
+        "//p4_constraints/frontend:parser",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

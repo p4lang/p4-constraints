@@ -22,6 +22,8 @@
 #include <iosfwd>
 #include <string>
 
+#include "absl/container/flat_hash_map.h"
+#include "absl/status/statusor.h"
 #include "absl/types/optional.h"
 #include "p4_constraints/ast.pb.h"
 
@@ -58,6 +60,20 @@ bool SetTypeBitwidth(Type* type, int bitwidth);
 // Returns Type `t` such that `t.type_case () == type_case`, leaving all fields
 // of `t` such as `t.bitwidth` uninitialized.
 Type TypeCaseToType(Type::TypeCase type_case);
+
+// -- Utility ------------------------------------------------------------------
+
+// Cache for results of `Size`.
+using SizeCache = absl::flat_hash_map<const Expression*, int>;
+
+// Returns size of an `ast`. Sub-ASTs whose root is not a binary expression or
+// boolean negation are treated as having size 1, otherwise field accesses and
+// type casts would add unnecessary size to an expression. Modifies `size_cache`
+// to hold results of sub-ASTs and performs lookups to avoid recomputation.
+// `size_cache` does not store size of constants. If a nullptr is passed in for
+// `size_cache`, caching behaviour is disabled. Returns an InvalidArgument
+// Status when passed an invalid ast.
+absl::StatusOr<int> Size(const Expression& ast, SizeCache* size_cache);
 
 }  // namespace ast
 }  // namespace p4_constraints
