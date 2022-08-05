@@ -810,23 +810,6 @@ TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
   EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
               IsOkAndHolds(Eq(&kConstraint)));
 }
-
-TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
-       ExplainLargeConstraint1IsSmallestReason) {
-  ASSERT_OK_AND_ASSIGN(
-      const Expression kConstraint,
-      MakeTypedConstraintFromString(
-          "(false || false) && (!(true -> true) && (false || false));",
-          kTableInfo));
-  EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
-              IsOkAndHolds(Eq(&kConstraint.binary_expression()
-                                   .right()
-                                   .binary_expression()
-                                   .left()
-                                   .boolean_negation()
-                                   .binary_expression()
-                                   .right())));
-}
 }  // namespace
 }  // namespace internal_interpreter
 }  // namespace p4_constraints

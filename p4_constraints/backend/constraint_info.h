@@ -32,6 +32,7 @@
 #include "absl/types/variant.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
 
 namespace p4_constraints {
 
@@ -50,6 +51,9 @@ struct TableInfo {
 
   // An optional constraint (aka entry_restriction) on table entries.
   absl::optional<ast::Expression> constraint;
+  // If member `constraint` is present, this captures its source. Arbitrary
+  // otherwise.
+  ConstraintSource constraint_source;
 
   // Maps from key IDs/names to KeyInfo.
   // Derives from Table.match_fields in p4info.proto.
