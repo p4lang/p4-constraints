@@ -221,19 +221,30 @@ gutils::StatusBuilder TypeError(const ast::SourceLocation& start,
 
 // -- Auxiliary evaluators -----------------------------------------------------
 
-// Like Eval, but ensuring the result is a bool.
-absl::StatusOr<bool> EvalToBool(const Expression& expr,
-                                const TableEntry& entry) {
-  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry));
-  if (absl::holds_alternative<bool>(result)) return absl::get<bool>(result);
-  return TypeError(expr.start_location(), expr.end_location())
-         << "expected expression of type bool";
+// Like Eval, but ensuring the result is a bool. Caches Boolean results and
+// checks cache before evaluation to avoid recomputation.
+absl::StatusOr<bool> EvalToBool(const Expression& expr, const TableEntry& entry,
+                                EvaluationCache* eval_cache) {
+  if (eval_cache != nullptr) {
+    auto cache_result = eval_cache->find(&expr);
+    if (cache_result != eval_cache->end()) return cache_result->second;
+  }
+  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry, eval_cache));
+  if (absl::holds_alternative<bool>(result)) {
+    if (eval_cache != nullptr)
+      eval_cache->insert({&expr, absl::get<bool>(result)});
+    return absl::get<bool>(result);
+  } else {
+    return TypeError(expr.start_location(), expr.end_location())
+           << "expected expression of type bool";
+  }
 }
 
 // Like Eval, but ensuring the result is an Integer.
 absl::StatusOr<Integer> EvalToInt(const Expression& expr,
-                                  const TableEntry& entry) {
-  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry));
+                                  const TableEntry& entry,
+                                  EvaluationCache* eval_cache) {
+  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry, eval_cache));
   if (absl::holds_alternative<Integer>(result))
     return absl::get<Integer>(result);
   return TypeError(expr.start_location(), expr.end_location())
@@ -242,8 +253,9 @@ absl::StatusOr<Integer> EvalToInt(const Expression& expr,
 
 absl::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
                                          const Expression& expr,
-                                         const TableEntry& entry) {
-  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry));
+                                         const TableEntry& entry,
+                                         EvaluationCache* eval_cache) {
+  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry, eval_cache));
   if (absl::holds_alternative<Integer>(result)) {
     const Integer value = absl::get<Integer>(result);
     const Integer one = mpz_class(1);
@@ -296,13 +308,14 @@ absl::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
 absl::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
                                           const Expression& left_expr,
                                           const Expression& right_expr,
-                                          const TableEntry& entry) {
+                                          const TableEntry& entry,
+                                          EvaluationCache* eval_cache) {
   switch (binop) {
     // (In-)Equality comparison.
     case ast::EQ:
     case ast::NE: {
-      ASSIGN_OR_RETURN(EvalResult left, Eval(left_expr, entry));
-      ASSIGN_OR_RETURN(EvalResult right, Eval(right_expr, entry));
+      ASSIGN_OR_RETURN(EvalResult left, Eval(left_expr, entry, eval_cache));
+      ASSIGN_OR_RETURN(EvalResult right, Eval(right_expr, entry, eval_cache));
       // Avoid != so we don't have to define it for Exact/Ternary/Lpm/Range.
       return (binop == ast::EQ) ? (left == right) : !(left == right);
     }
@@ -314,9 +327,9 @@ absl::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
     case ast::LE: {
       // Ordered comparison (<, <=, >, >=) is only supported by types whose run-
       // time representation is Integer; the type checker should have our back.
-      ASSIGN_OR_RETURN(Integer left, EvalToInt(left_expr, entry),
+      ASSIGN_OR_RETURN(Integer left, EvalToInt(left_expr, entry, eval_cache),
                        _ << " in ordered comparison");
-      ASSIGN_OR_RETURN(Integer right, EvalToInt(right_expr, entry),
+      ASSIGN_OR_RETURN(Integer right, EvalToInt(right_expr, entry, eval_cache),
                        _ << " in ordered comparison");
       switch (binop) {
         case ast::GT:
@@ -337,21 +350,22 @@ absl::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
     case ast::OR:
     case ast::IMPLIES: {
       // Short circuit boolean operations.
-      ASSIGN_OR_RETURN(bool left_true, EvalToBool(left_expr, entry));
+      ASSIGN_OR_RETURN(bool left_true,
+                       EvalToBool(left_expr, entry, eval_cache));
       switch (binop) {
         case ast::AND:
           if (left_true)
-            return EvalToBool(right_expr, entry);
+            return EvalToBool(right_expr, entry, eval_cache);
           else
             return false;
         case ast::OR:
           if (left_true)
             return true;
           else
-            return EvalToBool(right_expr, entry);
+            return EvalToBool(right_expr, entry, eval_cache);
         case ast::IMPLIES:
           if (left_true)
-            return EvalToBool(right_expr, entry);
+            return EvalToBool(right_expr, entry, eval_cache);
           else
             return true;
         default:
@@ -409,7 +423,8 @@ struct EvalFieldAccess {
 // Eval (without underscore) is a thin wrapper around Eval_, see further down;
 // Eval_ should never be called directly, except by Eval.
 absl::StatusOr<EvalResult> Eval_(const Expression& expr,
-                                 const TableEntry& entry) {
+                                 const TableEntry& entry,
+                                 EvaluationCache* eval_cache) {
   switch (expr.expression_case()) {
     case Expression::kBooleanConstant:
       return {expr.boolean_constant()};
@@ -442,30 +457,33 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
     }
 
     case Expression::kBooleanNegation: {
-      ASSIGN_OR_RETURN(bool result, EvalToBool(expr.boolean_negation(), entry));
+      ASSIGN_OR_RETURN(bool result,
+                       EvalToBool(expr.boolean_negation(), entry, eval_cache));
       return {!result};
     }
 
     case Expression::kArithmeticNegation: {
-      ASSIGN_OR_RETURN(Integer result,
-                       EvalToInt(expr.arithmetic_negation(), entry));
+      ASSIGN_OR_RETURN(Integer result, EvalToInt(expr.arithmetic_negation(),
+                                                 entry, eval_cache));
       return {-result};
     }
 
     case Expression::kTypeCast: {
-      return EvalAndCastTo(expr.type(), expr.type_cast(), entry);
+      return EvalAndCastTo(expr.type(), expr.type_cast(), entry, eval_cache);
     }
 
     case Expression::kBinaryExpression: {
       const ast::BinaryExpression& binexpr = expr.binary_expression();
       return EvalBinaryExpression(binexpr.binop(), binexpr.left(),
-                                  binexpr.right(), entry);
+                                  binexpr.right(), entry, eval_cache);
     }
 
     case Expression::kFieldAccess: {
       const Expression& composite_expr = expr.field_access().expr();
       const std::string& field = expr.field_access().field();
-      ASSIGN_OR_RETURN(EvalResult composite_value, Eval(composite_expr, entry));
+      ASSIGN_OR_RETURN(EvalResult composite_value,
+                       Eval(composite_expr, entry, eval_cache));
+
       absl::StatusOr<EvalResult> result =
           absl::visit(EvalFieldAccess{.field = field}, composite_value);
       if (!result.ok()) {
@@ -520,10 +538,12 @@ absl::Status DynamicTypeCheck(const Expression& expr, const EvalResult result) {
 }
 
 // Wraps Eval_ with dynamic type check to ease debugging. Never call Eval_
-// directly; call Eval instead.
-absl::StatusOr<EvalResult> Eval(const Expression& expr,
-                                const TableEntry& entry) {
-  ASSIGN_OR_RETURN(EvalResult result, Eval_(expr, entry));
+// directly; call Eval instead. `eval_cache` is used for caching boolean results
+// in order to avoid recomputation if an explanation is desired. Passing a
+// nullptr will disable caching. Caching is implemented in EvalToBool.
+absl::StatusOr<EvalResult> Eval(const Expression& expr, const TableEntry& entry,
+                                EvaluationCache* eval_cache) {
+  ASSIGN_OR_RETURN(EvalResult result, Eval_(expr, entry, eval_cache));
   RETURN_IF_ERROR(DynamicTypeCheck(expr, result));
   return result;
 }
@@ -562,7 +582,8 @@ absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
            << "table " << table_info.name
            << " has non-boolean constraint: " << constraint.DebugString();
   }
-  return EvalToBool(constraint, parsed_entry);
+  // No explanation is returned so no cache is provided.
+  return EvalToBool(constraint, parsed_entry, /*eval_cache=*/nullptr);
 }
 
 }  // namespace p4_constraints
