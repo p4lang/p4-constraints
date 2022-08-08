@@ -1,0 +1,22 @@
+table_id: 5
+match {
+  field_id: 1
+  ternary {
+    value: "\010\000"
+    mask: "\377\377"
+  }
+}
+match {
+  field_id: 2
+  ternary {
+    value: "\021"
+    mask: "\377"
+  }
+}
+match {
+  field_id: 3
+  ternary {
+    value: "\003\352"
+    mask: "\377\377"
+  }
+}
