@@ -16,10 +16,12 @@
 
 #include <string>
 
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "google/protobuf/util/message_differencer.h"
+#include "gutils/status_macros.h"
 #include "p4_constraints/ast.pb.h"
 
 namespace p4_constraints {
@@ -171,6 +173,52 @@ Type TypeCaseToType(Type::TypeCase type_case) {
   }
   LOG(DFATAL) << "invalid type case: " << type_case;
   return type;
+}
+
+// -- Utility ------------------------------------------------------------------
+
+// Computes AST Size. If provided, `size_cache` stores results from expressions
+// to avoid recomputation later.
+absl::StatusOr<int> Size(const ast::Expression& ast, SizeCache* size_cache) {
+  if (size_cache != nullptr) {
+    auto cache_result = size_cache->find(&ast);
+    if (cache_result != size_cache->end()) return cache_result->second;
+  }
+
+  int result = 0;
+  switch (ast.expression_case()) {
+    case Expression::kBooleanConstant:
+    case Expression::kIntegerConstant:
+    case Expression::kKey:
+    case Expression::kArithmeticNegation:
+    case Expression::kTypeCast:
+    case Expression::kFieldAccess:
+    case Expression::kMetadataAccess:
+      // Uses an early return for these cases because they all resolve to a
+      // single value (not an expression) and are therefore treated as having
+      // size 1. Result is not cached because it provides no benefit beyond
+      // early return.
+      return 1;
+    case Expression::kBinaryExpression: {
+      ASSIGN_OR_RETURN(int left_size,
+                       Size(ast.binary_expression().left(), size_cache));
+      ASSIGN_OR_RETURN(int right_size,
+                       Size(ast.binary_expression().right(), size_cache));
+      result = 1 + left_size + right_size;
+      break;
+    }
+    case Expression::kBooleanNegation: {
+      ASSIGN_OR_RETURN(int size, Size(ast.boolean_negation(), size_cache));
+      result = 1 + size;
+      break;
+    }
+    default:
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+             << "invalid expression: " << ast.DebugString();
+  }
+
+  if (size_cache != nullptr) size_cache->insert({&ast, result});
+  return result;
 }
 
 }  // namespace ast
