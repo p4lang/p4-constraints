@@ -22,8 +22,8 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/str_cat.h"
 #include "glog/logging.h"
+#include "gutils/status.h"
 #include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/ast.h"
@@ -48,7 +48,8 @@ gutils::StatusBuilder TypeError(const ConstraintSource& source,
   absl::StatusOr<std::string> quote = QuoteSubConstraint(source, start, end);
   if (!quote.ok()) {
     return gutils::InternalErrorBuilder(GUTILS_LOC)
-           << "Failed to quote sub-constraint: " << quote.status();
+           << "Failed to quote sub-constraint: "
+           << gutils::StableStatusToString(quote.status());
   }
   return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
          << *quote << "Type error: ";
@@ -60,7 +61,8 @@ gutils::StatusBuilder InternalError(const ConstraintSource& source,
   absl::StatusOr<std::string> quote = QuoteSubConstraint(source, start, end);
   if (!quote.ok()) {
     return gutils::InternalErrorBuilder(GUTILS_LOC)
-           << "Failed to quote sub-constraint: " << quote.status();
+           << "Failed to quote sub-constraint: "
+           << gutils::StableStatusToString(quote.status());
   }
   return gutils::InternalErrorBuilder(GUTILS_LOC)
          << *quote << "Internal error: ";

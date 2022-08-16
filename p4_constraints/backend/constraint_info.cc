@@ -31,7 +31,6 @@
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/type_checker.h"
 #include "p4_constraints/constraint_source.h"
-#include "p4_constraints/frontend/lexer.h"
 #include "p4_constraints/frontend/parser.h"
 #include "re2/re2.h"
 
@@ -151,7 +150,7 @@ absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
 
   absl::optional<ast::Expression> constraint = absl::nullopt;
   if (constraint_source.has_value()) {
-    ASSIGN_OR_RETURN(constraint, ParseConstraint(Tokenize(*constraint_source)));
+    ASSIGN_OR_RETURN(constraint, ParseConstraint(*constraint_source));
   }
 
   TableInfo table_info{

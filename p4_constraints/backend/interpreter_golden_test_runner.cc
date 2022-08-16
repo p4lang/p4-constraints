@@ -24,7 +24,7 @@
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/backend/interpreter.h"
 #include "p4_constraints/backend/type_checker.h"
-#include "p4_constraints/frontend/lexer.h"
+#include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/parser.h"
 
 namespace p4_constraints {
@@ -76,10 +76,10 @@ absl::StatusOr<ConstraintInfo> MakeConstraintInfo(TestCase test_case) {
   }
 
   TableInfo table_info = kTableInfo;
-  ASSIGN_OR_RETURN(Expression expression, ParseConstraint(Tokenize(source)));
+  table_info.constraint_source = source;
+  ASSIGN_OR_RETURN(Expression expression, ParseConstraint(source));
   CHECK_OK(InferAndCheckTypes(&(expression), kTableInfo));
   table_info.constraint = expression;
-  table_info.constraint_source = source;
   return ConstraintInfo{{table_info.id, table_info}};
 }
 
