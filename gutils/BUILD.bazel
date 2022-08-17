@@ -79,9 +79,7 @@ cc_library(
         "ordered_map.h",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-        "@com_google_absl//absl/container:btree",
-    ],
+    deps = ["@com_google_absl//absl/container:btree"],
 )
 
 cc_library(

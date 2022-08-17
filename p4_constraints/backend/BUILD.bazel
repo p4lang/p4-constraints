@@ -1,4 +1,4 @@
-load("//third_party/p4lang_p4_constraints/e2e_tests:p4check.bzl", "diff_test")
+load("//third_party/p4lang_p4_constraints/e2e_tests:p4check.bzl", "cmd_diff_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -88,16 +88,18 @@ cc_library(
     ],
 )
 
-cc_binary(
+# go/golden-test-with-coverage
+cc_test(
     name = "interpreter_golden_test_runner",
-    testonly = True,
     srcs = ["interpreter_golden_test_runner.cc"],
+    linkstatic = True,
     deps = [
         ":constraint_info",
         ":interpreter",
         "//gutils:ordered_map",
         "//gutils:parse_text_proto",
         "//gutils:status",
+        "//net/proto2/io/public:io",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints/frontend:lexer",
         "//p4_constraints/frontend:parser",
@@ -108,18 +110,11 @@ cc_binary(
     ],
 )
 
-genrule(
-    name = "interpreter_golden_test_runner_output",
-    testonly = True,
-    outs = ["interpreter_golden_test_runner.output"],
-    cmd = "$(location :interpreter_golden_test_runner) > $(OUTS)",
-    tools = [":interpreter_golden_test_runner"],
-)
-
-diff_test(
+cmd_diff_test(
     name = "interpreter_golden_test",
-    actual = ":interpreter_golden_test_runner_output",
-    expected = "interpreter_golden_test_runner.expected",
+    actual_cmd = "$(execpath :interpreter_golden_test_runner)",
+    expected = ":interpreter_golden_test_runner.expected",
+    tools = [":interpreter_golden_test_runner"],
 )
 
 cc_test(
