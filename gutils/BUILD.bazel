@@ -72,3 +72,20 @@ cc_library(
         "@com_googlesource_code_re2//:re2",
     ],
 )
+
+cc_library(
+    name = "ordered_map",
+    hdrs = [
+        "ordered_map.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_absl//absl/container:btree",
+    ],
+)
+
+cc_library(
+    name = "overload",
+    hdrs = ["overload.h"],
+    visibility = ["//visibility:public"],
+)

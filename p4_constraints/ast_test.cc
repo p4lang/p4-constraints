@@ -17,13 +17,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
-#include "gutils/status_macros.h"
+#include "absl/strings/substitute.h"
+#include "gutils/parse_text_proto.h"
 #include "gutils/status_matchers.h"
-#include "p4_constraints/frontend/lexer.h"
-#include "p4_constraints/frontend/parser.h"
+#include "p4_constraints/ast.proto.h"
 
 namespace p4_constraints {
 namespace ast {
@@ -34,23 +31,17 @@ using ::testing::Eq;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 
-// TODO(verios): Consider using raw proto strings in these unit tests instead in
-// order to decouple this unit from the lexer and parser
-absl::StatusOr<Expression> StringToAST(absl::string_view constraint) {
-  return ParseConstraint(Tokenize(constraint, ast::SourceLocation()));
+Expression ParseRawAst(const std::string constraint) {
+  return gutils::ParseTextProtoOrDie<Expression>(constraint);
 }
 
 TEST(SizeTest, SizeOfBooleanConstantsOneAndNotCached) {
-  ASSERT_OK_AND_ASSIGN(
-      Expression const_true,
-      ParseConstraint(Tokenize("true", ast::SourceLocation())));
+  Expression const_true = ParseRawAst("boolean_constant: true");
   SizeCache size_cache;
   EXPECT_THAT(Size(const_true, &size_cache), IsOkAndHolds(1));
   EXPECT_THAT(size_cache.size(), Eq(0));
 
-  ASSERT_OK_AND_ASSIGN(
-      Expression const_false,
-      ParseConstraint(Tokenize("false", ast::SourceLocation())));
+  Expression const_false = ParseRawAst("boolean_constant: false");
   size_cache.clear();
   EXPECT_THAT(Size(const_false, &size_cache), IsOkAndHolds(1));
   EXPECT_THAT(size_cache.size(), Eq(0));
@@ -59,7 +50,8 @@ TEST(SizeTest, SizeOfBooleanConstantsOneAndNotCached) {
 TEST(SizeTest, SizeOfIntegerConstantOneAndNotCached) {
   for (auto int_str :
        {"0", "-1", "1", "42", "-9042852073498123679518173785123857"}) {
-    ASSERT_OK_AND_ASSIGN(Expression expr, StringToAST(int_str));
+    Expression expr =
+        ParseRawAst(absl::Substitute(R"(integer_constant: "$0")", int_str));
     SizeCache size_cache;
     EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(1));
     EXPECT_THAT(size_cache.size(), Eq(0));
@@ -67,42 +59,66 @@ TEST(SizeTest, SizeOfIntegerConstantOneAndNotCached) {
 }
 
 TEST(SizeTest, SizeOfFieldAccessOneAndNotCached) {
-  ASSERT_OK_AND_ASSIGN(Expression expr1, StringToAST("A::B"));
+  // "A::B"
+  Expression expr1 = ParseRawAst(R"pb(
+    field_access {
+      field: "B"
+      expr { key: "A" }
+    })pb");
   SizeCache size_cache;
   EXPECT_THAT(Size(expr1, &size_cache), IsOkAndHolds(1));
   EXPECT_THAT(size_cache.size(), Eq(0));
 
-  ASSERT_OK_AND_ASSIGN(Expression expr2, StringToAST("A::B::C::D"));
+  // "A::B::C::D"
+  Expression expr2 = ParseRawAst(R"pb(field_access {
+                                        field: "D"
+                                        expr {
+                                          field_access {
+                                            field: "C"
+                                            expr {
+                                              field_access {
+                                                field: "B"
+                                                expr { key: "A" }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      })pb");
   size_cache.clear();
   EXPECT_THAT(Size(expr2, &size_cache), IsOkAndHolds(1));
   EXPECT_THAT(size_cache.size(), Eq(0));
 }
 
 TEST(SizeTest, SizeOfMetaAccessOneAndNotCached) {
-  ASSERT_OK_AND_ASSIGN(Expression expr, StringToAST("::priority"));
+  // ::priority
+  Expression expr =
+      ParseRawAst(R"pb(metadata_access { metadata_name: "priority" })pb");
   SizeCache size_cache;
   EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(1));
   EXPECT_THAT(size_cache.size(), Eq(0));
 }
 
 TEST(SizeTest, SizeOfArithmeticNegationOneAndNotCached) {
-  std::string ast_string = "42";
+  Expression inner_expr = ParseRawAst(R"(integer_constant: "42")");
+  // -42 ... ----42
   for (int i = 0; i < 4; i++) {
-    ast_string = absl::StrCat("-", ast_string);
-    ASSERT_OK_AND_ASSIGN(Expression expr, StringToAST(ast_string));
+    Expression expr = Expression();
+    *expr.mutable_arithmetic_negation() = inner_expr;
     SizeCache size_cache;
     EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(1));
     EXPECT_THAT(size_cache.size(), Eq(0));
+    inner_expr = expr;
   }
 }
 
 TEST(SizeTest, SizeOfBooleanNegationAddsOneAndCached) {
-  std::string ast_string = "true";
+  Expression inner_expr = ParseRawAst("boolean_constant: true");
+  // !true ... !!!!true
   for (int i = 0; i < 4; i++) {
-    ast_string = absl::StrCat("!", ast_string);
-    ASSERT_OK_AND_ASSIGN(Expression expr, StringToAST(ast_string));
+    Expression expr = Expression();
+    *expr.mutable_boolean_negation() = inner_expr;
     SizeCache size_cache;
-    EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(i + 2));
+    EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(Eq(i + 2)));
     EXPECT_THAT(size_cache.size(), Eq(i + 1));
     const auto* subexpr = &expr;
     for (int j = 0; j < i + 1; j++) {
@@ -110,29 +126,56 @@ TEST(SizeTest, SizeOfBooleanNegationAddsOneAndCached) {
       if (j == i) break;
       subexpr = &(subexpr->boolean_negation());
     }
+    inner_expr = expr;
   }
 }
 
 TEST(SizeTest, SizeOfBinaryBooleanExpressionAddsOneAndCached) {
-  ASSERT_OK_AND_ASSIGN(Expression expr, StringToAST("true && false"));
+  // true && false
+  Expression expr = ParseRawAst(R"pb(
+    binary_expression {
+      binop: AND
+      left { boolean_constant: true }
+      right { boolean_constant: false }
+    })pb");
   SizeCache size_cache;
-  EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(3));
+  EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(Eq(3)));
   EXPECT_THAT(size_cache, UnorderedElementsAre(Pair(&expr, 3)));
 }
 
 TEST(SizeTest, SizeOfBinaryNonBooleanExpressionAddsOneAndCached) {
-  ASSERT_OK_AND_ASSIGN(Expression expr, StringToAST("ether_type != 0x0800"));
+  // ether_type != 0x0800
+  Expression expr = ParseRawAst(R"pb(binary_expression {
+                                       binop: NE
+                                       left { key: "ether_type" }
+                                       right { integer_constant: "2048" }
+                                     })pb");
   SizeCache size_cache;
-  EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(3));
+  EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(Eq(3)));
   EXPECT_THAT(size_cache, UnorderedElementsAre(Pair(&expr, 3)));
 }
 
 TEST(SizeTest, SizeOfConstraint1SevenAndCached) {
-  ASSERT_OK_AND_ASSIGN(
-      Expression expr,
-      StringToAST("ether_type != 0x0800 && ether_type != 0x86dd;"));
+  // ether_type != 0x0800 && ether_type != 0x86dd;
+  Expression expr = ParseRawAst(R"pb(binary_expression {
+                                       binop: AND
+                                       left {
+                                         binary_expression {
+                                           binop: NE
+                                           left { key: "ether_type" }
+                                           right { integer_constant: "2048" }
+                                         }
+                                       }
+                                       right {
+                                         binary_expression {
+                                           binop: NE
+                                           left { key: "ether_type" }
+                                           right { integer_constant: "34525" }
+                                         }
+                                       }
+                                     })pb");
   SizeCache size_cache;
-  EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(7));
+  EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(Eq(7)));
   EXPECT_THAT(size_cache,
               UnorderedElementsAre(Pair(&expr, 7),
                                    Pair(&expr.binary_expression().left(), 3),
@@ -140,14 +183,58 @@ TEST(SizeTest, SizeOfConstraint1SevenAndCached) {
 }
 
 TEST(SizeTest, SizeOfConstraint2FifthteenAndCached) {
-  ASSERT_OK_AND_ASSIGN(
-      Expression expr,
-      StringToAST(
-          "ttl::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);"));
+  // ttl::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
+  Expression expr = ParseRawAst(
+      R"pb(binary_expression {
+             binop: IMPLIES
+             left {
+               binary_expression {
+                 binop: NE
+                 left {
+                   field_access {
+                     field: "mask"
+                     expr { key: "ttl" }
+                   }
+                 }
+                 right { integer_constant: "0" }
+               }
+             }
+             right {
+               binary_expression {
+                 binop: OR
+                 left {
+                   binary_expression {
+                     binop: OR
+                     left {
+                       binary_expression {
+                         binop: EQ
+                         left { key: "is_ip" }
+                         right { integer_constant: "1" }
+                       }
+                     }
+                     right {
+                       binary_expression {
+                         binop: EQ
+                         left { key: "is_ipv4" }
+                         right { integer_constant: "1" }
+                       }
+                     }
+                   }
+                 }
+                 right {
+                   binary_expression {
+                     binop: EQ
+                     left { key: "is_ipv6" }
+                     right { integer_constant: "1" }
+                   }
+                 }
+               }
+             }
+           })pb");
   auto* or_subexpr = &expr.binary_expression().right();
   auto* or_subsubexpr = &or_subexpr->binary_expression().left();
   SizeCache size_cache;
-  EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(15));
+  EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(Eq(15)));
   EXPECT_THAT(size_cache,
               UnorderedElementsAre(
                   Pair(&expr, 15), Pair(&expr.binary_expression().left(), 3),
@@ -159,20 +246,50 @@ TEST(SizeTest, SizeOfConstraint2FifthteenAndCached) {
 }
 
 TEST(SizeTest, CacheIsUsed) {
-  ASSERT_OK_AND_ASSIGN(
-      Expression expr,
-      StringToAST("ether_type != 0x0800 && ether_type != 0x86dd;"));
+  // ether_type != 0x0800 && ether_type != 0x86dd;
+  Expression expr = ParseRawAst(R"pb(binary_expression {
+                                       binop: AND
+                                       left {
+                                         binary_expression {
+                                           binop: NE
+                                           left { key: "ether_type" }
+                                           right { integer_constant: "2048" }
+                                         }
+                                       }
+                                       right {
+                                         binary_expression {
+                                           binop: NE
+                                           left { key: "ether_type" }
+                                           right { integer_constant: "34525" }
+                                         }
+                                       }
+                                     })pb");
   SizeCache size_cache;
   size_cache.insert({&expr, 343});
-  EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(343));
+  EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(Eq(343)));
   EXPECT_THAT(size_cache.size(), Eq(1));
 }
 
 TEST(SizeTest, NoCacheOkay) {
-  ASSERT_OK_AND_ASSIGN(
-      Expression expr,
-      StringToAST("ether_type != 0x0800 && ether_type != 0x86dd;"));
-  EXPECT_THAT(Size(expr, nullptr), IsOkAndHolds(7));
+  // ether_type != 0x0800 && ether_type != 0x86dd;
+  Expression expr = ParseRawAst(R"pb(binary_expression {
+                                       binop: AND
+                                       left {
+                                         binary_expression {
+                                           binop: NE
+                                           left { key: "ether_type" }
+                                           right { integer_constant: "2048" }
+                                         }
+                                       }
+                                       right {
+                                         binary_expression {
+                                           binop: NE
+                                           left { key: "ether_type" }
+                                           right { integer_constant: "34525" }
+                                         }
+                                       }
+                                     })pb");
+  EXPECT_THAT(Size(expr, nullptr), IsOkAndHolds(Eq(7)));
 }
 
 }  // namespace ast

@@ -26,7 +26,6 @@
 #include "absl/strings/strip.h"
 #include "absl/types/optional.h"
 #include "absl/types/variant.h"
-#include "gutils/ret_check.h"
 #include "gutils/status_macros.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
