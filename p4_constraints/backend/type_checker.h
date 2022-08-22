@@ -28,7 +28,7 @@ namespace p4_constraints {
 // Type checks the given expression, returning an OkStatus if type checking
 // succeeds or an InvalidInput Status otherwise.
 //
-// Note that this is a side-effecting operation that may mutates the given
+// Note that this is a side-effecting operation that may mutate the given
 // expression in two ways:
 // - It may mutate the type of the expression and its subexpressions, filling in
 //   the correct types.
@@ -37,9 +37,9 @@ namespace p4_constraints {
 // Upon successful completion of this function, the given expression is
 // guaranteed to contain no ast::Type::Unknown/Unsupported types.
 //
-// This function is idempotent, meaning that if it is called twice in a row,
-// the function returns the same result each time and does not further mutate
-// its input during the second call.
+// This function should not be called on an `expr` that has already been type
+// checked (more specifically, on an `expr` that already contains type casts).
+// Doing so will reult in an InvalidInput Error.
 absl::Status InferAndCheckTypes(ast::Expression* expr,
                                 const TableInfo& table_info);
 

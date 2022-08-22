@@ -28,6 +28,7 @@
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/constraint_source.h"
 
 namespace p4_constraints {
 
@@ -56,11 +57,18 @@ class InferAndCheckTypesTest : public ::testing::Test {
   const Type kOptional32 =
       ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
 
+  const ast::SourceLocation kMockLocation =
+      ParseTextProtoOrDie<ast::SourceLocation>(R"pb(file_path: "Mock")pb");
+
   const TableInfo kTableInfo{
       0,
       "table",
       {},
-      {},
+      // For the purpose of testing, quoting is not important.
+      ConstraintSource{
+          .constraint_string = " ",
+          .constraint_location = kMockLocation,
+      },
       {},
       {
           {"unknown", {0, "unknown", kUnknown}},
@@ -74,22 +82,57 @@ class InferAndCheckTypesTest : public ::testing::Test {
           {"lpm32", {0, "lpm32", kLpm32}},
           {"range32", {0, "range32", kRange32}},
       }};
+
+  // Required by negative tests to avoid internal quoting errors.
+  void AddMockSourceLocations(Expression& expr) {
+    *expr.mutable_start_location() = kMockLocation;
+    *expr.mutable_end_location() = kMockLocation;
+    switch (expr.expression_case()) {
+      case ast::Expression::kBooleanConstant:
+      case ast::Expression::kIntegerConstant:
+      case ast::Expression::kKey:
+      case ast::Expression::kMetadataAccess:
+      case ast::Expression::EXPRESSION_NOT_SET:
+        return;
+      case ast::Expression::kBinaryExpression:
+        AddMockSourceLocations(
+            *expr.mutable_binary_expression()->mutable_left());
+        AddMockSourceLocations(
+            *expr.mutable_binary_expression()->mutable_right());
+        return;
+      case ast::Expression::kBooleanNegation:
+        AddMockSourceLocations(*expr.mutable_boolean_negation());
+        return;
+      case ast::Expression::kTypeCast:
+        AddMockSourceLocations(*expr.mutable_type_cast());
+        return;
+      case ast::Expression::kArithmeticNegation:
+        AddMockSourceLocations(*expr.mutable_arithmetic_negation());
+        return;
+      case ast::Expression::kFieldAccess:
+        AddMockSourceLocations(*expr.mutable_field_access()->mutable_expr());
+    }
+  }
 };
 
 TEST_F(InferAndCheckTypesTest, InvalidExpressions) {
   Expression expr = ParseTextProtoOrDie<Expression>("");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>("boolean_negation {}");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>("type_cast {}");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>("binary_expression {}");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 }
@@ -134,6 +177,7 @@ TEST_F(InferAndCheckTypesTest, UnknownVariablesDontTypeCheck) {
   for (auto& key : keys) {
     Expression expr = ParseTextProtoOrDie<Expression>(
         absl::Substitute(R"( key: "$0" )", key));
+    AddMockSourceLocations(expr);
     EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                 StatusIs(StatusCode::kInvalidArgument));
   }
@@ -162,12 +206,14 @@ TEST_F(InferAndCheckTypesTest, BooleanNegationOfBooleansTypeChecks) {
 
 TEST_F(InferAndCheckTypesTest, BooleanNegationOfNonBooleansDoesNotTypeCheck) {
   Expression expr = ParseTextProtoOrDie<Expression>("boolean_negation {}");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>(R"pb(
     boolean_negation { integer_constant: "0" }
   )pb");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
@@ -175,6 +221,7 @@ TEST_F(InferAndCheckTypesTest, BooleanNegationOfNonBooleansDoesNotTypeCheck) {
                           "ternary32", "lpm32", "range32"}) {
     Expression expr = ParseTextProtoOrDie<Expression>(
         absl::Substitute(R"(boolean_negation { key: "$0" })", key));
+    AddMockSourceLocations(expr);
     ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                 StatusIs(StatusCode::kInvalidArgument))
         << "cannot negate key " << key;
@@ -204,12 +251,14 @@ TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfIntTypeChecks) {
 
 TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfNonIntDoesNotTypeChecks) {
   Expression expr = ParseTextProtoOrDie<Expression>("arithmetic_negation {}");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>(R"pb(
     arithmetic_negation { boolean_constant: true }
   )pb");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
@@ -217,6 +266,7 @@ TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfNonIntDoesNotTypeChecks) {
                           "ternary32", "lpm32", "range32"}) {
     expr = ParseTextProtoOrDie<Expression>(
         absl::Substitute(R"(arithmetic_negation { key: "$0" })", key));
+    AddMockSourceLocations(expr);
     ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                 StatusIs(StatusCode::kInvalidArgument))
         << "cannot negate key " << key;
@@ -228,6 +278,7 @@ TEST_F(InferAndCheckTypesTest, TypeCastNeverTypeChecks) {
   // TypeCasts should be rejected.
   Expression expr = ParseTextProtoOrDie<Expression>(
       R"pb(type_cast { integer_constant: "0" })pb");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 }
@@ -279,6 +330,7 @@ TEST_F(InferAndCheckTypesTest, IllegalTypeCastEqualityComparisonFails) {
                                right { key: "$2" }
                              })pb",
                            op, left_right.first, left_right.second));
+      AddMockSourceLocations(expr);
       EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
           << expr.DebugString();
@@ -322,10 +374,12 @@ TEST_F(InferAndCheckTypesTest, BinaryBooleanOperators) {
     for (std::string key :
          {"int", "bit32", "exact32", "ternary32", "lpm32", "range32"}) {
       *expr.mutable_binary_expression()->mutable_right()->mutable_key() = key;
+      AddMockSourceLocations(expr);
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument));
 
       *nested.mutable_binary_expression()->mutable_right() = expr;
+      AddMockSourceLocations(nested);
       ASSERT_THAT(InferAndCheckTypes(&nested, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument));
     }
@@ -343,6 +397,7 @@ TEST_F(InferAndCheckTypesTest, OrderedComparisonOperatorsFails) {
                                right { key: "$1" }
                              })pb",
                            op, key));
+      AddMockSourceLocations(expr);
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
           << expr.DebugString();
@@ -416,6 +471,7 @@ TEST_F(InferAndCheckTypesTest, FieldAccess_AccessNonExistingField) {
                                expr { key: "$1" }
                              })pb",
                            field, key));
+      AddMockSourceLocations(expr);
       EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
           << expr.DebugString();
@@ -437,6 +493,7 @@ TEST_F(InferAndCheckTypesTest, FieldAccess_AccessFieldOfScalarExpression) {
                                expr { key: "$1" }
                              })pb",
                            field, key));
+      AddMockSourceLocations(expr);
       EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
           << expr.DebugString();

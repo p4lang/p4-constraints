@@ -126,6 +126,7 @@ cc_test(
         "//gutils:status_matchers",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",

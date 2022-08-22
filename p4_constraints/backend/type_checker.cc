@@ -22,6 +22,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
@@ -41,16 +42,28 @@ using ::p4_constraints::ast::Type;
 
 // -- Error handling -----------------------------------------------------------
 
-gutils::StatusBuilder TypeError(const SourceLocation& start,
+gutils::StatusBuilder TypeError(const ConstraintSource& source,
+                                const SourceLocation& start,
                                 const SourceLocation& end) {
+  absl::StatusOr<std::string> quote = QuoteSubConstraint(source, start, end);
+  if (!quote.ok()) {
+    return gutils::InternalErrorBuilder(GUTILS_LOC)
+           << "Failed to quote sub-constraint: " << quote.status();
+  }
   return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-         << QuoteSourceLocation(start, end) << "Type error: ";
+         << *quote << "Type error: ";
 }
 
-gutils::StatusBuilder InternalError(const SourceLocation& start,
+gutils::StatusBuilder InternalError(const ConstraintSource& source,
+                                    const SourceLocation& start,
                                     const SourceLocation& end) {
+  absl::StatusOr<std::string> quote = QuoteSubConstraint(source, start, end);
+  if (!quote.ok()) {
+    return gutils::InternalErrorBuilder(GUTILS_LOC)
+           << "Failed to quote sub-constraint: " << quote.status();
+  }
   return gutils::InternalErrorBuilder(GUTILS_LOC)
-         << QuoteSourceLocation(start, end) << "Internal error: ";
+         << *quote << "Internal error: ";
 }
 
 // -- Castability & Unification ------------------------------------------------
@@ -152,11 +165,13 @@ absl::Status CastTransitivelyTo(Expression* expr, Type target_type) {
 // LeastUpperBound(left.type(), right.type()) exists, Unify returns successfully
 // and mutates the expressions by wrapping them with type casts to the least
 // upper bound. Otherwise, Unify returns an InvalidArgument Status.
-absl::StatusOr<Type> Unify(Expression* left, Expression* right) {
+absl::StatusOr<Type> Unify(Expression* left, Expression* right,
+                           const TableInfo& table_info) {
   const absl::optional<Type> least_upper_bound =
       LeastUpperBound(left->type(), right->type());
   if (!least_upper_bound.has_value()) {
-    return TypeError(left->start_location(), right->end_location())
+    return TypeError(table_info.constraint_source, left->start_location(),
+                     right->end_location())
            << "cannot unify types " << left->type() << " and " << right->type();
   }
   RETURN_IF_ERROR(CastTransitivelyTo(left, *least_upper_bound));
@@ -215,12 +230,14 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       const std::string& key = expr->key();
       const auto& key_info = table_info.keys_by_name.find(key);
       if (key_info == table_info.keys_by_name.end())
-        return TypeError(expr->start_location(), expr->end_location())
+        return TypeError(table_info.constraint_source, expr->start_location(),
+                         expr->end_location())
                << "unknown key " << key;
       *expr->mutable_type() = key_info->second.type;
       if (expr->type().type_case() == Type::kUnknown ||
           expr->type().type_case() == Type::kUnsupported) {
-        return TypeError(expr->start_location(), expr->end_location())
+        return TypeError(table_info.constraint_source, expr->start_location(),
+                         expr->end_location())
                << "key " << key << " has illegal type "
                << TypeName(expr->type());
       }
@@ -232,7 +249,8 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
           expr->metadata_access().metadata_name();
       const auto metadata_info = GetMetadataInfo(metadata_name);
       if (metadata_info == std::nullopt) {
-        return TypeError(expr->start_location(), expr->end_location())
+        return TypeError(table_info.constraint_source, expr->start_location(),
+                         expr->end_location())
                << "unknown metadata '" << metadata_name << "'";
       }
       Type& expr_type = *expr->mutable_type();
@@ -241,7 +259,8 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
           expr_type.type_case() == Type::kUnsupported) {
         // Since we hardcode the type of metadata in the source code, this line
         // should never be reached.
-        return InternalError(expr->start_location(), expr->end_location())
+        return InternalError(table_info.constraint_source,
+                             expr->start_location(), expr->end_location())
                << "metadata '" << metadata_name << "' has illegal type "
                << TypeName(expr_type);
       }
@@ -252,7 +271,8 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       Expression* sub_expr = expr->mutable_boolean_negation();
       RETURN_IF_ERROR(InferAndCheckTypes(sub_expr, table_info));
       if (!sub_expr->type().has_boolean()) {
-        return TypeError(sub_expr->start_location(), sub_expr->end_location())
+        return TypeError(table_info.constraint_source,
+                         sub_expr->start_location(), sub_expr->end_location())
                << "expected type bool, got " << TypeName(sub_expr->type());
       }
       expr->mutable_type()->mutable_boolean();
@@ -263,7 +283,8 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       Expression* sub_expr = expr->mutable_arithmetic_negation();
       RETURN_IF_ERROR(InferAndCheckTypes(sub_expr, table_info));
       if (!sub_expr->type().has_arbitrary_int()) {
-        return TypeError(sub_expr->start_location(), sub_expr->end_location())
+        return TypeError(table_info.constraint_source,
+                         sub_expr->start_location(), sub_expr->end_location())
                << "expected type int, got " << TypeName(sub_expr->type());
       }
       expr->mutable_type()->mutable_arbitrary_int();
@@ -282,7 +303,8 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
         case ast::BinaryOperator::IMPLIES: {
           for (auto subexpr : {left, right}) {
             if (!subexpr->type().has_boolean()) {
-              return TypeError(subexpr->start_location(),
+              return TypeError(table_info.constraint_source,
+                               subexpr->start_location(),
                                subexpr->end_location())
                      << "expected type bool, got " << TypeName(subexpr->type());
             }
@@ -296,12 +318,13 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
         case ast::BinaryOperator::LE:
         case ast::BinaryOperator::EQ:
         case ast::BinaryOperator::NE: {
-          ASSIGN_OR_RETURN(Type type, Unify(left, right));
+          ASSIGN_OR_RETURN(Type type, Unify(left, right, table_info));
           // Unordered types only support == and !=.
           if (bin_expr->binop() != ast::BinaryOperator::EQ &&
               bin_expr->binop() != ast::BinaryOperator::NE &&
               !TypeHasOrdering(type)) {
-            return TypeError(expr->start_location(), expr->end_location())
+            return TypeError(table_info.constraint_source,
+                             expr->start_location(), expr->end_location())
                    << "operand type " << type
                    << " does not support ordered comparison";
           }
@@ -316,7 +339,8 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
     }
 
     case Expression::kTypeCast:
-      return TypeError(expr->start_location(), expr->end_location())
+      return TypeError(table_info.constraint_source, expr->start_location(),
+                       expr->end_location())
              << "type casts should only be inserted by the type checker";
 
     case Expression::kFieldAccess: {
@@ -326,8 +350,8 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       absl::optional<Type> field_type =
           FieldTypeOfCompositeType(composite_expr->type(), field);
       if (!field_type.has_value()) {
-        return TypeError(composite_expr->start_location(),
-                         composite_expr->end_location())
+        return TypeError(table_info.constraint_source, expr->start_location(),
+                         expr->end_location())
                << "expression of type " << composite_expr->type()
                << " has no field '" << field << "'";
       }
@@ -338,7 +362,8 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
     case Expression::EXPRESSION_NOT_SET:
       break;
   }
-  return TypeError(expr->start_location(), expr->end_location())
+  return TypeError(table_info.constraint_source, expr->start_location(),
+                   expr->end_location())
          << "unexpected expression: " << expr->DebugString();
 }
 
