@@ -44,8 +44,8 @@
 #include "p4_constraints/backend/interpreter.h"
 
 using ::p4_constraints::ConstraintInfo;
-using ::p4_constraints::EntryMeetsConstraint;
 using ::p4_constraints::P4ToConstraintInfo;
+using ::p4_constraints::ReasonEntryViolatesConstraint;
 
 ABSL_FLAG(std::string, p4info, "", "p4info file (required)");
 constexpr char kUsage[] =
@@ -109,7 +109,10 @@ int main(int argc, char** argv) {
   // Check table entries, if any where given.
   for (const char* entry_filename :
        absl::MakeSpan(positional_args).subspan(1)) {
-    std::cout << entry_filename << ": ";
+    std::cout << "### P4Constraints Table Entry Test #######################\n";
+    std::cout << "=== Input Table Entry File ===\n";
+    std::cout << entry_filename << "\n";
+    std::cout << "=== Output ===\n";
 
     // Open entry file.
     std::ifstream entry_file(entry_filename);
@@ -134,13 +137,14 @@ int main(int argc, char** argv) {
     entry.set_table_id(CoerceToTableId(entry.table_id()));
 
     // Check entry.
-    absl::StatusOr<bool> result = EntryMeetsConstraint(entry, *constraint_info);
+    absl::StatusOr<std::string> result =
+        ReasonEntryViolatesConstraint(entry, *constraint_info);
     if (!result.ok()) {
       std::cout << "Error: " << ToString(result.status()) << "\n\n";
       continue;
     }
-    std::cout << "constraint " << (result.value() ? "satisfied" : "violated")
-              << "\n\n";
+    std::cout << (result->empty() ? "Constraint satisfied\n" : result.value())
+              << "\n";
   }
 
   return 0;
