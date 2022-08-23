@@ -30,6 +30,7 @@
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/type_checker.h"
+#include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/lexer.h"
 #include "p4_constraints/frontend/parser.h"
 #include "re2/re2.h"
@@ -41,8 +42,7 @@ namespace {
 using p4::config::v1::MatchField;
 using p4::config::v1::Table;
 
-absl::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
-    const Table& table) {
+absl::StatusOr<ConstraintSource> ExtractConstraint(const Table& table) {
   // We expect .p4 files to have the following format:
   // ```p4
   //   @file(__FILE__)              // optional
@@ -58,38 +58,38 @@ absl::StatusOr<absl::optional<ast::Expression>> ParseTableConstraint(
   const RE2 line_annotation = {R"RE(@line[(](\d+)[)])RE"};
   const RE2 constraint_annotation = {R"RE(@entry_restriction)RE"};
 
-  ast::SourceLocation location;
+  absl::string_view constraint_string = "";
+  ast::SourceLocation constraint_location;
   int line = 0;
-  absl::string_view constraint = "";
   for (absl::string_view annotation : table.preamble().annotations()) {
     if (RE2::Consume(&annotation, file_annotation,
-                     location.mutable_file_path()))
+                     constraint_location.mutable_file_path()))
       continue;
     if (RE2::Consume(&annotation, line_annotation, &line)) continue;
     if (RE2::Consume(&annotation, constraint_annotation)) {
-      constraint = annotation.data();
+      constraint_string = annotation.data();
       break;
     }
   }
-  location.set_line(line);
-  if (location.file_path().empty()) {
-    location.set_table_name(table.preamble().name());
+
+  if (constraint_string.empty()) return ConstraintSource();
+
+  constraint_location.set_line(line);
+  if (constraint_location.file_path().empty()) {
+    constraint_location.set_table_name(table.preamble().name());
   }
 
-  if (constraint.empty()) {
-    return absl::optional<ast::Expression>();
-  }
-  if (!absl::ConsumePrefix(&constraint, "(\"") ||
-      !absl::ConsumeSuffix(&constraint, "\")")) {
+  if (!absl::ConsumePrefix(&constraint_string, "(\"") ||
+      !absl::ConsumeSuffix(&constraint_string, "\")")) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "In table " << table.preamble().name() << ":\n"
            << "Syntax error: @entry_restriction must be enclosed in "
               "'(\"' and '\")'";
   }
-  // TODO(smolkaj): With C++17, we can use std::string_view throughout and
-  // won't need to make an extra copy here.
-  const auto constraint_str = std::string(constraint);
-  return ParseConstraint(Tokenize(constraint_str, location));
+  return ConstraintSource{
+      .constraint_string = std::string(constraint_string),
+      .constraint_location = constraint_location,
+  };
 }
 
 absl::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
@@ -145,14 +145,26 @@ absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
     }
   }
 
-  TableInfo table_info{.id = table.preamble().id(),
-                       .name = table.preamble().name(),
-                       .constraint = {},  // Inserted in a second.
-                       .keys_by_id = keys_by_id,
-                       .keys_by_name = keys_by_name};
+  ASSIGN_OR_RETURN(ConstraintSource constraint_source,
+                   ExtractConstraint(table));
 
-  // Parse and type check constraint.
-  ASSIGN_OR_RETURN(table_info.constraint, ParseTableConstraint(table));
+  absl::optional<ast::Expression> constraint = absl::nullopt;
+  if (!constraint_source.constraint_string.empty()) {
+    ASSIGN_OR_RETURN(constraint, ParseConstraint(Tokenize(
+                                     constraint_source.constraint_string,
+                                     constraint_source.constraint_location)));
+  }
+
+  TableInfo table_info{
+      .id = table.preamble().id(),
+      .name = table.preamble().name(),
+      .constraint = constraint,
+      .constraint_source = constraint_source,
+      .keys_by_id = keys_by_id,
+      .keys_by_name = keys_by_name,
+  };
+
+  // Type check constraint.
   if (table_info.constraint.has_value()) {
     RETURN_IF_ERROR(
         InferAndCheckTypes(&table_info.constraint.value(), table_info));
