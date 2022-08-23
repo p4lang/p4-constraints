@@ -35,20 +35,6 @@ absl::StatusOr<std::string> QuoteSubConstraint(
     const ConstraintSource& constraint, const ast::SourceLocation& from,
     const ast::SourceLocation& to);
 
-// Returns string that describes and -- if possible -- quotes the given source
-// interval. E.g., for
-//   start = { line: 7, column: 2, source: { file_path: "my/input/file" } }
-//   end = { line: 7, column: 13, source: { file_path: "my/input/file" } }
-// QuoteSourceLocation(start, end) may produce the following output:
-//
-// my/input/file:8:3-13:
-//   | hdr.ethernet.eth_type == 0x08 ->
-// 8 |   1+2 == true
-//   |   ^^^^^^^^^^^
-ABSL_DEPRECATED("Use QuoteSubConstraint instead")
-std::string QuoteSourceLocation(const ast::SourceLocation& start,
-                                const ast::SourceLocation& end);
-
 }  // namespace p4_constraints
 
 #endif  // P4_CONSTRAINTS_QUOTE_H_

@@ -78,62 +78,6 @@ absl::StatusOr<std::string> Explain(const ast::SourceLocation& start,
 //  | hdr.ethernet.eth_type == 0x08 ->
 // 8|   1+2 == true
 //  |   ^^^^^^^^^^^
-// TODO(b/242908850): Remove this overload and migrate parser/lexer/typechecker
-// to the other overload of this function.
-std::string Quote(const ast::SourceLocation& start,
-                  const ast::SourceLocation& end) {
-  if (start.source_case() != ast::SourceLocation::kFilePath) return "";
-  if (start.file_path() != end.file_path()) return "";
-  std::ifstream file(start.file_path());
-  if (!file.is_open()) return "";
-
-  // Index of the line we want to quote.
-  const int key_line = start.line();
-  // Number of lines to show before the key line, for context.
-  static const int kBefore = 1;
-
-  // Discard unneeded lines before the lines we're interested in.
-  int i = 0;
-  for (std::string line; i < key_line - kBefore; i++) {
-    if (!std::getline(file, line)) return "";
-  }
-
-  const std::string key_line_margin = std::to_string(key_line + 1);
-  const std::string context_line_margin(key_line_margin.size(), ' ');
-  const std::string separator = " | ";
-  std::stringstream output;
-
-  // Output lines before key line for context.
-  for (std::string line; i < key_line; i++) {
-    if (std::getline(file, line))
-      output << context_line_margin << separator << line << "\n";
-    else
-      return "";
-  }
-  // Output key line.
-  std::string line;
-  if (std::getline(file, line))
-    output << key_line_margin << separator << line << "\n";
-  else
-    return "";
-
-  // Mark key columns using '^'.
-  const std::string margin = absl::StrCat(context_line_margin, separator,
-                                          std::string(start.column(), ' '));
-  const int marker_size = (start.line() == end.line())
-                              ? (end.column() - start.column())
-                              : (line.size() - margin.size());
-  const std::string marker(marker_size, '^');
-  output << margin << marker << "\n";
-  return output.str();
-}
-
-// Returns a string that quotes and marks the given source location interval,
-// e.g.:
-//
-//  | hdr.ethernet.eth_type == 0x08 ->
-// 8|   1+2 == true
-//  |   ^^^^^^^^^^^
 // TODO(b/243082448): Add multiline quoting. Not urgent as current uses only
 // quote single lines.
 absl::StatusOr<std::string> Quote(const ConstraintSource& constraint,
@@ -215,25 +159,12 @@ std::string GetSourceName(const ast::SourceLocation& source) {
   }
 }
 
-std::string QuoteSourceLocation(const ast::SourceLocation& start,
-                                const ast::SourceLocation& end) {
-  if (start.file_path() != end.file_path() ||
-      start.table_name() != end.table_name()) {
-    LOG(ERROR) << "Quoting of multi-source locations not implemented. "
-               << "Omitting source location.";
-    return "";
-  }
-  absl::StatusOr<std::string> explanation = Explain(start, end);
-  if (!explanation.ok()) return "";
-  return absl::StrCat(*explanation, Quote(start, end));
-}
-
 absl::StatusOr<std::string> QuoteSubConstraint(
     const ConstraintSource& constraint, const ast::SourceLocation& from,
     const ast::SourceLocation& to) {
-  if (!ast::LocationsHaveSameSource(constraint.constraint_location, from) ||
-      !ast::LocationsHaveSameSource(constraint.constraint_location, to) ||
-      !ast::LocationsHaveSameSource(from, to)) {
+  if (!ast::HaveSameSource(constraint.constraint_location, from) ||
+      !ast::HaveSameSource(constraint.constraint_location, to) ||
+      !ast::HaveSameSource(from, to)) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC) << absl::StrFormat(
                "Quoting of multi-source locations not allowed. Constraint-"
                "Source: %s From-Source: %s To-Source: %s",

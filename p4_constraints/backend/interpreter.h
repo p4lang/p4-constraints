@@ -153,20 +153,36 @@ struct TableEntry {
 absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
                                       const TableInfo& table_info);
 
+// Context under which an `Expression` is evaluated. An `EvaluationContext` is
+// "valid" for a given `Expression` iff the following holds:
+//   -`entry` must contain all fields in the expression, with correct type. If
+//     not, an Error Status is returned
+//   -`source` must be the source from which the expression was parsed. If not,
+//     behaviour is undefined (depending on the source, either an InternalError
+//     will be given or a non-sense quote will be returned)
+//
+// ***WARNING***: This struct's members are references in order to avoid
+// expensive copies. This leads to the possibility of dangling references, use
+// with caution.
+struct EvaluationContext {
+  const TableEntry& entry;
+  const ConstraintSource& source;
+};
+
 // Used to memoize evaluation results to avoid re-computation.
 using EvaluationCache = absl::flat_hash_map<const ast::Expression*, bool>;
 
-// Evaluates `expr` over entry to an `EvalResult`. Returns error status if AST
-// is malformed. `eval_cache` holds boolean results, useful for avoiding
-// recomputation when an explanation is desired. Passing a nullptr for
-// `eval-cache` disables caching.
+// Evaluates `expr` over `context.entry` to an `EvalResult`. Returns error
+// status if AST is malformed and uses `context.source` to quote constraint.
+// `eval_cache` holds boolean results, useful for avoiding recomputation when an
+// explanation is desired. Passing a nullptr for `eval-cache` disables caching.
 absl::StatusOr<EvalResult> Eval(const ast::Expression& expr,
-                                const TableEntry& entry,
+                                const EvaluationContext& context,
                                 EvaluationCache* eval_cache);
 
 // Provides a minimal explanation for why `expression` resolved to true/false
-// under `entry` as a pointer to a subexpression that implies the result.
-// In the formal sense, finds the smallest subexpression `s` of `e` such that:
+// under `context.entry` as a pointer to a subexpression that implies the
+// result. In the formal sense, finds the smallest subexpression `s` of `e` s.t.
 //
 //  eval(s, entry1) == eval(s, entry2)  =>  eval(e, entry1) == eval(e, entry2)
 //
@@ -177,14 +193,15 @@ absl::StatusOr<EvalResult> Eval(const ast::Expression& expr,
 // Uses `eval_cache` and `size_cache` to avoid recomputation, allowing it to run
 // in linear time. Given current language specification, search only requires
 // traversal of nodes with type boolean. Traversal of non-boolean nodes or an
-// invalid AST will return InternalError Status.
+// invalid AST will return InternalError Status. Uses `context.source` to quote
+// constraint on error.
 absl::StatusOr<const ast::Expression*> MinimalSubexpressionLeadingToEvalResult(
-    const ast::Expression& expression, const TableEntry& entry,
+    const ast::Expression& expression, const EvaluationContext& context,
     EvaluationCache& eval_cache, ast::SizeCache& size_cache);
 
 // Same as `Eval` except forces boolean result.
 absl::StatusOr<bool> EvalToBool(const ast::Expression& expr,
-                                const TableEntry& entry,
+                                const EvaluationContext& context,
                                 EvaluationCache* eval_cache);
 
 }  // namespace internal_interpreter

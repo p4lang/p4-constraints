@@ -180,14 +180,16 @@ Type TypeCaseToType(Type::TypeCase type_case) {
 
 // -- Utility ------------------------------------------------------------------
 
-bool LocationsHaveSameSource(const SourceLocation& location1,
-                             const SourceLocation& location2) {
+bool HaveSameSource(const SourceLocation& source_location_1,
+                    const SourceLocation& source_location_2) {
   // Message Differencer ignores all fields except `source` oneof. This makes
   // proto equivalence = source equivalence.
   google::protobuf::util::MessageDifferencer differ;
-  differ.IgnoreField(location1.GetDescriptor()->FindFieldByName("line"));
-  differ.IgnoreField(location1.GetDescriptor()->FindFieldByName("column"));
-  return gutils::ProtoEqual(location1, location2, differ);
+  differ.IgnoreField(
+      source_location_1.GetDescriptor()->FindFieldByName("line"));
+  differ.IgnoreField(
+      source_location_1.GetDescriptor()->FindFieldByName("column"));
+  return gutils::ProtoEqual(source_location_1, source_location_2, differ);
 }
 
 // Populates `field_set` with the fields used in `expr`.
