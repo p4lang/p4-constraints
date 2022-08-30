@@ -20,7 +20,6 @@
 #include "absl/strings/substitute.h"
 #include "gutils/parse_text_proto.h"
 #include "gutils/status_matchers.h"
-#include "p4_constraints/ast.proto.h"
 
 namespace p4_constraints {
 namespace ast {

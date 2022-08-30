@@ -518,7 +518,7 @@ absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
               break;
             }
             default:
-              return gutils::InternalErrorBuilder()
+              return gutils::InternalErrorBuilder(GUTILS_LOC)
                      << "unreachable code reached";
           }
 

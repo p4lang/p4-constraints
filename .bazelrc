@@ -1,4 +1,4 @@
 # Optional per-user config goes into user.bazelrc, which is .gitignore-ed.
 try-import user.bazelrc
-build --cxxopt='-std=c++11'
-build --cxxopt='-Wc++11-compat'
+build --cxxopt='-std=c++17'
+build --cxxopt='-Wc++17-compat'
