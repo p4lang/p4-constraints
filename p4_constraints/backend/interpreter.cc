@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -574,21 +575,27 @@ absl::StatusOr<std::string> ExplainConstraintViolation(
   ASSIGN_OR_RETURN(std::string reason,
                    QuoteSubConstraint(source, explanation->start_location(),
                                       explanation->end_location()));
+  absl::flat_hash_set<std::string> relevant_fields =
+      ast::GetMatchFields(*explanation);
   // Ordered for determinism when golden testing.
   std::string key_info = absl::StrJoin(
-      gutils::Ordered(entry.keys), "\n", [](std::string* out, auto pair) {
-        absl::StrAppend(out, "Key:\"", pair.first,
-                        "\" -> Value: ", EvalResultToString(pair.second));
+      gutils::Ordered(entry.keys), "",
+      [&](std::string* out, const std::pair<std::string, EvalResult>& pair) {
+        if (relevant_fields.contains(pair.first)) {
+          absl::StrAppend(out, "Field: \"", pair.first,
+                          "\" -> Value: ", EvalResultToString(pair.second),
+                          "\n");
+        }
       });
 
   return absl::StrFormat(
       "All entries must %ssatisfy:"
       "\n\n%s\n"
       "But your entry does%s.\n"
-      ">>>Entry Info<<<\n"
+      ">>>Relevant Entry Info<<<\n"
       "Table Name: \"%s\"\n"
       "Priority:%d\n"
-      "%s\n",
+      "%s",
       (truth_value ? "not " : ""), reason, (truth_value ? "" : " not"),
       entry.table_name, entry.priority, key_info);
 }

@@ -51,14 +51,10 @@ In @entry_restriction of table 'golden_table'; at offset line 1, columns 23 to 4
   |                       ^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
->>>Entry Info<<<
+>>>Relevant Entry Info<<<
 Table Name: "golden_table"
 Priority:0
-Key:"exact32" -> Value: Exact{.value = 10}
-Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
-Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
-Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+Field: "exact32" -> Value: Exact{.value = 10}
 
 ### ReasonEntryViolatestConstraint Test ###################
 === INPUT ===
@@ -84,14 +80,10 @@ In @entry_restriction of table 'golden_table'; at offset line 3, columns 1 to 20
   | ^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
->>>Entry Info<<<
+>>>Relevant Entry Info<<<
 Table Name: "golden_table"
 Priority:0
-Key:"exact32" -> Value: Exact{.value = 10}
-Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
-Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
-Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+Field: "exact32" -> Value: Exact{.value = 10}
 
 ### ReasonEntryViolatestConstraint Test ###################
 === INPUT ===
@@ -117,14 +109,10 @@ golden_test.p4:3:1-19:
   | ^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
->>>Entry Info<<<
+>>>Relevant Entry Info<<<
 Table Name: "golden_table"
 Priority:0
-Key:"exact32" -> Value: Exact{.value = 10}
-Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
-Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
-Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+Field: "exact32" -> Value: Exact{.value = 10}
 
 ### ReasonEntryViolatestConstraint Test ###################
 === INPUT ===
@@ -150,14 +138,10 @@ golden_test.p4:3:1-43:
   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
->>>Entry Info<<<
+>>>Relevant Entry Info<<<
 Table Name: "golden_table"
 Priority:0
-Key:"exact32" -> Value: Exact{.value = 10}
-Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
-Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
-Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+Field: "exact32" -> Value: Exact{.value = 10}
 
 ### ReasonEntryViolatestConstraint Test ###################
 === INPUT ===
@@ -183,14 +167,10 @@ golden_test.p4:2:27-46:
   |                           ^^^^^^^^^^^^^^^^^^^^
 
 But your entry does.
->>>Entry Info<<<
+>>>Relevant Entry Info<<<
 Table Name: "golden_table"
 Priority:0
-Key:"exact32" -> Value: Exact{.value = 10}
-Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
-Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
-Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+Field: "exact32" -> Value: Exact{.value = 10}
 
 ### ReasonEntryViolatestConstraint Test ###################
 === INPUT ===
@@ -215,14 +195,10 @@ In @entry_restriction of table 'golden_table'; at offset line 2, columns 1 to 22
   | ^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
->>>Entry Info<<<
+>>>Relevant Entry Info<<<
 Table Name: "golden_table"
 Priority:0
-Key:"exact32" -> Value: Exact{.value = 10}
-Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
-Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
-Key:"ternary32" -> Value: Ternary{.value = 42, .mask = 64}
+Field: "ternary32" -> Value: Ternary{.value = 42, .mask = 64}
 
 ### ReasonEntryViolatestConstraint Test ###################
 === INPUT ===
@@ -245,12 +221,7 @@ golden_test.p4:1:32-35:
   |                                ^^^^
 
 But your entry does.
->>>Entry Info<<<
+>>>Relevant Entry Info<<<
 Table Name: "golden_table"
 Priority:0
-Key:"exact32" -> Value: Exact{.value = 10}
-Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
-Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
-Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
 

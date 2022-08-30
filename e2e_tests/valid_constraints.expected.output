@@ -16,17 +16,10 @@ e2e_tests/valid_constraints.p4:22:5-65:
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
->>>Entry Info<<<
+>>>Relevant Entry Info<<<
 Table Name: "valid_constraints.vrf_classifier_table"
 Priority:0
-Key:"hdr.ethernet.ether_type" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"hdr.ethernet.src_addr" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"hdr.ipv4.dst_addr" -> Value: Ternary{.value = 3224115, .mask = 3224115}
-Key:"hdr.ipv4.src_addr" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"hdr.ipv6.dst_addr" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"local_metadata.dscp" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"local_metadata.is_ip_packet" -> Value: Ternary{.value = 0, .mask = 0}
-Key:"standard_metadata.ingress_port" -> Value: Ternary{.value = 0, .mask = 0}
+Field: "hdr.ipv4.dst_addr" -> Value: Ternary{.value = 3224115, .mask = 3224115}
 
 ### P4Constraints Table Entry Test #######################
 === Input Table Entry File ===
@@ -40,10 +33,10 @@ e2e_tests/valid_constraints.p4:62:5-32:
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
->>>Entry Info<<<
+>>>Relevant Entry Info<<<
 Table Name: "valid_constraints.optional_match_table"
 Priority:0
-Key:"hdr.ipv4.dst_addr" -> Value: Ternary{.value = 3224115, .mask = 4294967295}
+Field: "hdr.ipv4.dst_addr" -> Value: Ternary{.value = 3224115, .mask = 4294967295}
 
 ### P4Constraints Table Entry Test #######################
 === Input Table Entry File ===
@@ -63,10 +56,9 @@ e2e_tests/valid_constraints.p4:64:5-27:
    |     ^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
->>>Entry Info<<<
+>>>Relevant Entry Info<<<
 Table Name: "valid_constraints.optional_match_table"
 Priority:2147483647
-Key:"hdr.ipv4.dst_addr" -> Value: Ternary{.value = 0, .mask = 0}
 
 ### P4Constraints Table Entry Test #######################
 === Input Table Entry File ===
@@ -79,10 +71,9 @@ e2e_tests/valid_constraints.p4:14:1-5:
    | ^^^^^
 
 But your entry does not.
->>>Entry Info<<<
+>>>Relevant Entry Info<<<
 Table Name: "valid_constraints.reject_all_entries"
 Priority:0
-
 
 ### P4Constraints Table Entry Test #######################
 === Input Table Entry File ===
