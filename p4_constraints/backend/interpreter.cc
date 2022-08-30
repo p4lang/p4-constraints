@@ -41,6 +41,7 @@
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/constraint_source.h"
 #include "p4_constraints/quote.h"
 
 namespace p4_constraints {
@@ -522,7 +523,8 @@ absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
           }
 
           if (candidate_subexpressions.empty()) return &expression;
-          // Returns `MinimalSubexpressionLeadingToEvalResult` of sole candidate
+          // Returns `MinimalSubexpressionLeadingToEvalResult` of sole
+          // candidate.
           if (candidate_subexpressions.size() == 1) {
             return MinimalSubexpressionLeadingToEvalResult(
                 *candidate_subexpressions[0], entry, eval_cache, size_cache);
@@ -561,32 +563,34 @@ absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
 
 // Returns human readable explanation of constraint violation.
 absl::StatusOr<std::string> ExplainConstraintViolation(
-    const Expression& expr, const TableEntry& entry,
-    EvaluationCache& eval_cache, ast::SizeCache& size_cache) {
+    const Expression& expr, const ConstraintSource& source,
+    const TableEntry& entry, EvaluationCache& eval_cache,
+    ast::SizeCache& size_cache) {
   ASSIGN_OR_RETURN(const ast::Expression* explanation,
                    MinimalSubexpressionLeadingToEvalResult(
                        expr, entry, eval_cache, size_cache));
   ASSIGN_OR_RETURN(bool truth_value,
                    EvalToBool(*explanation, entry, &eval_cache));
+  ASSIGN_OR_RETURN(std::string reason,
+                   QuoteSubConstraint(source, explanation->start_location(),
+                                      explanation->end_location()));
   // Ordered for determinism when golden testing.
   std::string key_info = absl::StrJoin(
       gutils::Ordered(entry.keys), "\n", [](std::string* out, auto pair) {
         absl::StrAppend(out, "Key:\"", pair.first,
                         "\" -> Value: ", EvalResultToString(pair.second));
       });
-  // TODO(b/241957581): Find better representation for explanation. Consider
-  // modifying quote function to use string in constraint info
+
   return absl::StrFormat(
       "All entries must %ssatisfy:"
       "\n\n%s\n"
-      "But your entry did%s\n"
+      "But your entry does%s.\n"
       ">>>Entry Info<<<\n"
-      "Table Name:\"%s\"\n"
+      "Table Name: \"%s\"\n"
       "Priority:%d\n"
-      "Key Info\n"
       "%s\n",
-      (truth_value ? "not " : ""), explanation->DebugString(),
-      (truth_value ? "" : " not"), entry.table_name, entry.priority, key_info);
+      (truth_value ? "not " : ""), reason, (truth_value ? "" : " not"),
+      entry.table_name, entry.priority, key_info);
 }
 // -- Main evaluator -----------------------------------------------------------
 
@@ -800,8 +804,8 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
     return "";
   }
   SizeCache size_cache;
-  return ExplainConstraintViolation(constraint, parsed_entry, eval_cache,
-                                    size_cache);
+  return ExplainConstraintViolation(constraint, table_info.constraint_source,
+                                    parsed_entry, eval_cache, size_cache);
 }
 
 }  // namespace p4_constraints

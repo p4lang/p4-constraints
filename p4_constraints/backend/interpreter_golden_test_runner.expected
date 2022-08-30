@@ -1,217 +1,253 @@
+### ReasonEntryViolatestConstraint Test ###################
 === INPUT ===
 --- Constraint ---
 true;
 --- Table Entry ---
-Table Name:"table"
+Table Name: "golden_table"
 Priority:0
-Key Info
 Key:"exact32" -> Value: Exact{.value = 10}
 Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
 Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
 Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
 Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
-=== OUTPUT ===
 
+=== OUTPUT ===
+<empty>
+
+### ReasonEntryViolatestConstraint Test ###################
 === INPUT ===
 --- Constraint ---
 exact32::value != 10 || exact32::value == 10;
 --- Table Entry ---
-Table Name:"table"
+Table Name: "golden_table"
 Priority:0
-Key Info
 Key:"exact32" -> Value: Exact{.value = 10}
 Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
 Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
 Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
 Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
-=== OUTPUT ===
 
+=== OUTPUT ===
+<empty>
+
+### ReasonEntryViolatestConstraint Test ###################
 === INPUT ===
 --- Constraint ---
 exact32::value > 6 && exact32::value < 5;
 --- Table Entry ---
-Table Name:"table"
+Table Name: "golden_table"
 Priority:0
-Key Info
 Key:"exact32" -> Value: Exact{.value = 10}
 Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
 Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
 Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
 Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
 === OUTPUT ===
 All entries must satisfy:
 
-start_location 	 {
-  column: 22
-}
-end_location {
-  column: 40
-}
-type {
-  boolean {
-  }
-}
-binary_expression {
-  binop: LT
-  left {
-    start_location {
-      column: 22
-    }
-    end_location {
-      column: 36
-    }
-    type {
-      fixed_unsigned {
-        bitwidth: 32
-      }
-    }
-    field_access {
-      field: "value"
-      expr {
-        start_location {
-          column: 22
-        }
-        end_location {
-          column: 29
-        }
-        type {
-          exact {
-            bitwidth: 32
-          }
-        }
-        key: "exact32"
-      }
-    }
-  }
-  right {
-    start_location {
-      column: 39
-    }
-    end_location {
-      column: 40
-    }
-    type {
-      fixed_unsigned {
-        bitwidth: 32
-      }
-    }
-    type_cast {
-      start_location {
-        column: 39
-      }
-      end_location {
-        column: 40
-      }
-      type {
-        arbitrary_int {
-        }
-      }
-      integer_constant: "5"
-    }
-  }
-}
+In @entry_restriction of table 'golden_table'; at offset line 1, columns 23 to 40:
+1 | exact32::value > 6 && exact32::value < 5;
+  |                       ^^^^^^^^^^^^^^^^^^
 
-But your entry did not
+But your entry does not.
 >>>Entry Info<<<
-Table Name:"table"
+Table Name: "golden_table"
 Priority:0
-Key Info
 Key:"exact32" -> Value: Exact{.value = 10}
 Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
 Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
 Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
 Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
 
+### ReasonEntryViolatestConstraint Test ###################
 === INPUT ===
 --- Constraint ---
-exact32::value > 5 && !(exact32::value == 10);
+exact32::value > 5;
+exact32::value < 20;
+exact32::value == 14;
 --- Table Entry ---
-Table Name:"table"
+Table Name: "golden_table"
 Priority:0
-Key Info
 Key:"exact32" -> Value: Exact{.value = 10}
 Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
 Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
 Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
 Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== OUTPUT ===
+All entries must satisfy:
+
+In @entry_restriction of table 'golden_table'; at offset line 3, columns 1 to 20:
+  | exact32::value < 20;
+3 | exact32::value == 14;
+  | ^^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Entry Info<<<
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Constraint ---
+exact32::value > 0;
+exact32::value > 7 || exact32::value == 5;
+exact32::value == 9;
+--- Table Entry ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== OUTPUT ===
+All entries must satisfy:
+
+golden_test.p4:3:1-19:
+  | exact32::value > 7 || exact32::value == 5;
+3 | exact32::value == 9;
+  | ^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Entry Info<<<
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Constraint ---
+exact32::value > 0;
+exact32::value < 42;
+exact32::value < 20 -> exact32::value == 14;
+--- Table Entry ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== OUTPUT ===
+All entries must satisfy:
+
+golden_test.p4:3:1-43:
+  | exact32::value < 42;
+3 | exact32::value < 20 -> exact32::value == 14;
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Entry Info<<<
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Constraint ---
+exact32::value == 1 || exact32::value == 2;
+!(exact32::value == 10 -> exact32::value == 10);
+exact32::value == 3 || exact32::value == 4;
+--- Table Entry ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
 === OUTPUT ===
 All entries must not satisfy:
 
-start_location 	 {
-  column: 24
-}
-end_location {
-  column: 44
-}
-type {
-  boolean {
-  }
-}
-binary_expression {
-  binop: EQ
-  left {
-    start_location {
-      column: 24
-    }
-    end_location {
-      column: 38
-    }
-    type {
-      fixed_unsigned {
-        bitwidth: 32
-      }
-    }
-    field_access {
-      field: "value"
-      expr {
-        start_location {
-          column: 24
-        }
-        end_location {
-          column: 31
-        }
-        type {
-          exact {
-            bitwidth: 32
-          }
-        }
-        key: "exact32"
-      }
-    }
-  }
-  right {
-    start_location {
-      column: 42
-    }
-    end_location {
-      column: 44
-    }
-    type {
-      fixed_unsigned {
-        bitwidth: 32
-      }
-    }
-    type_cast {
-      start_location {
-        column: 42
-      }
-      end_location {
-        column: 44
-      }
-      type {
-        arbitrary_int {
-        }
-      }
-      integer_constant: "10"
-    }
-  }
-}
+golden_test.p4:2:27-46:
+  | exact32::value == 1 || exact32::value == 2;
+2 | !(exact32::value == 10 -> exact32::value == 10);
+  |                           ^^^^^^^^^^^^^^^^^^^^
 
-But your entry did
+But your entry does.
 >>>Entry Info<<<
-Table Name:"table"
+Table Name: "golden_table"
 Priority:0
-Key Info
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Constraint ---
+exact32::value == 80 || ternary32::value == 3096;
+ternary32::mask == 255 && exact32::value == 3;
+--- Table Entry ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 42, .mask = 64}
+
+=== OUTPUT ===
+All entries must satisfy:
+
+In @entry_restriction of table 'golden_table'; at offset line 2, columns 1 to 22:
+  | exact32::value == 80 || ternary32::value == 3096;
+2 | ternary32::mask == 255 && exact32::value == 3;
+  | ^^^^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Entry Info<<<
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 42, .mask = 64}
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Constraint ---
+(false || false) && (!(true -> true) && (false || false));
+--- Table Entry ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== OUTPUT ===
+All entries must not satisfy:
+
+golden_test.p4:1:32-35:
+1 | (false || false) && (!(true -> true) && (false || false));
+  |                                ^^^^
+
+But your entry does.
+>>>Entry Info<<<
+Table Name: "golden_table"
+Priority:0
 Key:"exact32" -> Value: Exact{.value = 10}
 Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
 Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}

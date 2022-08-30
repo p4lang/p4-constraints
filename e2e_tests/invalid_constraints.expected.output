@@ -5,7 +5,7 @@ Syntax error: @entry_restriction must be enclosed in '("' and '")'
 - In table invalid_constraints.forgot_quotes_with_srcloc:
 Syntax error: @entry_restriction must be enclosed in '("' and '")'
 
-- In @entry_restriction of table invalid_constraints.empty_restriction; at offset line 1, column 1:
+- In @entry_restriction of table 'invalid_constraints.empty_restriction'; at offset line 1, column 1:
 Parse error: unexpected token: <END_OF_INPUT>. Expected true, false, <BINARY>, <OCTARY>, <DECIMAL>, <HEXADEC>, <ID>, ::, !, -, or (.
 
 - e2e_tests/invalid_constraints.p4:21:3:
@@ -20,7 +20,7 @@ Parse error: unexpected token: <END_OF_INPUT>. Expected true, false, <BINARY>, <
    |     ^^^^^^^^^^^
 Type error: unknown key foo.bar.baz
 
-- In @entry_restriction of table invalid_constraints.unknown_key_no_srcloc; at offset line 1, columns 1 to 11:
+- In @entry_restriction of table 'invalid_constraints.unknown_key_no_srcloc'; at offset line 1, columns 1 to 11:
 Type error: unknown key foo.bar.baz
 
 - e2e_tests/invalid_constraints.p4:38:21-22:
@@ -29,7 +29,7 @@ Type error: unknown key foo.bar.baz
    |                     ^^
 Parse error: unexpected token: <ID>. Expected <END_OF_INPUT>, ), ::, &&, ;, ||, ->, ==, !=, >, >=, <, or <=.
 
-- In @entry_restriction of table invalid_constraints.bad_binary_numeral_no_srcloc; at offset line 1, columns 17 to 18:
+- In @entry_restriction of table 'invalid_constraints.bad_binary_numeral_no_srcloc'; at offset line 1, columns 17 to 18:
 Parse error: unexpected token: <ID>. Expected <END_OF_INPUT>, ), ::, &&, ;, ||, ->, ==, !=, >, >=, <, or <=.
 
 - e2e_tests/invalid_constraints.p4:52:11-14:
