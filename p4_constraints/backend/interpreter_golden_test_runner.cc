@@ -22,7 +22,6 @@
 #include "gutils/parse_text_proto.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/ast.proto.h"
-#include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/backend/interpreter.h"
 #include "p4_constraints/backend/type_checker.h"
 #include "p4_constraints/frontend/lexer.h"
@@ -37,14 +36,13 @@ using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::SourceLocation;
 using ::p4_constraints::ast::Type;
 
-// A test case for `ReasonEntryViolatesConstraint` function.
+// A test case for `ReasonEntryViolatesConstraint` function
 struct TestCase {
   std::string constraint;
   p4::v1::TableEntry table_entry;
-  bool source_file_available;
 };
 
-absl::StatusOr<ConstraintInfo> MakeConstraintInfo(TestCase test_case) {
+ConstraintInfo MakeConstraintInfo(Expression& expr) {
   const Type kExact32 = ParseTextProtoOrDie<Type>("exact { bitwidth: 32 }");
   const Type kTernary32 = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }");
   const Type kLpm32 = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }");
@@ -53,10 +51,11 @@ absl::StatusOr<ConstraintInfo> MakeConstraintInfo(TestCase test_case) {
       ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
   const TableInfo kTableInfo{
       .id = 1,
-      .name = "golden_table",
+      .name = "table",
+      .constraint = {},  // To be filled in later.
       .keys_by_id =
           {
-              {1, {1, "exact32", kExact32}}, {2, {2, "ternary32", kTernary32}},
+              {1, {1, "exact32", kExact32}},
               // For testing purposes, fine to omit the other keys here.
           },
       .keys_by_name = {
@@ -67,29 +66,15 @@ absl::StatusOr<ConstraintInfo> MakeConstraintInfo(TestCase test_case) {
           {"optional32", {5, "optional32", kOptional32}},
       }};
 
-  ConstraintSource source{
-      .constraint_string = test_case.constraint,
-      .constraint_location = SourceLocation(),
-  };
-  if (test_case.source_file_available) {
-    *source.constraint_location.mutable_file_path() = "golden_test.p4";
-  } else {
-    *source.constraint_location.mutable_table_name() = kTableInfo.name;
-  }
-
   TableInfo table_info = kTableInfo;
-  ASSIGN_OR_RETURN(Expression expression,
-                   ParseConstraint(Tokenize(source.constraint_string,
-                                            source.constraint_location)));
-  CHECK_OK(InferAndCheckTypes(&(expression), kTableInfo));
-  table_info.constraint = expression;
-  table_info.constraint_source = source;
-  return ConstraintInfo{{table_info.id, table_info}};
+  CHECK_OK(InferAndCheckTypes(&(expr), kTableInfo));
+  table_info.constraint = expr;
+  return {{table_info.id, table_info}};
 }
 
-// NOTE: Test cases only define the "exact" field for brevity but kTableInfo is
+// NOTE: Test cases only define "exact" for brevity but kTableInfo is
 // composed of several keys. These undeclared keys are implicitly set to hold
-// "catchall" values (i.e. range=[min,max], ternary=*).
+// "catchall" values (i.e. range=[min,max], ternary=*)
 std::vector<TestCase> TestCases() {
   std::vector<TestCase> test_cases;
   test_cases.push_back(TestCase{
@@ -101,7 +86,6 @@ std::vector<TestCase> TestCases() {
           exact { value: "\012" }
         }
       )pb"),
-      .source_file_available = false,
   });
 
   test_cases.push_back(TestCase{
@@ -113,7 +97,6 @@ std::vector<TestCase> TestCases() {
           exact { value: "\012" }
         }
       )pb"),
-      .source_file_available = false,
   });
 
   test_cases.push_back(TestCase{
@@ -125,13 +108,10 @@ std::vector<TestCase> TestCases() {
           exact { value: "\012" }
         }
       )pb"),
-      .source_file_available = false,
   });
 
   test_cases.push_back(TestCase{
-      .constraint = "exact32::value > 5;\n"
-                    "exact32::value < 20;\n"
-                    "exact32::value == 14;",
+      .constraint = "exact32::value > 5 && !(exact32::value == 10);",
       .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
@@ -139,79 +119,6 @@ std::vector<TestCase> TestCases() {
           exact { value: "\012" }
         }
       )pb"),
-      .source_file_available = false,
-  });
-
-  test_cases.push_back(TestCase{
-      .constraint = "exact32::value > 0;\n"
-                    "exact32::value > 7 || exact32::value == 5;\n"
-                    "exact32::value == 9;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
-        table_id: 1
-        match {
-          field_id: 1
-          exact { value: "\012" }
-        }
-      )pb"),
-      .source_file_available = true,
-  });
-
-  test_cases.push_back(TestCase{
-      .constraint = "exact32::value > 0;\n"
-                    "exact32::value < 42;\n"
-                    "exact32::value < 20 -> exact32::value == 14;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
-        table_id: 1
-        match {
-          field_id: 1
-          exact { value: "\012" }
-        }
-      )pb"),
-      .source_file_available = true,
-  });
-
-  test_cases.push_back(TestCase{
-      .constraint = "exact32::value == 1 || exact32::value == 2;\n"
-                    "!(exact32::value == 10 -> exact32::value == 10);\n"
-                    "exact32::value == 3 || exact32::value == 4;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
-        table_id: 1
-        match {
-          field_id: 1
-          exact { value: "\012" }
-        }
-      )pb"),
-      .source_file_available = true,
-  });
-
-  test_cases.push_back(TestCase{
-      .constraint = "exact32::value == 80 || ternary32::value == 3096;\n"
-                    "ternary32::mask == 255 && exact32::value == 3;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
-        table_id: 1
-        match {
-          field_id: 1
-          exact { value: "\012" }
-        }
-        match {
-          field_id: 2
-          ternary { value: "\052" mask: "\100" }
-        }
-      )pb"),
-      .source_file_available = false,
-  });
-
-  test_cases.push_back(TestCase{
-      .constraint =
-          "(false || false) && (!(true -> true) && (false || false));",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
-        table_id: 1
-        match {
-          field_id: 1
-          exact { value: "\012" }
-        }
-      )pb"),
-      .source_file_available = true,
   });
 
   return test_cases;
@@ -224,30 +131,31 @@ std::string EntryToString(const TableEntry& entry) {
                         "\" -> Value: ", EvalResultToString(pair.second));
       });
   return absl::StrFormat(
-      "Table Name: \"%s\"\n"
+      "Table Name:\"%s\"\n"
       "Priority:%d\n"
+      "Key Info\n"
       "%s\n",
       entry.table_name, entry.priority, key_info);
 }
 
 absl::Status main() {
   for (const TestCase& test_case : TestCases()) {
-    ASSIGN_OR_RETURN(ConstraintInfo constraint_info,
-                     MakeConstraintInfo(test_case));
+    ASSIGN_OR_RETURN(
+        Expression constraint,
+        ParseConstraint(Tokenize(test_case.constraint, SourceLocation())));
+    const ConstraintInfo table_info = MakeConstraintInfo(constraint);
+
     ASSIGN_OR_RETURN(TableEntry input,
-                     ParseEntry(test_case.table_entry, constraint_info.at(1)));
-    std::cout << "### ReasonEntryViolatestConstraint Test ###################\n"
-              << "=== INPUT ===\n"
+                     ParseEntry(test_case.table_entry, table_info.at(1)));
+    std::cout << "=== INPUT ===\n"
               << "--- Constraint ---\n"
-              << test_case.constraint << "\n"
-              << "--- Table Entry ---\n"
-              << EntryToString(input) << "\n";
+              << test_case.constraint << "\n--- Table Entry ---\n"
+              << EntryToString(input);
 
     absl::StatusOr<std::string> result =
-        ReasonEntryViolatesConstraint(test_case.table_entry, constraint_info);
+        ReasonEntryViolatesConstraint(test_case.table_entry, table_info);
     if (result.ok()) {
-      std::cout << "=== OUTPUT ===\n"
-                << (result->empty() ? "<empty>\n" : *result) << "\n";
+      std::cout << "=== OUTPUT ===\n" << *result << "\n";
     } else {
       std::cout << "=== ERROR ===\n" << result.status();
     }

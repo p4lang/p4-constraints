@@ -61,7 +61,6 @@ class InferAndCheckTypesTest : public ::testing::Test {
       "table",
       {},
       {},
-      {},
       {
           {"unknown", {0, "unknown", kUnknown}},
           {"unsupported", {0, "unsupported", kUnsupported}},
