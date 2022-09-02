@@ -21,13 +21,11 @@
 #include "gutils/ordered_map.h"
 #include "gutils/parse_text_proto.h"
 #include "gutils/status_macros.h"
-#include "p4_constraints/ast.proto.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/backend/interpreter.h"
 #include "p4_constraints/backend/type_checker.h"
 #include "p4_constraints/frontend/lexer.h"
 #include "p4_constraints/frontend/parser.h"
-#include "third_party/p4lang_p4runtime/proto/p4/v1/p4runtime.proto.h"
 
 namespace p4_constraints {
 namespace internal_interpreter {

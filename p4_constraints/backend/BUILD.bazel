@@ -1,4 +1,4 @@
-load("//third_party/p4lang_p4_constraints/e2e_tests:p4check.bzl", "cmd_diff_test")
+load("//e2e_tests:p4check.bzl", "cmd_diff_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -46,6 +46,7 @@ cc_test(
         ":constraint_info",
         ":interpreter",
         "//gutils:parse_text_proto",
+        "//gutils:status",
         "//gutils:status_matchers",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
@@ -101,10 +102,8 @@ cc_test(
         "//gutils:ordered_map",
         "//gutils:parse_text_proto",
         "//gutils:status",
-        "//p4_constraints:ast_cc_proto",
         "//p4_constraints/frontend:lexer",
         "//p4_constraints/frontend:parser",
-        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",

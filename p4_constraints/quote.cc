@@ -24,7 +24,6 @@
 #include "glog/logging.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/ast.pb.h"
-#include "p4_constraints/ast.proto.h"
 #include "p4_constraints/constraint_source.h"
 
 namespace p4_constraints {
