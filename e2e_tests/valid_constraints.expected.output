@@ -57,10 +57,10 @@ e2e_tests/table_entries/optional_match_table_valid_max_priority.pb.txt
 === Output ===
 All entries must satisfy:
 
-e2e_tests/valid_constraints.p4:64:7-27:
+e2e_tests/valid_constraints.p4:64:5-27:
    |     // A constraint on metadata.
 64 |     ::priority < 0x7fffffff;
-   |       ^^^^^^^^^^^^^^^^^^^^^
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
 >>>Entry Info<<<

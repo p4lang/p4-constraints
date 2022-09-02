@@ -68,8 +68,8 @@ Type error: expected type bool, got int
    |     ^^^^^^^^^^^^^^^^^
 Type error: operand type optional<32> does not support ordered comparison
 
-- e2e_tests/invalid_constraints.p4:102:7-13:
+- e2e_tests/invalid_constraints.p4:102:5-13:
     |   @entry_restriction("
 102 |     ::unknown > 10;
-    |       ^^^^^^^
+    |     ^^^^^^^^^
 Type error: unknown metadata 'unknown'
