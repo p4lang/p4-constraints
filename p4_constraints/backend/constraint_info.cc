@@ -151,25 +151,21 @@ absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
 
   absl::optional<ast::Expression> constraint = absl::nullopt;
   if (constraint_source.has_value()) {
-    ASSIGN_OR_RETURN(constraint, ParseConstraint(Tokenize(
-                                     constraint_source->constraint_string,
-                                     constraint_source->constraint_location)));
+    ASSIGN_OR_RETURN(constraint, ParseConstraint(Tokenize(*constraint_source)));
   }
 
   TableInfo table_info{
       .id = table.preamble().id(),
       .name = table.preamble().name(),
       .constraint = constraint,
-      .constraint_source = (constraint_source.has_value() ? *constraint_source
-                                                          : ConstraintSource{}),
+      .constraint_source = constraint_source.value_or(ConstraintSource()),
       .keys_by_id = keys_by_id,
       .keys_by_name = keys_by_name,
   };
 
   // Type check constraint.
   if (table_info.constraint.has_value()) {
-    RETURN_IF_ERROR(
-        InferAndCheckTypes(&table_info.constraint.value(), table_info));
+    RETURN_IF_ERROR(InferAndCheckTypes(&*table_info.constraint, table_info));
   }
 
   return table_info;
@@ -200,8 +196,7 @@ absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     absl::StatusOr<TableInfo> table_info = ParseTableInfo(table);
     if (!table_info.ok()) {
       errors.push_back(table_info.status());
-    } else if (!info.insert({table.preamble().id(), table_info.value()})
-                    .second) {
+    } else if (!info.insert({table.preamble().id(), *table_info}).second) {
       errors.push_back(gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
                        << "duplicate table: " << table.DebugString());
     }

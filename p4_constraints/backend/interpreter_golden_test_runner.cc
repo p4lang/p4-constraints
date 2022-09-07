@@ -76,9 +76,7 @@ absl::StatusOr<ConstraintInfo> MakeConstraintInfo(TestCase test_case) {
   }
 
   TableInfo table_info = kTableInfo;
-  ASSIGN_OR_RETURN(Expression expression,
-                   ParseConstraint(Tokenize(source.constraint_string,
-                                            source.constraint_location)));
+  ASSIGN_OR_RETURN(Expression expression, ParseConstraint(Tokenize(source)));
   CHECK_OK(InferAndCheckTypes(&(expression), kTableInfo));
   table_info.constraint = expression;
   table_info.constraint_source = source;

@@ -22,6 +22,7 @@
 #include "glog/logging.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/token.h"
 #include "re2/re2.h"
 
@@ -107,12 +108,13 @@ absl::string_view CaptureByName(
 
 }  // namespace
 
-std::vector<Token> Tokenize(absl::string_view input,
-                            ast::SourceLocation start_location) {
+std::vector<Token> Tokenize(const ConstraintSource& constraint) {
   // Output.
   std::vector<Token> tokens;
-
+  // Input
+  absl::string_view input = constraint.constraint_string;
   // Location tracking.
+  ast::SourceLocation start_location = constraint.constraint_location;
   ast::SourceLocation current_location = start_location;
 
   // +1 because there is an implicit capturing group at index 0 corresponding to

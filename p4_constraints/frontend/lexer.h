@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-// The lexer turns an input string into a sequence of tokens.
+// The lexer turns an input `ConstraintSource` into a
+// sequence of tokens.
 //
 // Known limitation: When the lexer returns an UNEXPECTED_CHAR token, the
 // location of that token points at the first character in a sequence of
@@ -39,16 +40,16 @@
 
 #include "absl/strings/string_view.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/token.h"
 
 namespace p4_constraints {
 
-// Turns the input string into a sequence of tokens. Note that this function
-// is total; syntax errors are signaled by emitting an UNEXPECTED_CHAR token.
-// The final token in the returned token sequence is guaranteed to be an
+// Turns the input `constraint` into a sequence of tokens. Note that this
+// function is total; syntax errors are signaled by emitting an UNEXPECTED_CHAR
+// token. The final token in the returned token sequence is guaranteed to be an
 // END_OF_INPUT or UNEXPECTED_CHAR token.
-std::vector<Token> Tokenize(absl::string_view input,
-                            ast::SourceLocation start_location);
+std::vector<Token> Tokenize(const ConstraintSource& constraint);
 
 }  // namespace p4_constraints
 

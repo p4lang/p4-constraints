@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/token.h"
 
 namespace p4_constraints {
@@ -40,7 +41,11 @@ TEST(LexerTest, AllKeywordsAreRecognized) {
     std::string keyword = Token::KindToKeyword(kind);
     ASSERT_GT(keyword.size(), 0);
     if (keyword.front() == '<' && keyword.back() == '>') continue;
-    EXPECT_THAT(Tokenize(keyword, ast::SourceLocation()),
+    ConstraintSource source{
+        .constraint_string = keyword,
+        .constraint_location = ast::SourceLocation(),
+    };
+    EXPECT_THAT(Tokenize(source),
                 ElementsAre(Field(&Token::kind, Eq(kind)),
                             Field(&Token::kind, Eq(Token::END_OF_INPUT))));
     keyword_kinds.push_back(kind);
@@ -51,7 +56,11 @@ TEST(LexerTest, AllKeywordsAreRecognized) {
   for (Token::Kind kind : keyword_kinds) {
     input << kind << " ";
   }
-  auto tokens = Tokenize(input.str(), ast::SourceLocation());
+  ConstraintSource source{
+      .constraint_string = input.str(),
+      .constraint_location = ast::SourceLocation(),
+  };
+  auto tokens = Tokenize(source);
   ASSERT_THAT(tokens.size(), keyword_kinds.size() + 1);
   EXPECT_THAT(tokens.back(), Field(&Token::kind, Eq(Token::END_OF_INPUT)));
   for (int i = 0; i < keyword_kinds.size(); i++) {
@@ -184,7 +193,11 @@ TEST(LexerTest, PositiveSingleToken) {
   for (const auto& test : tests) {
     const auto& str = test.first;
     const auto& expected_tokens = test.second;
-    auto actual_tokens = Tokenize(str, ast::SourceLocation());
+    ConstraintSource source{
+        .constraint_string = str,
+        .constraint_location = ast::SourceLocation(),
+    };
+    auto actual_tokens = Tokenize(source);
     for (int i = 0; i < expected_tokens.size(); ++i) {
       EXPECT_EQ(actual_tokens[i].kind, expected_tokens[i])
           << "[!] Token " << (i + 1) << " in '" << str << "' unexpected.\n"
@@ -236,7 +249,11 @@ TEST(LexerTest, NegativeToken) {
   for (const auto& test : tests) {
     const auto& str = test.first;
     const auto& bad_token = test.second;
-    auto tokens = Tokenize(str, ast::SourceLocation());
+    ConstraintSource source{
+        .constraint_string = str,
+        .constraint_location = ast::SourceLocation(),
+    };
+    auto tokens = Tokenize(source);
     EXPECT_NE(tokens[0].kind, bad_token)
         << "[!] String \"" << str << "\" incorrectly lexed as token"
         << bad_token << ".\n";
@@ -260,7 +277,11 @@ TEST(LexerTest, CommentsAreLexedCorrectly) {
   for (const auto& test : tests) {
     const auto& str = test.first;
     const auto& expected_tokens = test.second;
-    auto actual_tokens = Tokenize(str, ast::SourceLocation());
+    ConstraintSource source{
+        .constraint_string = str,
+        .constraint_location = ast::SourceLocation(),
+    };
+    auto actual_tokens = Tokenize(source);
     for (int i = 0; i < expected_tokens.size(); ++i) {
       EXPECT_EQ(actual_tokens[i].kind, expected_tokens[i])
           << "[!] Token " << (i + 1) << " in '" << str << "' unexpected.\n"
