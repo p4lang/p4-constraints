@@ -238,7 +238,7 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
     case Token::DOUBLE_COLON: {
       ASSIGN_OR_RETURN(const Token metadata_name,
                        ExpectTokenKind(Token::ID, tokens));
-      ASSIGN_OR_RETURN(ast, ast::MakeMetadataAccess(metadata_name));
+      ASSIGN_OR_RETURN(ast, ast::MakeMetadataAccess(token, metadata_name));
       break;
     }
     case Token::BANG: {
