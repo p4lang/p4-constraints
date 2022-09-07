@@ -187,12 +187,12 @@ std::vector<Token> Tokenize(const ConstraintSource& constraint) {
   }
 
   // No match - input does no longer begin with a token.
-  // Advance location by one column to make the location interval non-empty.
-  current_location.set_column(current_location.column() + 1);
   if (input.empty()) {
     tokens.push_back(
         Token(Token::END_OF_INPUT, "", start_location, current_location));
   } else {
+    // Advance location by one column to make the location interval non-empty.
+    current_location.set_column(current_location.column() + 1);
     // TODO(smolkaj): We could do a better job reporting the precise location of
     // the first unexpected character here, see "Known limitation" in lexer.h.
     tokens.push_back(Token(Token::UNEXPECTED_CHAR, {input[0]}, start_location,

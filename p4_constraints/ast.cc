@@ -23,6 +23,7 @@
 #include "absl/types/optional.h"
 #include "glog/logging.h"
 #include "google/protobuf/util/message_differencer.h"
+#include "gutils/proto.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/ast.pb.h"
 
@@ -178,6 +179,16 @@ Type TypeCaseToType(Type::TypeCase type_case) {
 }
 
 // -- Utility ------------------------------------------------------------------
+
+bool LocationsHaveSameSource(const SourceLocation& location1,
+                             const SourceLocation& location2) {
+  // Message Differencer ignores all fields except `source` oneof. This makes
+  // proto equivalence = source equivalence.
+  google::protobuf::util::MessageDifferencer differ;
+  differ.IgnoreField(location1.GetDescriptor()->FindFieldByName("line"));
+  differ.IgnoreField(location1.GetDescriptor()->FindFieldByName("column"));
+  return gutils::ProtoEqual(location1, location2, differ);
+}
 
 // Populates `field_set` with the fields used in `expr`.
 void AddMatchFields(const ast::Expression& expr,

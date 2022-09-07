@@ -22,7 +22,9 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "glog/logging.h"
+#include "gutils/proto.h"
 #include "gutils/status_macros.h"
+#include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/constraint_source.h"
 
@@ -137,6 +139,8 @@ std::string Quote(const ast::SourceLocation& start,
 absl::StatusOr<std::string> Quote(const ConstraintSource& constraint,
                                   const ast::SourceLocation& start,
                                   const ast::SourceLocation& end) {
+  if (gutils::ProtoEqual(start, end)) return "";
+
   std::stringstream constraint_string(constraint.constraint_string);
 
   // Index of the line we want to quote.
@@ -150,13 +154,13 @@ absl::StatusOr<std::string> Quote(const ConstraintSource& constraint,
   // Discard unneeded lines before the lines we're interested in.
   int i = kOffset;
   for (std::string line; i < kKeyLine - kBefore; i++) {
-    if (!std::getline(constraint_string, line))
+    if (!std::getline(constraint_string, line)) {
       return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC) << absl::StrFormat(
                  "Interval [`start`, `end`] to quote must lie within given "
-                 "`constraint`, but "
-                 "`start.line()` = %d while the final line of `constraint` is "
-                 "%d",
+                 "`constraint`, but `start.line()` = %d while the final line "
+                 "of `constraint` is %d",
                  kKeyLine, i - 1);
+    }
   }
 
   const std::string key_line_margin = std::to_string(kKeyLine + 1);
@@ -166,27 +170,27 @@ absl::StatusOr<std::string> Quote(const ConstraintSource& constraint,
 
   // Output lines before key line for context.
   for (std::string line; i < kKeyLine; i++) {
-    if (std::getline(constraint_string, line))
+    if (std::getline(constraint_string, line)) {
       output << context_line_margin << separator << line << "\n";
-    else
+    } else {
       return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC) << absl::StrFormat(
                  "Interval [`start`, `end`] to quote must lie within given "
-                 "`constraint`, "
-                 "`start.line()` = %d while the final line of `constraint` is "
-                 "%d",
+                 "`constraint`, but `start.line()` = %d while the final line "
+                 "of `constraint` is %d",
                  kKeyLine, i - 1);
+    }
   }
   // Output key line.
   std::string line;
-  if (std::getline(constraint_string, line))
+  if (std::getline(constraint_string, line)) {
     output << key_line_margin << separator << line << "\n";
-  else
+  } else {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC) << absl::StrFormat(
                "Interval [`start`, `end`] to quote must lie within given "
-               "`constraint`, "
-               "`start.line()` = %d while the final line of `constraint` is "
-               "%d",
+               "`constraint`, but `start.line()` = %d while the final line "
+               "of `constraint` is %d",
                kKeyLine, i - 1);
+  }
 
   // Mark key columns using '^'.
   const std::string margin = absl::StrCat(context_line_margin, separator,
@@ -227,12 +231,9 @@ std::string QuoteSourceLocation(const ast::SourceLocation& start,
 absl::StatusOr<std::string> QuoteSubConstraint(
     const ConstraintSource& constraint, const ast::SourceLocation& from,
     const ast::SourceLocation& to) {
-  if (constraint.constraint_location.file_path() != to.file_path() ||
-      constraint.constraint_location.table_name() != to.table_name() ||
-      constraint.constraint_location.file_path() != from.file_path() ||
-      constraint.constraint_location.table_name() != from.table_name() ||
-      from.file_path() != to.file_path() ||
-      from.table_name() != to.table_name()) {
+  if (!ast::LocationsHaveSameSource(constraint.constraint_location, from) ||
+      !ast::LocationsHaveSameSource(constraint.constraint_location, to) ||
+      !ast::LocationsHaveSameSource(from, to)) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC) << absl::StrFormat(
                "Quoting of multi-source locations not allowed. Constraint-"
                "Source: %s From-Source: %s To-Source: %s",

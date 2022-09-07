@@ -12,6 +12,7 @@ cc_library(
     hdrs = ["ast.h"],
     deps = [
         ":ast_cc_proto",
+        "//gutils:proto",
         "//gutils:status",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/container:flat_hash_map",
@@ -56,8 +57,10 @@ cc_library(
     srcs = ["quote.cc"],
     hdrs = ["quote.h"],
     deps = [
+        ":ast",
         ":ast_cc_proto",
         ":constraint_source",
+        "//gutils:proto",
         "//gutils:status",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/status:statusor",
