@@ -16,9 +16,11 @@
 
 #include <string>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+#include "absl/types/optional.h"
 #include "glog/logging.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gutils/status_macros.h"
@@ -176,6 +178,47 @@ Type TypeCaseToType(Type::TypeCase type_case) {
 }
 
 // -- Utility ------------------------------------------------------------------
+
+// Populates `field_set` with the fields used in `expr`.
+void AddMatchFields(const ast::Expression& expr,
+                    absl::flat_hash_set<std::string>& field_set) {
+  switch (expr.expression_case()) {
+    case ast::Expression::kKey:
+      field_set.insert(expr.key());
+      return;
+    case ast::Expression::kBooleanNegation:
+      AddMatchFields(expr.boolean_negation(), field_set);
+      return;
+    case ast::Expression::kArithmeticNegation:
+      AddMatchFields(expr.arithmetic_negation(), field_set);
+      return;
+    case ast::Expression::kTypeCast:
+      AddMatchFields(expr.type_cast(), field_set);
+      return;
+    case ast::Expression::kBinaryExpression:
+      AddMatchFields(expr.binary_expression().left(), field_set);
+      AddMatchFields(expr.binary_expression().right(), field_set);
+      return;
+    case ast::Expression::kFieldAccess:
+      AddMatchFields(expr.field_access().expr(), field_set);
+      return;
+    // Currently priority is the only metadata and that is not a key.
+    case ast::Expression::kMetadataAccess:
+      return;
+    case ast::Expression::kIntegerConstant:
+      return;
+    case ast::Expression::kBooleanConstant:
+      return;
+    case ast::Expression::EXPRESSION_NOT_SET:
+      return;
+  }
+}
+
+absl::flat_hash_set<std::string> GetMatchFields(const ast::Expression& expr) {
+  absl::flat_hash_set<std::string> field_set;
+  AddMatchFields(expr, field_set);
+  return field_set;
+}
 
 // Computes AST Size. If provided, `size_cache` stores results from expressions
 // to avoid recomputation later.

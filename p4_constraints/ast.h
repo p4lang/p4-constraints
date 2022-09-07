@@ -23,6 +23,7 @@
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
 #include "p4_constraints/ast.pb.h"
@@ -62,6 +63,9 @@ bool SetTypeBitwidth(Type* type, int bitwidth);
 Type TypeCaseToType(Type::TypeCase type_case);
 
 // -- Utility ------------------------------------------------------------------
+
+// Returns a set containing the `fields` present in `expr`.
+absl::flat_hash_set<std::string> GetMatchFields(const ast::Expression& expr);
 
 // Cache for results of `Size`.
 using SizeCache = absl::flat_hash_map<const Expression*, int>;
