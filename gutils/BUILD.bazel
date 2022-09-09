@@ -28,6 +28,18 @@ cc_library(
 )
 
 cc_library(
+    name = "proto",
+    srcs = [
+        "proto.cc",
+    ],
+    hdrs = [
+        "proto.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = ["@com_google_protobuf//:protobuf"],
+)
+
+cc_library(
     name = "ret_check",
     srcs = ["ret_check.cc"],
     hdrs = ["ret_check.h"],

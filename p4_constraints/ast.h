@@ -64,6 +64,10 @@ Type TypeCaseToType(Type::TypeCase type_case);
 
 // -- Utility ------------------------------------------------------------------
 
+// Returns `true` if the `source` oneof of the given locations agrees.
+bool LocationsHaveSameSource(const SourceLocation& location1,
+                             const SourceLocation& location2);
+
 // Returns a set containing the `fields` present in `expr`.
 absl::flat_hash_set<std::string> GetMatchFields(const ast::Expression& expr);
 
