@@ -20,9 +20,13 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "glog/logging.h"
+#include "gutils/status.h"
+#include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/ast_constructors.h"
+#include "p4_constraints/frontend/lexer.h"
 #include "p4_constraints/frontend/token.h"
 #include "p4_constraints/quote.h"
 
@@ -39,14 +43,19 @@ using ::p4_constraints::ast::SourceLocation;
 // infinite stream of tokens (ending in infinitely many END_OF_INPUT tokens).
 class TokenStream {
  public:
-  explicit TokenStream(const std::vector<Token>& tokens) : tokens_{tokens} {};
+  explicit TokenStream(const std::vector<Token>& tokens,
+                       const ConstraintSource& source)
+      : tokens_{tokens}, source_(source) {}
   // Returns next token in stream.
   Token Peek() const;
   // Consumes and returns next token in stream, advancing the stream by 1.
   Token Next();
 
+  const ConstraintSource& source() const { return source_; }
+
  private:
   const std::vector<Token>& tokens_;
+  const ConstraintSource& source_;
   int index_ = 0;
 };
 
@@ -127,20 +136,28 @@ int TokenPrecedence(Token::Kind kind) {
 
 // -- Error handling -----------------------------------------------------------
 
-gutils::StatusBuilder ParseError(const SourceLocation& start,
+gutils::StatusBuilder ParseError(const ConstraintSource& source,
+                                 const SourceLocation& start,
                                  const SourceLocation& end) {
+  absl::StatusOr<std::string> quote = QuoteSubConstraint(source, start, end);
+  if (!quote.ok()) {
+    return gutils::InternalErrorBuilder(GUTILS_LOC)
+           << "Failed to quote sub-constraint: "
+           << gutils::StableStatusToString(quote.status());
+  }
   return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-         << QuoteSourceLocation(start, end) << "Parse error: ";
+         << *quote << "Parse error: ";
 }
 
-gutils::StatusBuilder ParseError(Token token) {
-  return ParseError(token.start_location, token.end_location);
+gutils::StatusBuilder ParseError(Token token, const ConstraintSource& source) {
+  return ParseError(source, token.start_location, token.end_location);
 }
 
 // Returns an error status indicating that the given token came as a surprise,
 // since one of the given other tokens was expected.
-absl::Status Unexpected(Token token, const std::vector<Token::Kind>& expected) {
-  gutils::StatusBuilder error = ParseError(token);
+absl::Status Unexpected(Token token, const std::vector<Token::Kind>& expected,
+                        const ConstraintSource& source) {
+  gutils::StatusBuilder error = ParseError(token, source);
   if (token.kind == Token::UNEXPECTED_CHAR) {
     // Slightly awkward phrasing because the unexpected character may actually
     // be further back in the input, see "known limitation" in lexer.h.
@@ -166,7 +183,7 @@ absl::Status Unexpected(Token token, const std::vector<Token::Kind>& expected) {
 // Tries to parse a token of the given kind and fails if it sees anything else.
 absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
   Token token = tokens->Next();
-  if (token.kind != kind) return Unexpected(token, {kind});
+  if (token.kind != kind) return Unexpected(token, {kind}, tokens->source());
   return {token};
 }
 
@@ -260,9 +277,11 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
     }
     default:
       return Unexpected(
-          token, {Token::TRUE, Token::FALSE, Token::BINARY, Token::OCTARY,
-                  Token::DECIMAL, Token::HEXADEC, Token::ID,
-                  Token::DOUBLE_COLON, Token::BANG, Token::MINUS, Token::LPAR});
+          token,
+          {Token::TRUE, Token::FALSE, Token::BINARY, Token::OCTARY,
+           Token::DECIMAL, Token::HEXADEC, Token::ID, Token::DOUBLE_COLON,
+           Token::BANG, Token::MINUS, Token::LPAR},
+          tokens->source());
   }
 
   // Try to extend the AST, i.e. parse an 'extension'.
@@ -285,7 +304,7 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
       case Token::LE:
         if (context_precedence == TokenPrecedence(token.kind) &&
             TokenAssociativity(token.kind) == Associativity::NONE) {
-          return ParseError(token)
+          return ParseError(token, tokens->source())
                  << "operator " << token.kind
                  << " is non-associative; enclose expression to the left of "
                     "the operator in '(' and ')' to disambiguate?";
@@ -305,7 +324,8 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
             token,
             {Token::END_OF_INPUT, Token::RPAR, Token::DOUBLE_COLON, Token::AND,
              Token::SEMICOLON, Token::OR, Token::IMPLIES, Token::EQ, Token::NE,
-             Token::GT, Token::GE, Token::LT, Token::LE});
+             Token::GT, Token::GE, Token::LT, Token::LE},
+            tokens->source());
     }
     // If we get here, we should parse an 'extension'.
     DCHECK(context_precedence < TokenPrecedence(token.kind) ||
@@ -332,13 +352,25 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
 
 }  // namespace
 
-// -- Public interface ---------------------------------------------------------
-
-absl::StatusOr<Expression> ParseConstraint(const std::vector<Token>& tokens) {
-  TokenStream token_stream(tokens);
+// Parses `tokens` as expression, assuming that the `tokens` were lexed from the
+// given `source`. The behavior of this function is undefined if this assumption
+// is violated. Due to this tricky contract, we don't expose this function
+// publicly.
+absl::StatusOr<Expression> internal_parser::ParseConstraint(
+    const std::vector<Token>& tokens, const ConstraintSource& source) {
+  TokenStream token_stream(tokens, source);
   ASSIGN_OR_RETURN(Expression ast, ParseConstraintAbove(0, &token_stream));
   RETURN_IF_ERROR(ExpectTokenKind(Token::END_OF_INPUT, &token_stream).status());
   return ast;
+}
+
+// -- Public interface ---------------------------------------------------------
+
+// Public-facing version of `internal_parser::ParseConstraint` that provides a
+// fool-proof & more-convenient API that combines lexing and parsing.
+absl::StatusOr<Expression> ParseConstraint(const ConstraintSource& source) {
+  const std::vector<Token> tokens = Tokenize(source);
+  return internal_parser::ParseConstraint(tokens, source);
 }
 
 }  // namespace p4_constraints

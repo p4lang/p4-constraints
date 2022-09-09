@@ -25,6 +25,7 @@
 #include "gutils/protocol_buffer_matchers.h"
 #include "gutils/status_matchers.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/token.h"
 
 namespace p4_constraints {
@@ -76,6 +77,12 @@ struct ParserTest : public ::testing::Test {
   const Token kDoubleColon = DummyToken(Token::DOUBLE_COLON);
   const Token kEndOfFile = DummyToken(Token::END_OF_INPUT);
   const Token kUnexpectedChar = DummyToken(Token::UNEXPECTED_CHAR);
+
+  // Used for valid input. Not important for the purpose of unit testing.
+  const ConstraintSource kDummySource{
+      .constraint_string = " ",
+      .constraint_location = ast::SourceLocation(),
+  };
 };
 
 TEST_F(ParserTest, Positive) {
@@ -254,7 +261,7 @@ TEST_F(ParserTest, Positive) {
     const auto& tokens = test.first;
     const auto& expected_str = test.second;
 
-    EXPECT_THAT(ParseConstraint(tokens),
+    EXPECT_THAT(internal_parser::ParseConstraint(tokens, kDummySource),
                 IsOkAndHolds(Partially(EqualsProto(expected_str))));
   }
 }
@@ -291,7 +298,7 @@ TEST_F(ParserTest, Negative) {
   };
 
   for (auto& tokens : tests) {
-    auto result = ParseConstraint(tokens);
+    auto result = internal_parser::ParseConstraint(tokens, kDummySource);
     if (result.ok()) {
       FAIL() << "Expected parsing to fail, but parsed "
              << result.value().DebugString();
