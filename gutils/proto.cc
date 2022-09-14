@@ -14,7 +14,7 @@ bool ProtoEqual(const google::protobuf::Message &message1,
 
   return differ.Compare(message1, message2);
 }
-// Calls `ProtoEqual` with default MessageDifferencer
+// Calls `ProtoEqual` with default MessageDifferencer.
 bool ProtoEqual(const google::protobuf::Message &message1,
                 const google::protobuf::Message &message2) {
   google::protobuf::util::MessageDifferencer differ =

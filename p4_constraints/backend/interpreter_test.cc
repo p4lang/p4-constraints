@@ -35,6 +35,7 @@
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/constraint_source.h"
 
 namespace p4_constraints {
 namespace internal_interpreter {
@@ -69,6 +70,12 @@ class EntryMeetsConstraintTest : public ::testing::Test {
   const Type kOptional32 =
       ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
 
+  // Used to avoid quoting errors. Not important for unit testing.
+  const ConstraintSource kDummySource{
+      .constraint_string = "source",
+      .constraint_location = ast::SourceLocation(),
+  };
+
   const TableInfo kTableInfo{
       .id = 1,
       .name = "table",
@@ -99,6 +106,11 @@ class EntryMeetsConstraintTest : public ::testing::Test {
            {Ternary{.value = mpz_class(12),
                     .mask = (mpz_class(1) << 32) - mpz_class(1)}}},
       }};
+
+  const EvaluationContext kEvalauationContext{
+      .entry = kParsedEntry,
+      .source = kDummySource,
+  };
 
   const p4::v1::TableEntry kTableEntry =
       ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
@@ -153,12 +165,17 @@ class EntryMeetsConstraintTest : public ::testing::Test {
     *expr.mutable_type() = kBool;
     return expr;
   }
+
+  EvaluationContext MakeEvaluationContext(const TableEntry& entry) {
+    return EvaluationContext{
+        .entry = entry,
+        .source = kDummySource,
+    };
+  }
 };
 
 class EvalTest : public EntryMeetsConstraintTest {};
 class EvalToBoolCacheTest : public EntryMeetsConstraintTest {};
-class MinimalSubexpressionLeadingToEvalResultTest
-    : public EntryMeetsConstraintTest {};
 
 TEST_F(EntryMeetsConstraintTest, EmptyExpressionErrors) {
   const Expression kExpr;
@@ -263,7 +280,8 @@ TEST_F(EvalTest, IntegerConstant) {
       const Expression kExpr = ExpressionWithType(
           type, absl::Substitute(R"(integer_constant: "$0")", int_str));
       EvalResult result = mpz_class(int_str);
-      EXPECT_THAT(Eval(kExpr, TableEntry{}, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(kExpr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
     }
   }
 }
@@ -275,10 +293,11 @@ TEST_F(EvalTest, Key) {
     EvalResult result = kParsedEntry.keys.find(key_name)->second;
     if (kExpr.type().type_case() == Type::kUnknown ||
         kExpr.type().type_case() == Type::kUnsupported) {
-      EXPECT_THAT(Eval(kExpr, kParsedEntry, nullptr),
+      EXPECT_THAT(Eval(kExpr, kEvalauationContext, nullptr),
                   StatusIs(StatusCode::kInternal));
     } else {
-      EXPECT_THAT(Eval(kExpr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(kExpr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
     }
   }
 }
@@ -291,7 +310,8 @@ TEST_F(EvalTest, BooleanNegation) {
       Expression expr = ExpressionWithType(kBool, "");
       *expr.mutable_boolean_negation() = inner_expr;
       EvalResult result = (i % 2 == 0) ? (!boolean) : boolean;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
       inner_expr = expr;
     }
   }
@@ -305,7 +325,8 @@ TEST_F(EvalTest, ArithmeticNegation) {
     Expression expr = ExpressionWithType(kArbitraryInt, "");
     *expr.mutable_arithmetic_negation() = inner_expr;
     EvalResult result = (i % 2 == 0) ? (0 - value) : value;
-    EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+    EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                IsOkAndHolds(Eq(result)));
     inner_expr = expr;
   }
 }
@@ -321,27 +342,32 @@ TEST_F(EvalTest, TypeCast) {
     Expression fixed32 = ExpressionWithType(kFixedUnsigned32, "");
     *fixed32.mutable_type_cast() = arbitrary_int;
     EvalResult result = unsigned_n;
-    ASSERT_THAT(Eval(fixed32, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+    ASSERT_THAT(Eval(fixed32, kEvalauationContext, nullptr),
+                IsOkAndHolds(Eq(result)));
 
     Expression expr = ExpressionWithType(kExact32, "");
     *expr.mutable_type_cast() = fixed32;
     result = Exact{.value = unsigned_n};
-    EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+    EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                IsOkAndHolds(Eq(result)));
 
     expr = ExpressionWithType(kTernary32, "");
     *expr.mutable_type_cast() = fixed32;
     result = Ternary{.value = unsigned_n, .mask = max_uint32};
-    EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+    EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                IsOkAndHolds(Eq(result)));
 
     expr = ExpressionWithType(kLpm32, "");
     *expr.mutable_type_cast() = fixed32;
     result = Lpm{.value = unsigned_n, .prefix_length = 32};
-    EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+    EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                IsOkAndHolds(Eq(result)));
 
     expr = ExpressionWithType(kRange32, "");
     *expr.mutable_type_cast() = fixed32;
     result = Range{.low = unsigned_n, .high = unsigned_n};
-    EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+    EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                IsOkAndHolds(Eq(result)));
   }
 }
 
@@ -364,27 +390,32 @@ TEST_F(EvalTest, BinaryExpression_BooleanArguments) {
 
       expr.mutable_binary_expression()->set_binop(ast::AND);
       result = left && right;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
 
       expr.mutable_binary_expression()->set_binop(ast::OR);
       result = left || right;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
 
       expr.mutable_binary_expression()->set_binop(ast::IMPLIES);
       result = !left || right;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
 
       expr.mutable_binary_expression()->set_binop(ast::EQ);
       result = left == right;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
 
       expr.mutable_binary_expression()->set_binop(ast::NE);
       result = left != right;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
 
       for (auto comparison : {ast::GT, ast::GE, ast::LT, ast::LE}) {
         expr.mutable_binary_expression()->set_binop(comparison);
-        EXPECT_THAT(Eval(expr, kParsedEntry, nullptr),
+        EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
                     StatusIs(StatusCode::kInternal));
       }
     }
@@ -414,31 +445,37 @@ TEST_F(EvalTest, BinaryExpression_NumericArguments) {
 
       expr.mutable_binary_expression()->set_binop(ast::EQ);
       result = left == right;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
 
       expr.mutable_binary_expression()->set_binop(ast::NE);
       result = left != right;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
 
       expr.mutable_binary_expression()->set_binop(ast::GT);
       result = left > right;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
 
       expr.mutable_binary_expression()->set_binop(ast::GE);
       result = left >= right;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
 
       expr.mutable_binary_expression()->set_binop(ast::LT);
       result = left < right;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
 
       expr.mutable_binary_expression()->set_binop(ast::LE);
       result = left <= right;
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                  IsOkAndHolds(Eq(result)));
 
       for (auto boolean_op : {ast::AND, ast::OR, ast::IMPLIES}) {
         expr.mutable_binary_expression()->set_binop(boolean_op);
-        EXPECT_THAT(Eval(expr, kParsedEntry, nullptr),
+        EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
                     StatusIs(StatusCode::kInternal));
       }
     }
@@ -454,16 +491,18 @@ TEST_F(EvalTest, BinaryExpression_CompositeArguments) {
 
     expr.mutable_binary_expression()->set_binop(ast::EQ);
     result = true;
-    EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+    EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                IsOkAndHolds(Eq(result)));
 
     expr.mutable_binary_expression()->set_binop(ast::NE);
     result = false;
-    EXPECT_THAT(Eval(expr, kParsedEntry, nullptr), IsOkAndHolds(Eq(result)));
+    EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
+                IsOkAndHolds(Eq(result)));
 
     for (auto binop : {ast::GT, ast::GE, ast::LT, ast::LE, ast::AND, ast::OR,
                        ast::IMPLIES}) {
       expr.mutable_binary_expression()->set_binop(binop);
-      EXPECT_THAT(Eval(expr, kParsedEntry, nullptr),
+      EXPECT_THAT(Eval(expr, kEvalauationContext, nullptr),
                   StatusIs(StatusCode::kInternal));
     }
   }
@@ -477,54 +516,54 @@ TEST_F(EvalTest, FieldAccess) {
 
   TableEntry entry = kParsedEntry;
   entry.keys["exact32"] = Exact{.value = value};
-  EXPECT_THAT(Eval(FieldAccessExpr("value", "exact32", kFixedUnsigned32), entry,
-                   nullptr),
+  EXPECT_THAT(Eval(FieldAccessExpr("value", "exact32", kFixedUnsigned32),
+                   MakeEvaluationContext(entry), nullptr),
               IsOkAndHolds(Eq(result)));
   for (std::string bad_field : {"mask", "prefix_length", "low", "high", "xy"}) {
     EXPECT_THAT(Eval(FieldAccessExpr(bad_field, "exact32", kFixedUnsigned32),
-                     entry, nullptr),
+                     MakeEvaluationContext(entry), nullptr),
                 StatusIs(StatusCode::kInternal));
   }
 
   entry = kParsedEntry;  // Reset.
   entry.keys["ternary32"] = Ternary{.value = value, .mask = value2};
   EXPECT_THAT(Eval(FieldAccessExpr("value", "ternary32", kFixedUnsigned32),
-                   entry, nullptr),
+                   MakeEvaluationContext(entry), nullptr),
               IsOkAndHolds(Eq(result)));
   EXPECT_THAT(Eval(FieldAccessExpr("mask", "ternary32", kFixedUnsigned32),
-                   entry, nullptr),
+                   MakeEvaluationContext(entry), nullptr),
               IsOkAndHolds(Eq(result2)));
   for (std::string bad_field : {"prefix_length", "low", "high", "xy", "foo"}) {
     EXPECT_THAT(Eval(FieldAccessExpr(bad_field, "ternary32", kFixedUnsigned32),
-                     entry, nullptr),
+                     MakeEvaluationContext(entry), nullptr),
                 StatusIs(StatusCode::kInternal));
   }
 
   entry = kParsedEntry;  // Reset.
   entry.keys["lpm32"] = Lpm{.value = value, .prefix_length = value2};
-  EXPECT_THAT(
-      Eval(FieldAccessExpr("value", "lpm32", kFixedUnsigned32), entry, nullptr),
-      IsOkAndHolds(Eq(result)));
+  EXPECT_THAT(Eval(FieldAccessExpr("value", "lpm32", kFixedUnsigned32),
+                   MakeEvaluationContext(entry), nullptr),
+              IsOkAndHolds(Eq(result)));
   EXPECT_THAT(Eval(FieldAccessExpr("prefix_length", "lpm32", kFixedUnsigned32),
-                   entry, nullptr),
+                   MakeEvaluationContext(entry), nullptr),
               IsOkAndHolds(Eq(result2)));
   for (std::string bad_field : {"mask", "low", "high", "xy", "foo", "bar"}) {
     EXPECT_THAT(Eval(FieldAccessExpr(bad_field, "lpm32", kFixedUnsigned32),
-                     entry, nullptr),
+                     MakeEvaluationContext(entry), nullptr),
                 StatusIs(StatusCode::kInternal));
   }
 
   entry = kParsedEntry;  // Reset.
   entry.keys["range32"] = Range{.low = value, .high = value2};
-  EXPECT_THAT(
-      Eval(FieldAccessExpr("low", "range32", kFixedUnsigned32), entry, nullptr),
-      IsOkAndHolds(Eq(result)));
-  EXPECT_THAT(Eval(FieldAccessExpr("high", "range32", kFixedUnsigned32), entry,
-                   nullptr),
+  EXPECT_THAT(Eval(FieldAccessExpr("low", "range32", kFixedUnsigned32),
+                   MakeEvaluationContext(entry), nullptr),
+              IsOkAndHolds(Eq(result)));
+  EXPECT_THAT(Eval(FieldAccessExpr("high", "range32", kFixedUnsigned32),
+                   MakeEvaluationContext(entry), nullptr),
               IsOkAndHolds(Eq(result2)));
   for (std::string bad_field : {"value", "mask", "prefix_length", "xy", "fo"}) {
     EXPECT_THAT(Eval(FieldAccessExpr(bad_field, "range32", kFixedUnsigned32),
-                     entry, nullptr),
+                     MakeEvaluationContext(entry), nullptr),
                 StatusIs(StatusCode::kInternal));
   }
 }
@@ -536,10 +575,10 @@ TEST_F(EvalToBoolCacheTest, CacheGetsPopulatedForBooleanConstant) {
       ExpressionWithType(kBool, "boolean_constant: false");
 
   EvaluationCache eval_cache;
-  ASSERT_OK(EvalToBool(kConstTrue, TableEntry{}, &eval_cache));
+  ASSERT_OK(EvalToBool(kConstTrue, kEvalauationContext, &eval_cache));
   EXPECT_THAT(eval_cache, UnorderedElementsAre(Pair(&kConstTrue, true)));
 
-  ASSERT_OK(EvalToBool(kConstFalse, TableEntry{}, &eval_cache));
+  ASSERT_OK(EvalToBool(kConstFalse, kEvalauationContext, &eval_cache));
   EXPECT_THAT(eval_cache, UnorderedElementsAre(Pair(&kConstTrue, true),
                                                Pair(&kConstFalse, false)));
 }
@@ -557,14 +596,15 @@ TEST_F(EvalToBoolCacheTest, CacheGetsPopulatedForBooleanNegation) {
     }
     *expr.mutable_boolean_negation() = inner_expr;
     EvaluationCache eval_cache;
-    ASSERT_OK(EvalToBool(expr, TableEntry{}, &eval_cache));
+    ASSERT_OK(EvalToBool(expr, kEvalauationContext, &eval_cache));
     EXPECT_THAT(eval_cache.size(), Eq(6));
     const Expression* subexpr = &expr;
     // Check that all negations are cached
     for (int i = 0; i < 6; i++) {
-      EXPECT_THAT(eval_cache,
-                  Contains(Pair(subexpr,
-                                *EvalToBool(*subexpr, TableEntry{}, nullptr))));
+      EXPECT_THAT(
+          eval_cache,
+          Contains(Pair(subexpr,
+                        *EvalToBool(*subexpr, kEvalauationContext, nullptr))));
       if (i == 5) break;
       subexpr = &(subexpr->boolean_negation());
     }
@@ -574,16 +614,16 @@ TEST_F(EvalToBoolCacheTest, CacheGetsPopulatedForBooleanNegation) {
 TEST_F(EvalToBoolCacheTest, CacheGetsPopulatedForBooleanComparison) {
   const Expression kConstraint = BinaryBooleanExpr(true, ast::AND, false);
   EvaluationCache eval_cache;
-  ASSERT_OK(EvalToBool(kConstraint, kParsedEntry, &eval_cache));
+  ASSERT_OK(EvalToBool(kConstraint, kEvalauationContext, &eval_cache));
 
   ASSERT_OK_AND_ASSIGN(bool result1,
-                       EvalToBool(kConstraint, kParsedEntry, nullptr));
+                       EvalToBool(kConstraint, kEvalauationContext, nullptr));
   ASSERT_OK_AND_ASSIGN(bool result2,
                        EvalToBool(kConstraint.binary_expression().left(),
-                                  kParsedEntry, nullptr));
+                                  kEvalauationContext, nullptr));
   ASSERT_OK_AND_ASSIGN(bool result3,
                        EvalToBool(kConstraint.binary_expression().right(),
-                                  kParsedEntry, nullptr));
+                                  kEvalauationContext, nullptr));
 
   EXPECT_THAT(eval_cache,
               UnorderedElementsAre(
@@ -595,13 +635,13 @@ TEST_F(EvalToBoolCacheTest, CacheGetsPopulatedForBooleanComparison) {
 TEST_F(EvalToBoolCacheTest, CacheRespectsShortCircuit) {
   const Expression kConstraint = BinaryBooleanExpr(true, ast::OR, false);
   EvaluationCache eval_cache;
-  ASSERT_OK(EvalToBool(kConstraint, kParsedEntry, &eval_cache));
-  ASSERT_OK(EvalToBool(kConstraint, kParsedEntry, &eval_cache));
+  ASSERT_OK(EvalToBool(kConstraint, kEvalauationContext, &eval_cache));
+  ASSERT_OK(EvalToBool(kConstraint, kEvalauationContext, &eval_cache));
   ASSERT_OK_AND_ASSIGN(bool result1,
-                       EvalToBool(kConstraint, kParsedEntry, nullptr));
+                       EvalToBool(kConstraint, kEvalauationContext, nullptr));
   ASSERT_OK_AND_ASSIGN(bool result2,
                        EvalToBool(kConstraint.binary_expression().left(),
-                                  kParsedEntry, nullptr));
+                                  kEvalauationContext, nullptr));
   EXPECT_THAT(eval_cache,
               UnorderedElementsAre(
                   Pair(&kConstraint, result1),
@@ -611,9 +651,9 @@ TEST_F(EvalToBoolCacheTest, CacheRespectsShortCircuit) {
 TEST_F(EvalToBoolCacheTest, CacheGetsPopulatedForNonBooleanComparison) {
   const Expression kConstraint = GetPriorityEqualityConstraint(42);
   EvaluationCache eval_cache;
-  ASSERT_OK(EvalToBool(kConstraint, kParsedEntry, &eval_cache));
+  ASSERT_OK(EvalToBool(kConstraint, kEvalauationContext, &eval_cache));
   ASSERT_OK_AND_ASSIGN(bool result1,
-                       EvalToBool(kConstraint, kParsedEntry, nullptr));
+                       EvalToBool(kConstraint, kEvalauationContext, nullptr));
   EXPECT_THAT(eval_cache, UnorderedElementsAre(Pair(&kConstraint, result1)));
 }
 
@@ -621,18 +661,23 @@ TEST_F(EvalToBoolCacheTest, CacheIsUsed) {
   const Expression kConstraint = BinaryBooleanExpr(true, ast::OR, true);
   EvaluationCache eval_cache;
   eval_cache.insert({&kConstraint, false});
-  ASSERT_OK(EvalToBool(kConstraint, kParsedEntry, &eval_cache));
+  ASSERT_OK(EvalToBool(kConstraint, kEvalauationContext, &eval_cache));
   EXPECT_THAT(eval_cache.size(), Eq(1));
-  EXPECT_THAT(*EvalToBool(kConstraint, kParsedEntry, &eval_cache), Eq(false));
+  EXPECT_THAT(*EvalToBool(kConstraint, kEvalauationContext, &eval_cache),
+              Eq(false));
 }
 
-absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResultHelper(
-    const Expression& kConstraint) {
-  EvaluationCache eval_cache;
-  ast::SizeCache size_cache;
-  return MinimalSubexpressionLeadingToEvalResult(kConstraint, TableEntry{},
-                                                 eval_cache, size_cache);
-}
+class MinimalSubexpressionLeadingToEvalResultTest
+    : public EntryMeetsConstraintTest {
+ public:
+  absl::StatusOr<const Expression*>
+  MinimalSubexpressionLeadingToEvalResultHelper(const Expression& kConstraint) {
+    EvaluationCache eval_cache;
+    ast::SizeCache size_cache;
+    return MinimalSubexpressionLeadingToEvalResult(
+        kConstraint, kEvalauationContext, eval_cache, size_cache);
+  }
+};
 
 TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
        ExplainBoolConstantIsConstant) {

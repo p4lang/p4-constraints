@@ -37,6 +37,7 @@
 #include "gutils/ordered_map.h"
 #include "gutils/overload.h"
 #include "gutils/ret_check.h"
+#include "gutils/status.h"
 #include "gutils/status_macros.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.h"
@@ -248,49 +249,57 @@ absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
 
 // -- Error handling -----------------------------------------------------------
 
-gutils::StatusBuilder TypeError(const ast::SourceLocation& start,
+gutils::StatusBuilder TypeError(const ConstraintSource& source,
+                                const ast::SourceLocation& start,
                                 const ast::SourceLocation& end) {
+  absl::StatusOr<std::string> quote = QuoteSubConstraint(source, start, end);
+  if (!quote.ok()) {
+    return gutils::InternalErrorBuilder(GUTILS_LOC)
+           << "Failed to quote sub-constraint: "
+           << gutils::StableStatusToString(quote.status());
+  }
   return gutils::InternalErrorBuilder(GUTILS_LOC)
-         << QuoteSourceLocation(start, end) << "Runtime type error: ";
+         << *quote << "Runtime type error: ";
 }
 
 // -- Auxiliary evaluators -----------------------------------------------------
 
 // Like Eval, but ensuring the result is a bool. Caches Boolean results and
 // checks cache before evaluation to avoid recomputation.
-absl::StatusOr<bool> EvalToBool(const Expression& expr, const TableEntry& entry,
+absl::StatusOr<bool> EvalToBool(const Expression& expr,
+                                const EvaluationContext& context,
                                 EvaluationCache* eval_cache) {
   if (eval_cache != nullptr) {
     auto cache_result = eval_cache->find(&expr);
     if (cache_result != eval_cache->end()) return cache_result->second;
   }
-  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry, eval_cache));
+  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, context, eval_cache));
   if (absl::holds_alternative<bool>(result)) {
     if (eval_cache != nullptr)
       eval_cache->insert({&expr, absl::get<bool>(result)});
     return absl::get<bool>(result);
   } else {
-    return TypeError(expr.start_location(), expr.end_location())
+    return TypeError(context.source, expr.start_location(), expr.end_location())
            << "expected expression of type bool";
   }
 }
 
 // Like Eval, but ensuring the result is an Integer.
 absl::StatusOr<Integer> EvalToInt(const Expression& expr,
-                                  const TableEntry& entry,
+                                  const EvaluationContext& context,
                                   EvaluationCache* eval_cache) {
-  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry, eval_cache));
+  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, context, eval_cache));
   if (absl::holds_alternative<Integer>(result))
     return absl::get<Integer>(result);
-  return TypeError(expr.start_location(), expr.end_location())
+  return TypeError(context.source, expr.start_location(), expr.end_location())
          << "expected expression of integral type";
 }
 
 absl::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
                                          const Expression& expr,
-                                         const TableEntry& entry,
+                                         const EvaluationContext& context,
                                          EvaluationCache* eval_cache) {
-  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, entry, eval_cache));
+  ASSIGN_OR_RETURN(EvalResult result, Eval(expr, context, eval_cache));
   if (absl::holds_alternative<Integer>(result)) {
     const Integer value = absl::get<Integer>(result);
     const Integer one = mpz_class(1);
@@ -335,7 +344,7 @@ absl::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
         break;
     }
   }
-  return TypeError(expr.start_location(), expr.end_location())
+  return TypeError(context.source, expr.start_location(), expr.end_location())
          << "cannot cast expression of type " << expr.type() << " to type "
          << type;
 }
@@ -343,14 +352,14 @@ absl::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
 absl::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
                                           const Expression& left_expr,
                                           const Expression& right_expr,
-                                          const TableEntry& entry,
+                                          const EvaluationContext& context,
                                           EvaluationCache* eval_cache) {
   switch (binop) {
     // (In-)Equality comparison.
     case ast::EQ:
     case ast::NE: {
-      ASSIGN_OR_RETURN(EvalResult left, Eval(left_expr, entry, eval_cache));
-      ASSIGN_OR_RETURN(EvalResult right, Eval(right_expr, entry, eval_cache));
+      ASSIGN_OR_RETURN(EvalResult left, Eval(left_expr, context, eval_cache));
+      ASSIGN_OR_RETURN(EvalResult right, Eval(right_expr, context, eval_cache));
       // Avoid != so we don't have to define it for Exact/Ternary/Lpm/Range.
       return (binop == ast::EQ) ? (left == right) : !(left == right);
     }
@@ -362,9 +371,10 @@ absl::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
     case ast::LE: {
       // Ordered comparison (<, <=, >, >=) is only supported by types whose run-
       // time representation is Integer; the type checker should have our back.
-      ASSIGN_OR_RETURN(Integer left, EvalToInt(left_expr, entry, eval_cache),
+      ASSIGN_OR_RETURN(Integer left, EvalToInt(left_expr, context, eval_cache),
                        _ << " in ordered comparison");
-      ASSIGN_OR_RETURN(Integer right, EvalToInt(right_expr, entry, eval_cache),
+      ASSIGN_OR_RETURN(Integer right,
+                       EvalToInt(right_expr, context, eval_cache),
                        _ << " in ordered comparison");
       switch (binop) {
         case ast::GT:
@@ -386,21 +396,21 @@ absl::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
     case ast::IMPLIES: {
       // Short circuit boolean operations.
       ASSIGN_OR_RETURN(bool left_true,
-                       EvalToBool(left_expr, entry, eval_cache));
+                       EvalToBool(left_expr, context, eval_cache));
       switch (binop) {
         case ast::AND:
           if (left_true)
-            return EvalToBool(right_expr, entry, eval_cache);
+            return EvalToBool(right_expr, context, eval_cache);
           else
             return false;
         case ast::OR:
           if (left_true)
             return true;
           else
-            return EvalToBool(right_expr, entry, eval_cache);
+            return EvalToBool(right_expr, context, eval_cache);
         case ast::IMPLIES:
           if (left_true)
-            return EvalToBool(right_expr, entry, eval_cache);
+            return EvalToBool(right_expr, context, eval_cache);
           else
             return true;
         default:
@@ -453,7 +463,7 @@ struct EvalFieldAccess {
 // -- Explainer ----------------------------------------------------------------
 
 absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
-    const Expression& expression, const TableEntry& entry,
+    const Expression& expression, const EvaluationContext& context,
     EvaluationCache& eval_cache, ast::SizeCache& size_cache) {
   switch (expression.expression_case()) {
     case Expression::kBooleanConstant:
@@ -461,7 +471,7 @@ absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
 
     case Expression::kBooleanNegation: {
       return MinimalSubexpressionLeadingToEvalResult(
-          expression.boolean_negation(), entry, eval_cache, size_cache);
+          expression.boolean_negation(), context, eval_cache, size_cache);
     }
 
     case Expression::kBinaryExpression: {
@@ -490,9 +500,9 @@ absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
         case ast::OR:
         case ast::IMPLIES: {
           ASSIGN_OR_RETURN(bool left_result_is_true,
-                           EvalToBool(binexpr.left(), entry, &eval_cache));
+                           EvalToBool(binexpr.left(), context, &eval_cache));
           ASSIGN_OR_RETURN(bool right_result_is_true,
-                           EvalToBool(binexpr.right(), entry, &eval_cache));
+                           EvalToBool(binexpr.right(), context, &eval_cache));
 
           std::vector<const Expression*> candidate_subexpressions;
 
@@ -528,18 +538,18 @@ absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
           // candidate.
           if (candidate_subexpressions.size() == 1) {
             return MinimalSubexpressionLeadingToEvalResult(
-                *candidate_subexpressions[0], entry, eval_cache, size_cache);
+                *candidate_subexpressions[0], context, eval_cache, size_cache);
           }
           // Returns the `MinimalSubexpressionLeadingToEvalResult` from the
           // candidate who has the smallest such subexpresson.
-          ASSIGN_OR_RETURN(
-              auto* subexpression_0,
-              MinimalSubexpressionLeadingToEvalResult(
-                  *candidate_subexpressions[0], entry, eval_cache, size_cache));
-          ASSIGN_OR_RETURN(
-              auto* subexpression_1,
-              MinimalSubexpressionLeadingToEvalResult(
-                  *candidate_subexpressions[1], entry, eval_cache, size_cache));
+          ASSIGN_OR_RETURN(auto* subexpression_0,
+                           MinimalSubexpressionLeadingToEvalResult(
+                               *candidate_subexpressions[0], context,
+                               eval_cache, size_cache));
+          ASSIGN_OR_RETURN(auto* subexpression_1,
+                           MinimalSubexpressionLeadingToEvalResult(
+                               *candidate_subexpressions[1], context,
+                               eval_cache, size_cache));
           ASSIGN_OR_RETURN(int size_0,
                            ast::Size(*subexpression_0, &size_cache));
           ASSIGN_OR_RETURN(int size_1,
@@ -564,22 +574,22 @@ absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
 
 // Returns human readable explanation of constraint violation.
 absl::StatusOr<std::string> ExplainConstraintViolation(
-    const Expression& expr, const ConstraintSource& source,
-    const TableEntry& entry, EvaluationCache& eval_cache,
-    ast::SizeCache& size_cache) {
+    const Expression& expr, const EvaluationContext& context,
+    EvaluationCache& eval_cache, ast::SizeCache& size_cache) {
   ASSIGN_OR_RETURN(const ast::Expression* explanation,
                    MinimalSubexpressionLeadingToEvalResult(
-                       expr, entry, eval_cache, size_cache));
+                       expr, context, eval_cache, size_cache));
   ASSIGN_OR_RETURN(bool truth_value,
-                   EvalToBool(*explanation, entry, &eval_cache));
-  ASSIGN_OR_RETURN(std::string reason,
-                   QuoteSubConstraint(source, explanation->start_location(),
-                                      explanation->end_location()));
+                   EvalToBool(*explanation, context, &eval_cache));
+  ASSIGN_OR_RETURN(
+      std::string reason,
+      QuoteSubConstraint(context.source, explanation->start_location(),
+                         explanation->end_location()));
   absl::flat_hash_set<std::string> relevant_fields =
       ast::GetMatchFields(*explanation);
   // Ordered for determinism when golden testing.
   std::string key_info = absl::StrJoin(
-      gutils::Ordered(entry.keys), "",
+      gutils::Ordered(context.entry.keys), "",
       [&](std::string* out, const std::pair<std::string, EvalResult>& pair) {
         if (relevant_fields.contains(pair.first)) {
           absl::StrAppend(out, "Field: \"", pair.first,
@@ -597,7 +607,7 @@ absl::StatusOr<std::string> ExplainConstraintViolation(
       "Priority:%d\n"
       "%s",
       (truth_value ? "not " : ""), reason, (truth_value ? "" : " not"),
-      entry.table_name, entry.priority, key_info);
+      context.entry.table_name, context.entry.priority, key_info);
 }
 // -- Main evaluator -----------------------------------------------------------
 
@@ -607,7 +617,7 @@ absl::StatusOr<std::string> ExplainConstraintViolation(
 // Eval (without underscore) is a thin wrapper around Eval_, see further down;
 // Eval_ should never be called directly, except by Eval.
 absl::StatusOr<EvalResult> Eval_(const Expression& expr,
-                                 const TableEntry& entry,
+                                 const EvaluationContext& context,
                                  EvaluationCache* eval_cache) {
   switch (expr.expression_case()) {
     case Expression::kBooleanConstant:
@@ -622,10 +632,11 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
     }
 
     case Expression::kKey: {
-      auto it = entry.keys.find(expr.key());
-      if (it == entry.keys.end()) {
-        TypeError(expr.start_location(), expr.end_location())
-            << "unknown key " << expr.key() << " in table " << entry.table_name;
+      auto it = context.entry.keys.find(expr.key());
+      if (it == context.entry.keys.end()) {
+        TypeError(context.source, expr.start_location(), expr.end_location())
+            << "unknown key " << expr.key() << " in table "
+            << context.entry.table_name;
       }
       return it->second;
     }
@@ -633,45 +644,47 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
     case Expression::kMetadataAccess: {
       const std::string metadata_name = expr.metadata_access().metadata_name();
       if (metadata_name == "priority") {
-        return Integer(entry.priority);
+        return Integer(context.entry.priority);
       } else {
-        return TypeError(expr.start_location(), expr.end_location())
+        return TypeError(context.source, expr.start_location(),
+                         expr.end_location())
                << "unknown metadata '" << metadata_name << "'";
       }
     }
 
     case Expression::kBooleanNegation: {
-      ASSIGN_OR_RETURN(bool result,
-                       EvalToBool(expr.boolean_negation(), entry, eval_cache));
+      ASSIGN_OR_RETURN(bool result, EvalToBool(expr.boolean_negation(), context,
+                                               eval_cache));
       return {!result};
     }
 
     case Expression::kArithmeticNegation: {
       ASSIGN_OR_RETURN(Integer result, EvalToInt(expr.arithmetic_negation(),
-                                                 entry, eval_cache));
+                                                 context, eval_cache));
       return {-result};
     }
 
     case Expression::kTypeCast: {
-      return EvalAndCastTo(expr.type(), expr.type_cast(), entry, eval_cache);
+      return EvalAndCastTo(expr.type(), expr.type_cast(), context, eval_cache);
     }
 
     case Expression::kBinaryExpression: {
       const ast::BinaryExpression& binexpr = expr.binary_expression();
       return EvalBinaryExpression(binexpr.binop(), binexpr.left(),
-                                  binexpr.right(), entry, eval_cache);
+                                  binexpr.right(), context, eval_cache);
     }
 
     case Expression::kFieldAccess: {
       const Expression& composite_expr = expr.field_access().expr();
       const std::string& field = expr.field_access().field();
       ASSIGN_OR_RETURN(EvalResult composite_value,
-                       Eval(composite_expr, entry, eval_cache));
+                       Eval(composite_expr, context, eval_cache));
 
       absl::StatusOr<EvalResult> result =
           absl::visit(EvalFieldAccess{.field = field}, composite_value);
       if (!result.ok()) {
-        return TypeError(expr.start_location(), expr.end_location())
+        return TypeError(context.source, expr.start_location(),
+                         expr.end_location())
                << result.status().message();
       }
       return result;
@@ -688,7 +701,8 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
 
 // We wrap Eval_ with a cautionary dynamic type check to ease debugging.
 
-absl::Status DynamicTypeCheck(const Expression& expr, const EvalResult result) {
+absl::Status DynamicTypeCheck(const ConstraintSource& source,
+                              const Expression& expr, const EvalResult result) {
   switch (expr.type().type_case()) {
     case Type::kBoolean:
       if (absl::holds_alternative<bool>(result)) return absl::OkStatus();
@@ -717,7 +731,7 @@ absl::Status DynamicTypeCheck(const Expression& expr, const EvalResult result) {
     case Type::TYPE_NOT_SET:
       break;
   }
-  return TypeError(expr.start_location(), expr.end_location())
+  return TypeError(source, expr.start_location(), expr.end_location())
          << "unexpected runtime representation of type " << expr.type();
 }
 
@@ -725,10 +739,11 @@ absl::Status DynamicTypeCheck(const Expression& expr, const EvalResult result) {
 // directly; call Eval instead. `eval_cache` is used for caching boolean results
 // in order to avoid recomputation if an explanation is desired. Passing a
 // nullptr will disable caching. Caching is implemented in EvalToBool.
-absl::StatusOr<EvalResult> Eval(const Expression& expr, const TableEntry& entry,
+absl::StatusOr<EvalResult> Eval(const Expression& expr,
+                                const EvaluationContext& context,
                                 EvaluationCache* eval_cache) {
-  ASSIGN_OR_RETURN(EvalResult result, Eval_(expr, entry, eval_cache));
-  RETURN_IF_ERROR(DynamicTypeCheck(expr, result));
+  ASSIGN_OR_RETURN(EvalResult result, Eval_(expr, context, eval_cache));
+  RETURN_IF_ERROR(DynamicTypeCheck(context.source, expr, result));
   return result;
 }
 
@@ -739,6 +754,7 @@ absl::StatusOr<EvalResult> Eval(const Expression& expr, const TableEntry& entry,
 absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
                                           const ConstraintInfo& context) {
   using ::p4_constraints::internal_interpreter::EvalToBool;
+  using ::p4_constraints::internal_interpreter::EvaluationContext;
   using ::p4_constraints::internal_interpreter::P4IDToString;
   using ::p4_constraints::internal_interpreter::ParseEntry;
   using ::p4_constraints::internal_interpreter::TableEntry;
@@ -766,8 +782,13 @@ absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
            << "table " << table_info.name
            << " has non-boolean constraint: " << constraint.DebugString();
   }
+
+  EvaluationContext eval_context{
+      .entry = parsed_entry,
+      .source = table_info.constraint_source,
+  };
   // No explanation is returned so no cache is provided.
-  return EvalToBool(constraint, parsed_entry, /*eval_cache=*/nullptr);
+  return EvalToBool(constraint, eval_context, /*eval_cache=*/nullptr);
 }
 
 absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
@@ -775,6 +796,8 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
   using ::p4_constraints::ast::SizeCache;
   using ::p4_constraints::internal_interpreter::EvalToBool;
   using ::p4_constraints::internal_interpreter::EvaluationCache;
+  using ::p4_constraints::internal_interpreter::EvaluationContext;
+  using ::p4_constraints::internal_interpreter::ExplainConstraintViolation;
   using ::p4_constraints::internal_interpreter::P4IDToString;
   using ::p4_constraints::internal_interpreter::ParseEntry;
   using ::p4_constraints::internal_interpreter::TableEntry;
@@ -803,16 +826,20 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
            << " has non-boolean constraint: " << constraint.DebugString();
   }
 
+  EvaluationContext eval_context{
+      .entry = parsed_entry,
+      .source = table_info.constraint_source,
+  };
   EvaluationCache eval_cache;
   ASSIGN_OR_RETURN(bool entry_satisfies_constraint,
-                   EvalToBool(constraint, parsed_entry, &eval_cache));
+                   EvalToBool(constraint, eval_context, &eval_cache));
 
   if (entry_satisfies_constraint) {
     return "";
   }
   SizeCache size_cache;
-  return ExplainConstraintViolation(constraint, table_info.constraint_source,
-                                    parsed_entry, eval_cache, size_cache);
+  return ExplainConstraintViolation(constraint, eval_context, eval_cache,
+                                    size_cache);
 }
 
 }  // namespace p4_constraints

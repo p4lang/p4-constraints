@@ -51,6 +51,7 @@ cc_test(
         "//gutils:status_matchers",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
