@@ -759,30 +759,32 @@ absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
   using ::p4_constraints::internal_interpreter::ParseEntry;
   using ::p4_constraints::internal_interpreter::TableEntry;
 
-  // Find table associated with entry and parse the entry.
+  // Find table associated with entry.
   auto it = context.find(entry.table_id());
-  if (it == context.end())
+  if (it == context.end()) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "table entry with unknown table ID "
            << P4IDToString(entry.table_id());
+  }
   const TableInfo& table_info = it->second;
-  ASSIGN_OR_RETURN(TableEntry parsed_entry, ParseEntry(entry, table_info),
-                   _ << " while parsing P4RT table entry for table '"
-                     << table_info.name << "':");
 
-  // Check if entry satisfies table constraint (if present).
+  // Check if there is a constraint we need to check.
   if (!table_info.constraint.has_value()) {
     VLOG(1) << "Table \"" << table_info.name
             << "\" has no constraint; accepting entry unconditionally.";
     return true;
   }
-  const Expression& constraint = table_info.constraint.value();
+  const Expression& constraint = *table_info.constraint;
   if (constraint.type().type_case() != Type::kBoolean) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "table " << table_info.name
            << " has non-boolean constraint: " << constraint.DebugString();
   }
 
+  // Parse entry and check constraint.
+  ASSIGN_OR_RETURN(TableEntry parsed_entry, ParseEntry(entry, table_info),
+                   _ << " while parsing P4RT table entry for table '"
+                     << table_info.name << "':");
   EvaluationContext eval_context{
       .entry = parsed_entry,
       .source = table_info.constraint_source,
@@ -802,30 +804,32 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
   using ::p4_constraints::internal_interpreter::ParseEntry;
   using ::p4_constraints::internal_interpreter::TableEntry;
 
-  // Find table associated with entry and parse the entry.
+  // Find table associated with entry.
   const auto it = context.find(entry.table_id());
-  if (it == context.end())
+  if (it == context.end()) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "table entry with unknown table ID "
            << P4IDToString(entry.table_id());
+  }
   const TableInfo& table_info = it->second;
-  ASSIGN_OR_RETURN(const TableEntry parsed_entry, ParseEntry(entry, table_info),
-                   _ << " while parsing P4RT table entry for table '"
-                     << table_info.name << "':");
 
-  // Check if entry satisfies table constraint (if present).
+  // Check if there is a constraint we need to check.
   if (!table_info.constraint.has_value()) {
     VLOG(1) << "Table \"" << table_info.name
             << "\" has no constraint; accepting entry unconditionally.";
     return "";
   }
-  const Expression& constraint = table_info.constraint.value();
+  const Expression& constraint = *table_info.constraint;
   if (constraint.type().type_case() != Type::kBoolean) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "table " << table_info.name
            << " has non-boolean constraint: " << constraint.DebugString();
   }
 
+  // Parse entry and check constraint.
+  ASSIGN_OR_RETURN(const TableEntry parsed_entry, ParseEntry(entry, table_info),
+                   _ << " while parsing P4RT table entry for table '"
+                     << table_info.name << "':");
   EvaluationContext eval_context{
       .entry = parsed_entry,
       .source = table_info.constraint_source,
@@ -833,10 +837,7 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
   EvaluationCache eval_cache;
   ASSIGN_OR_RETURN(bool entry_satisfies_constraint,
                    EvalToBool(constraint, eval_context, &eval_cache));
-
-  if (entry_satisfies_constraint) {
-    return "";
-  }
+  if (entry_satisfies_constraint) return "";
   SizeCache size_cache;
   return ExplainConstraintViolation(constraint, eval_context, eval_cache,
                                     size_cache);
