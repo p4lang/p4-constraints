@@ -15,11 +15,14 @@
 #include "p4_constraints/frontend/lexer.h"
 
 #include <map>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "absl/strings/string_view.h"
-#include "glog/logging.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/constraint_source.h"
@@ -55,8 +58,7 @@ void SwallowMultiLineComment(absl::string_view* input,
       location->set_line(location->line() + 1);
       location->set_column(0);
     } else {
-      LOG(DFATAL) << "impossible: no capture group matched in string: "
-                  << input;
+      LOG(ERROR) << "impossible: no capture group matched in string: " << input;
     }
   }
   DCHECK(input->empty());
@@ -101,7 +103,7 @@ absl::string_view CaptureByName(
   if (iter != kTokenPattern->NamedCapturingGroups().end()) {
     return captures[iter->second];
   } else {
-    LOG(DFATAL) << "non-existent capture group: " << group_name;
+    LOG(ERROR) << "non-existent capture group: " << group_name;
     return "";
   }
 }
@@ -154,7 +156,7 @@ std::vector<Token> Tokenize(const ConstraintSource& constraint) {
     } else if (!CaptureByName("keyword", captures).empty()) {
       kind = Token::KeywordToKind(lexeme).value_or(Token::UNEXPECTED_CHAR);
       if (kind == Token::UNEXPECTED_CHAR)
-        LOG(DFATAL)
+        LOG(ERROR)
             << "keyword " << lexeme
             << " recognized by lexer, but unknown to Token::KeywordToKind";
     } else if (!CaptureByName("id", captures).empty()) {
@@ -177,8 +179,8 @@ std::vector<Token> Tokenize(const ConstraintSource& constraint) {
       lexeme = std::string(CaptureByName("hexadec", captures));
       kind = Token::HEXADEC;
     } else {
-      LOG(DFATAL) << "impossible: no capture group matched in string: "
-                  << lexeme;
+      LOG(ERROR) << "impossible: no capture group matched in string: "
+                 << lexeme;
       kind = Token::UNEXPECTED_CHAR;
     }
     tokens.push_back(Token(kind, lexeme, start_location, current_location));

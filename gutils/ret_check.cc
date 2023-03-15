@@ -14,6 +14,8 @@
 
 #include "gutils/ret_check.h"
 
+#include "absl/status/status.h"
+
 namespace gutils {
 
 ::gutils::StatusBuilder RetCheckFailSlowPath(

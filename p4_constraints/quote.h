@@ -22,7 +22,6 @@
 #include <string>
 
 #include "absl/status/statusor.h"
-#include "absl/strings/string_view.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/constraint_source.h"
 

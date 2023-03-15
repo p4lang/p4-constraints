@@ -15,8 +15,18 @@
 // Generates file for golden testing of `ReasonEntryViolatesConstraint` in
 // interpreter.cc. Expected output is `interpreter_golden_test_runner.expected`
 
+#include <iostream>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "absl/container/btree_map.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "gutils/ordered_map.h"
 #include "gutils/parse_text_proto.h"

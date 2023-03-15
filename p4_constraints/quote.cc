@@ -14,14 +14,12 @@
 
 #include "p4_constraints/quote.h"
 
-#include <fstream>
 #include <sstream>
 #include <string>
 
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
-#include "glog/logging.h"
 #include "gutils/proto.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/ast.h"

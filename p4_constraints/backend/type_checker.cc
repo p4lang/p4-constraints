@@ -14,15 +14,16 @@
 
 #include "p4_constraints/backend/type_checker.h"
 
-#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "glog/logging.h"
+#include "absl/types/optional.h"
 #include "gutils/status.h"
 #include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
@@ -207,8 +208,8 @@ absl::optional<Type> FieldTypeOfCompositeType(const Type& composite_type,
   Type field_type = TypeCaseToType(it->second);
   absl::optional<int> bitwidth = TypeBitwidth(composite_type);
   if (!bitwidth.has_value()) {
-    LOG(DFATAL) << "expected composite type " << composite_type
-                << " to have bitwidth";
+    LOG(ERROR) << "expected composite type " << composite_type
+               << " to have bitwidth";
   }
   SetTypeBitwidth(&field_type, bitwidth.value_or(-1));
   return {field_type};

@@ -14,14 +14,18 @@
 
 #include "p4_constraints/ast.h"
 
+#include <stdint.h>
+
 #include <string>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/log/log.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
-#include "glog/logging.h"
+#include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gutils/proto.h"
 #include "gutils/status_macros.h"
@@ -74,7 +78,7 @@ std::string TypeName(const Type& type) {
     case Type::TYPE_NOT_SET:
       break;
   }
-  LOG(DFATAL) << "invalid type: " << type.DebugString();
+  LOG(ERROR) << "invalid type: " << type.DebugString();
   return "???";
 }
 
@@ -174,7 +178,7 @@ Type TypeCaseToType(Type::TypeCase type_case) {
     case Type::TYPE_NOT_SET:
       break;
   }
-  LOG(DFATAL) << "invalid type case: " << type_case;
+  LOG(ERROR) << "invalid type case: " << type_case;
   return type;
 }
 

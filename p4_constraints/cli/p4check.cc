@@ -21,10 +21,11 @@
 // This CLI is not intended for use in production; it is intended for testing
 // and showcasing the p4_constraints library.
 
+#include <stdint.h>
+
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "absl/flags/flag.h"
@@ -32,10 +33,10 @@
 #include "absl/flags/usage.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/str_format.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "absl/types/variant.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/text_format.h"
 #include "p4/config/v1/p4info.pb.h"
