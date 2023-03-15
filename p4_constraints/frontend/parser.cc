@@ -17,9 +17,10 @@
 #include <string>
 #include <vector>
 
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "glog/logging.h"
 #include "gutils/status.h"
 #include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
@@ -128,8 +129,8 @@ int TokenPrecedence(Token::Kind kind) {
     case Token::SEMICOLON:
       return 1;
     default:
-      LOG(DFATAL) << "Precedence for token " << kind
-                  << "undeclared. Assuming 0.";
+      LOG(ERROR) << "Precedence for token " << kind
+                 << "undeclared. Assuming 0.";
       return 0;
   }
 }

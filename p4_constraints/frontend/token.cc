@@ -18,7 +18,9 @@
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
-#include "glog/logging.h"
+#include "absl/log/check.h"
+#include "absl/log/log.h"
+#include "absl/types/optional.h"
 
 namespace p4_constraints {
 
@@ -106,7 +108,7 @@ std::string Token::KindToKeyword(Token::Kind token_kind) {
     case Token::UNEXPECTED_CHAR:
       return "<UNEXPECTED_CHAR>";
     default:
-      LOG(DFATAL) << "non-existent token kind";
+      LOG(ERROR) << "non-existent token kind";
       return "<UNKNOWN>";
   }
 }

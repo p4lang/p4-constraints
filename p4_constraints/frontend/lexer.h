@@ -38,7 +38,6 @@
 
 #include <vector>
 
-#include "absl/strings/string_view.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/token.h"
