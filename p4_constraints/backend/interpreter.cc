@@ -763,16 +763,14 @@ absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
   using ::p4_constraints::internal_interpreter::ParseEntry;
   using ::p4_constraints::internal_interpreter::TableEntry;
 
-  // Find table associated with entry and parse the entry.
+  // Find table associated with entry.
   auto it = context.find(entry.table_id());
-  if (it == context.end())
+  if (it == context.end()) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "table entry with unknown table ID "
            << P4IDToString(entry.table_id());
+  }
   const TableInfo& table_info = it->second;
-  ASSIGN_OR_RETURN(TableEntry parsed_entry, ParseEntry(entry, table_info),
-                   _ << " while parsing P4RT table entry for table '"
-                     << table_info.name << "':");
 
   // Check if entry satisfies table constraint (if present).
   if (!table_info.constraint.has_value()) return "";
@@ -783,6 +781,10 @@ absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
            << " has non-boolean constraint: " << constraint.DebugString();
   }
 
+  // Parse entry and check constraint.
+  ASSIGN_OR_RETURN(TableEntry parsed_entry, ParseEntry(entry, table_info),
+                   _ << " while parsing P4RT table entry for table '"
+                     << table_info.name << "':");
   EvaluationContext eval_context{
       .entry = parsed_entry,
       .source = table_info.constraint_source,
@@ -802,16 +804,14 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
   using ::p4_constraints::internal_interpreter::ParseEntry;
   using ::p4_constraints::internal_interpreter::TableEntry;
 
-  // Find table associated with entry and parse the entry.
+  // Find table associated with entry.
   const auto it = context.find(entry.table_id());
-  if (it == context.end())
+  if (it == context.end()) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "table entry with unknown table ID "
            << P4IDToString(entry.table_id());
+  }
   const TableInfo& table_info = it->second;
-  ASSIGN_OR_RETURN(const TableEntry parsed_entry, ParseEntry(entry, table_info),
-                   _ << " while parsing P4RT table entry for table '"
-                     << table_info.name << "':");
 
   // Check if entry satisfies table constraint (if present).
   if (!table_info.constraint.has_value()) return "";
@@ -822,6 +822,10 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
            << " has non-boolean constraint: " << constraint.DebugString();
   }
 
+  // Parse entry and check constraint.
+  ASSIGN_OR_RETURN(const TableEntry parsed_entry, ParseEntry(entry, table_info),
+                   _ << " while parsing P4RT table entry for table '"
+                     << table_info.name << "':");
   EvaluationContext eval_context{
       .entry = parsed_entry,
       .source = table_info.constraint_source,
@@ -829,10 +833,7 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
   EvaluationCache eval_cache;
   ASSIGN_OR_RETURN(bool entry_satisfies_constraint,
                    EvalToBool(constraint, eval_context, &eval_cache));
-
-  if (entry_satisfies_constraint) {
-    return "";
-  }
+  if (entry_satisfies_constraint) return "";
   SizeCache size_cache;
   return ExplainConstraintViolation(constraint, eval_context, eval_cache,
                                     size_cache);
