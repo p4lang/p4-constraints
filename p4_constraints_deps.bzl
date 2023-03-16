@@ -22,6 +22,7 @@ def p4_constraints_deps():
             name = "com_google_protobuf",
             url = "https://github.com/protocolbuffers/protobuf/releases/download/v22.2/protobuf-22.2.tar.gz",
             strip_prefix = "protobuf-22.2",
+            sha256 = "1ff680568f8e537bb4be9813bac0c1d87848d5be9d000ebe30f0bc2d7aabe045",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
         git_repository(
