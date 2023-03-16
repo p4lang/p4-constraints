@@ -17,10 +17,12 @@
 #include <gmock/gmock.h>
 #include <gmpxx.h>
 #include <gtest/gtest.h>
+#include <stdint.h>
 
-#include <algorithm>
+#include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"

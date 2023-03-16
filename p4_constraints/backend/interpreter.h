@@ -20,12 +20,15 @@
 #define P4_CONSTRAINTS_BACKEND_INTERPRETER_H_
 
 #include <gmpxx.h>
+#include <stdint.h>
 
+#include <ostream>
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
+#include "absl/types/variant.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"

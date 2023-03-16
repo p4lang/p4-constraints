@@ -17,15 +17,20 @@
 #include <gmp.h>
 #include <gmpxx.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include <cstring>
-#include <iostream>
-#include <limits>
+#include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/log/check.h"
+#include "absl/log/log.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -33,7 +38,6 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/variant.h"
-#include "glog/logging.h"
 #include "gutils/ordered_map.h"
 #include "gutils/overload.h"
 #include "gutils/ret_check.h"
@@ -768,13 +772,9 @@ absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
   }
   const TableInfo& table_info = it->second;
 
-  // Check if there is a constraint we need to check.
-  if (!table_info.constraint.has_value()) {
-    VLOG(1) << "Table \"" << table_info.name
-            << "\" has no constraint; accepting entry unconditionally.";
-    return true;
-  }
-  const Expression& constraint = *table_info.constraint;
+  // Check if entry satisfies table constraint (if present).
+  if (!table_info.constraint.has_value()) return "";
+  const Expression& constraint = table_info.constraint.value();
   if (constraint.type().type_case() != Type::kBoolean) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "table " << table_info.name
@@ -813,13 +813,9 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
   }
   const TableInfo& table_info = it->second;
 
-  // Check if there is a constraint we need to check.
-  if (!table_info.constraint.has_value()) {
-    VLOG(1) << "Table \"" << table_info.name
-            << "\" has no constraint; accepting entry unconditionally.";
-    return "";
-  }
-  const Expression& constraint = *table_info.constraint;
+  // Check if entry satisfies table constraint (if present).
+  if (!table_info.constraint.has_value()) return "";
+  const Expression& constraint = table_info.constraint.value();
   if (constraint.type().type_case() != Type::kBoolean) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "table " << table_info.name

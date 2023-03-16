@@ -23,13 +23,14 @@
 #ifndef P4_CONSTRAINTS_BACKEND_CONSTRAINT_INFO_H_
 #define P4_CONSTRAINTS_BACKEND_CONSTRAINT_INFO_H_
 
+#include <stdint.h>
+
 #include <string>
-#include <utility>
-#include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
-#include "absl/types/variant.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/constraint_source.h"

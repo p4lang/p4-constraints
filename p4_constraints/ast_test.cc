@@ -17,6 +17,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <string>
+
 #include "absl/strings/substitute.h"
 #include "gutils/parse_text_proto.h"
 #include "gutils/status_matchers.h"

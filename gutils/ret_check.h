@@ -16,6 +16,7 @@
 #define MEDIAPIPE_DEPS_RET_CHECK_H_
 
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
 

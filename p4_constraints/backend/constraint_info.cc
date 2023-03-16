@@ -14,6 +14,8 @@
 
 #include "p4_constraints/backend/constraint_info.h"
 
+#include <stdint.h>
+
 #include <string>
 #include <utility>
 #include <vector>
@@ -21,11 +23,11 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/types/optional.h"
-#include "absl/types/variant.h"
 #include "gutils/status_macros.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"

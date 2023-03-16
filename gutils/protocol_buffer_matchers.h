@@ -188,22 +188,26 @@
 #define GUTILS_TESTING_PROTOCOL_BUFFER_MATCHERS_H_
 
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
+#include <array>
+#include <cstring>
 #include <initializer_list>
+#include <iomanip>
 #include <iostream>  // NOLINT
+#include <limits>
 #include <memory>
-#include <sstream>  // NOLINT
-#include <string>   // NOLINT
-#include <vector>   // NOLINT
+#include <string>  // NOLINT
+#include <tuple>
+#include <variant>
+#include <vector>  // NOLINT
 
+#include "absl/log/check.h"
 #include "absl/strings/string_view.h"
-#include "glog/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/io/zero_copy_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/message.h"
-#include "google/protobuf/text_format.h"
 #include "google/protobuf/util/field_comparator.h"
 #include "google/protobuf/util/message_differencer.h"
 

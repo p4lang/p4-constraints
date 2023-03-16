@@ -17,7 +17,9 @@
 
 #include <sstream>
 
+#include "absl/base/attributes.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "gutils/source_location.h"
 
 namespace gutils {
