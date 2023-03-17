@@ -39,7 +39,7 @@ jobs:
         chmod +x $BAZEL
 
     - name: Build
-      run: ./$BAZEL build //... --distinct_host_configuration=false
+      run: ./$BAZEL build //...
 
   test:
     # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
@@ -69,4 +69,4 @@ jobs:
         chmod +x $BAZEL
 
     - name: Test
-      run: ./$BAZEL test //... --test_output=errors --distinct_host_configuration=false
+      run: ./$BAZEL test //... --test_output=errors
