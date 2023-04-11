@@ -53,6 +53,10 @@ bool TypeHasOrdering(const Type& type);
 // Returns bit-width of the given type, provided the type is fixed-size.
 absl::optional<int> TypeBitwidth(const Type& type);
 
+// Returns bit-width of the given type, provided the type is fixed-size.
+// Otherwise returns an InvalidArgumentError.
+absl::StatusOr<int> TypeBitwidthOrStatus(const ast::Type& type);
+
 // Sets bitwidth of the given type, provided the type is fixed-size, or does
 // nothing otherwise. Returns `true` in the former case and `false` in the
 // latter case.
