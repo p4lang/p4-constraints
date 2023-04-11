@@ -24,13 +24,18 @@
 #ifndef P4_CONSTRAINTS_BACKEND_SYMBOLIC_INTERPRETER_H_
 #define P4_CONSTRAINTS_BACKEND_SYMBOLIC_INTERPRETER_H_
 
+#include <ostream>
+#include <string>
 #include <variant>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "gutils/overload.h"
+#include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/constraint_source.h"
 #include "z3++.h"
 
 namespace p4_constraints {
@@ -95,11 +100,28 @@ absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
 
 // Creates and returns a attribute key for table priority and constrains it to
 // be between 1 and MAX_INT32 (inclusive).
-// Note1: Only needed for (and should only be used with) tables that
+// NOTE: Only needed for (and should only be used with) tables that
 // require/expect priority.
-// NOTE2: This API will only work correctly if the `solver` represents a single
+// NOTE: This API will only work correctly if the `solver` represents a single
 // table entry.
 SymbolicAttribute AddSymbolicPriority(z3::solver& solver);
+
+// Translates a P4-Constraints expression into a Z3 expression using the
+// `symbolic_key_by_name` and `symbolic_attribute_by_name` mappings to interpret
+// keys and attributes respectively in the constraint. All symbolic keys
+// and attributes must already exist in the solver's context.
+// Invalid or not properly type-checked constraints will yield an
+// InvalidArgumentError or InternalError. The `constraint_source` is used to
+// construct more palatable error messages.
+// NOTE: This API will only work correctly if the `solver` represents a single
+// table entry.
+absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
+    const ast::Expression& constraint,
+    const ConstraintSource& constraint_source,
+    const absl::flat_hash_map<std::string, SymbolicKey>& symbolic_key_by_name,
+    const absl::flat_hash_map<std::string, SymbolicAttribute>&
+        symbolic_attribute_by_name,
+    z3::solver& solver);
 
 // -- Accessors ----------------------------------------------------------------
 
@@ -141,7 +163,7 @@ void AbslStringify(Sink& sink, const SymbolicAttribute& attribute) {
 
 template <typename Sink>
 void AbslStringify(Sink& sink, const SymbolicKey& symbolic_key) {
-  return std::visit(
+  std::visit(
       gutils::Overload{
           [&](const auto& variant) { absl::Format(&sink, "%v", variant); },
       },
@@ -150,6 +172,29 @@ void AbslStringify(Sink& sink, const SymbolicKey& symbolic_key) {
 
 inline std::ostream& operator<<(std::ostream& os, const SymbolicKey& key) {
   return os << absl::StrCat(key);
+}
+
+// -- END OF PUBLIC INTERFACE --------------------------------------------------
+
+using SymbolicEvalResult = std::variant<SymbolicKey, z3::expr>;
+
+template <typename Sink>
+void AbslStringify(Sink& sink, const z3::expr& expr) {
+  absl::Format(&sink, "z3_expr{ '%s' }", expr.to_string());
+}
+
+template <typename Sink>
+void AbslStringify(Sink& sink, const SymbolicEvalResult& result) {
+  std::visit(
+      gutils::Overload{
+          [&](const auto& variant) { absl::Format(&sink, "%v", variant); },
+      },
+      result);
+}
+
+inline std::ostream& operator<<(std::ostream& os,
+                                const SymbolicEvalResult& result) {
+  return os << absl::StrCat(result);
 }
 
 }  // namespace p4_constraints

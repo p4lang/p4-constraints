@@ -39,7 +39,7 @@ namespace p4_constraints {
 //
 // This function should not be called on an `expr` that has already been type
 // checked (more specifically, on an `expr` that already contains type casts).
-// Doing so will reult in an InvalidInput Error.
+// Doing so will result in an InvalidInput Error.
 absl::Status InferAndCheckTypes(ast::Expression* expr,
                                 const TableInfo& table_info);
 

@@ -61,8 +61,8 @@ struct TableInfo {
 
   // An optional constraint (aka entry_restriction) on table entries.
   absl::optional<ast::Expression> constraint;
-  // If member `constraint` is present, this captures its source. Aribitray
-  // otherwise
+  // If member `constraint` is present, this captures its source. Arbitrary
+  // otherwise.
   ConstraintSource constraint_source;
 
   // Maps from key IDs/names to KeyInfo.

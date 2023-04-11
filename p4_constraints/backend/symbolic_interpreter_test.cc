@@ -4,9 +4,13 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <string>
+#include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "gutils/parse_text_proto.h"
 #include "gutils/status_matchers.h"
 #include "gutils/testing.h"
@@ -21,6 +25,7 @@ using ::gutils::ParseTextProtoOrDie;
 using ::gutils::SnakeCaseToCamelCase;
 using ::gutils::testing::status::IsOk;
 using ::gutils::testing::status::StatusIs;
+using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::Type;
 using ::testing::Not;
 
@@ -443,6 +448,378 @@ TEST(AddSymbolicPriorityTest, PositiveTooLargeIntegerIsUnsat) {
   solver.add(priority_key.value > too_large_value);
   EXPECT_EQ(solver.check(), z3::unsat);
 }
+
+TableInfo GetTableInfoWithConstraint(absl::string_view constraint_string) {
+  const Type kExact32 = ParseTextProtoOrDie<Type>("exact { bitwidth: 32 }");
+  const Type kTernary32 = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }");
+  const Type kLpm32 = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }");
+  const Type kOptional32 =
+      ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
+
+  return TableInfo{
+      .id = 1,
+      .name = "table",
+      .constraint = ParseTextProtoOrDie<Expression>(constraint_string),
+      .keys_by_name = {
+          {"exact32", {1, "exact32", kExact32}},
+          {"ternary32", {2, "ternary32", kTernary32}},
+          {"lpm32", {3, "lpm32", kLpm32}},
+          {"optional32", {4, "optional32", kOptional32}},
+      }};
+}
+
+TEST(EvaluateConstraintSymbolicallyTest, SanityCheckAllKeysAreValid) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  TableInfo table_info = GetTableInfoWithConstraint("");
+
+  for (const auto& [name, key] : table_info.keys_by_name) {
+    ASSERT_OK(AddSymbolicKey(key, solver));
+  }
+
+  EXPECT_EQ(solver.check(), z3::sat);
+}
+
+TEST(EvaluateConstraintSymbolicallyTest,
+     NonBooleanConstraintGivesInvalidArgument) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  TableInfo table_info = GetTableInfoWithConstraint("");
+  table_info.constraint->clear_type();
+
+  for (const auto& [name, key] : table_info.keys_by_name) {
+    ASSERT_OK(AddSymbolicKey(key, solver));
+  }
+  EXPECT_THAT(EvaluateConstraintSymbolically(
+                  *table_info.constraint, table_info.constraint_source,
+                  /*name_to_symbolic_key=*/{},
+                  /*name_to_symbolic_attribute=*/{}, solver),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+struct EvaluateConstraintTestCase {
+  std::string test_name;
+  // A protobuf string representing an boolean AST Expression representing a
+  // constraint.
+  std::string constraint_string;
+  bool is_sat;
+};
+
+using EvaluateConstraintSymbolicallyTest =
+    testing::TestWithParam<EvaluateConstraintTestCase>;
+
+TEST_P(EvaluateConstraintSymbolicallyTest, CheckSatAndUnsatCorrectness) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  TableInfo table_info =
+      GetTableInfoWithConstraint(GetParam().constraint_string);
+  // Constraint type must be boolean to not fail early.
+  table_info.constraint->mutable_type()->mutable_boolean();
+
+  // Add symbolic table keys to symbolic key map.
+  absl::flat_hash_map<std::string, SymbolicKey> name_to_symbolic_key;
+  for (const auto& [key_name, key_info] : table_info.keys_by_name) {
+    ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(key_info, solver));
+    name_to_symbolic_key.emplace(key_name, std::move(key));
+  }
+
+  // Add symbolic priority to attribute map.
+  absl::flat_hash_map<std::string, SymbolicAttribute>
+      name_to_symbolic_attribute;
+  SymbolicAttribute symbolic_priority = AddSymbolicPriority(solver);
+  name_to_symbolic_attribute.emplace("priority", std::move(symbolic_priority));
+
+  ASSERT_OK_AND_ASSIGN(
+      z3::expr z3_constraint,
+      EvaluateConstraintSymbolically(
+          *table_info.constraint, table_info.constraint_source,
+          name_to_symbolic_key, name_to_symbolic_attribute, solver));
+  solver.add(z3_constraint);
+  EXPECT_EQ(solver.check(), GetParam().is_sat ? z3::sat : z3::unsat);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    EvaluateConstraintSatisfiabilityTests, EvaluateConstraintSymbolicallyTest,
+    testing::ValuesIn(std::vector<EvaluateConstraintTestCase>{
+        {
+            .test_name = "true_is_sat",
+            .constraint_string = "boolean_constant: true",
+            .is_sat = true,
+        },
+        {
+            .test_name = "false_is_unsat",
+            .constraint_string = "boolean_constant: false",
+            .is_sat = false,
+        },
+        {
+            .test_name = "boolean_negation",
+            .constraint_string = "boolean_negation {boolean_constant: false }",
+            .is_sat = true,
+        },
+        {
+            .test_name = "integer_equality_sat",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: EQ
+                left { integer_constant: "42" }
+                right { integer_constant: "42" }
+              }
+            )pb",
+            .is_sat = true,
+        },
+        {
+            .test_name = "integer_negation_unsat",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: GT
+                left { arithmetic_negation: { integer_constant: "42" } }
+                right { integer_constant: "1928371273691273631927631927" }
+              }
+            )pb",
+            .is_sat = false,
+        },
+        {
+            .test_name = "exact_with_type_casts",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: EQ
+                left {
+                  type { exact { bitwidth: 32 } }
+                  key: "exact32"
+                }
+                right {
+                  type { exact { bitwidth: 32 } }
+                  type_cast {
+                    type { fixed_unsigned { bitwidth: 32 } }
+                    type_cast {
+                      type { arbitrary_int {} }
+                      integer_constant: "42"
+                    }
+                  }
+                }
+              }
+            )pb",
+            .is_sat = true,
+        },
+        {
+            .test_name = "lpm_prefix_length_field_access_sat",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: NE
+                left {
+                  type { arbitrary_int {} }
+                  field_access {
+                    field: "prefix_length"
+                    expr {
+                      type { lpm { bitwidth: 32 } }
+                      key: "lpm32"
+                    }
+                  }
+                }
+                right { integer_constant: "10" }
+              }
+            )pb",
+            .is_sat = true,
+        },
+        {
+            .test_name = "lpm_prefix_length_field_access_unsat",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: LT
+                left {
+                  type { arbitrary_int {} }
+                  field_access {
+                    field: "prefix_length"
+                    expr {
+                      type { lpm { bitwidth: 32 } }
+                      key: "lpm32"
+                    }
+                  }
+                }
+                right { integer_constant: "-1" }
+              }
+            )pb",
+            .is_sat = false,
+        },
+        {
+            .test_name = "value_field_accesses",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: EQ
+                left {
+                  type { exact { bitwidth: 32 } }
+                  field_access {
+                    field: "value"
+                    expr {
+                      type { exact { bitwidth: 32 } }
+                      key: "exact32"
+                    }
+                  }
+                }
+                right {
+                  type { ternary { bitwidth: 32 } }
+                  field_access {
+                    field: "value"
+                    expr {
+                      type { exact { bitwidth: 32 } }
+                      key: "ternary32"
+                    }
+                  }
+                }
+              }
+            )pb",
+            .is_sat = true,
+        },
+        {
+            .test_name = "optional_mask_field_access_sat",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: EQ
+                left {
+                  type { fixed_unsigned { bitwidth: 32 } }
+                  field_access {
+                    field: "mask"
+                    expr {
+                      type { optional_match { bitwidth: 32 } }
+                      key: "optional32"
+                    }
+                  }
+                }
+                right {
+                  type { fixed_unsigned { bitwidth: 32 } }
+                  type_cast {
+                    type { arbitrary_int {} }
+                    integer_constant: "0"
+                  }
+                }
+              }
+            )pb",
+            .is_sat = true,
+        },
+        {
+            .test_name = "optional_mask_field_access_unsat",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: EQ
+                left {
+                  type { fixed_unsigned { bitwidth: 32 } }
+                  field_access {
+                    field: "mask"
+                    expr {
+                      type { optional_match { bitwidth: 32 } }
+                      key: "optional32"
+                    }
+                  }
+                }
+                right {
+                  type { fixed_unsigned { bitwidth: 32 } }
+                  type_cast {
+                    type { arbitrary_int {} }
+                    integer_constant: "50"
+                  }
+                }
+              }
+            )pb",
+            .is_sat = false,
+        },
+        {
+            .test_name = "optional_equals_sat",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: EQ
+                left {
+                  type { optional_match { bitwidth: 32 } }
+                  key: "optional32"
+                }
+                right {
+                  type { optional_match { bitwidth: 32 } }
+                  type_cast {
+                    type { fixed_unsigned { bitwidth: 32 } }
+                    type_cast {
+                      type { arbitrary_int {} }
+                      integer_constant: "42"
+                    }
+                  }
+                }
+              }
+            )pb",
+            .is_sat = true,
+        },
+        {
+            .test_name = "ternary_equals_sat",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: EQ
+                left {
+                  type { ternary { bitwidth: 32 } }
+                  key: "ternary32"
+                }
+                right {
+                  type { ternary { bitwidth: 32 } }
+                  type_cast {
+                    type { fixed_unsigned { bitwidth: 32 } }
+                    type_cast {
+                      type { arbitrary_int {} }
+                      integer_constant: "42"
+                    }
+                  }
+                }
+              }
+            )pb",
+            .is_sat = true,
+        },
+        {
+            .test_name = "lpm_not_equals_sat",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: NE
+                left {
+                  type { lpm { bitwidth: 32 } }
+                  key: "lpm32"
+                }
+                right {
+                  type { lpm { bitwidth: 32 } }
+                  type_cast {
+                    type { fixed_unsigned { bitwidth: 32 } }
+                    type_cast {
+                      type { arbitrary_int {} }
+                      integer_constant: "42"
+                    }
+                  }
+                }
+              }
+            )pb",
+            .is_sat = true,
+        },
+        {
+            .test_name = "priority_unsat",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: LT
+                left { attribute_access { attribute_name: "priority" } }
+                right { integer_constant: "1" }
+              }
+            )pb",
+            .is_sat = false,
+        },
+        {
+            .test_name = "priority_sat",
+            .constraint_string = R"pb(
+              binary_expression {
+                binop: GT
+                left { attribute_access { attribute_name: "priority" } }
+                right { integer_constant: "50" }
+              }
+            )pb",
+            .is_sat = true,
+        },
+    }),
+    [](const testing::TestParamInfo<EvaluateConstraintTestCase>& info) {
+      return SnakeCaseToCamelCase(info.param.test_name);
+    });
 
 }  // namespace
 }  // namespace p4_constraints

@@ -47,6 +47,7 @@
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/backend/errors.h"
 #include "p4_constraints/constraint_source.h"
 #include "p4_constraints/quote.h"
 
@@ -251,21 +252,6 @@ absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
   };
 }
 
-// -- Error handling -----------------------------------------------------------
-
-gutils::StatusBuilder TypeError(const ConstraintSource& source,
-                                const ast::SourceLocation& start,
-                                const ast::SourceLocation& end) {
-  absl::StatusOr<std::string> quote = QuoteSubConstraint(source, start, end);
-  if (!quote.ok()) {
-    return gutils::InternalErrorBuilder(GUTILS_LOC)
-           << "Failed to quote sub-constraint: "
-           << gutils::StableStatusToString(quote.status());
-  }
-  return gutils::InternalErrorBuilder(GUTILS_LOC)
-         << *quote << "Runtime type error: ";
-}
-
 // -- Auxiliary evaluators -----------------------------------------------------
 
 // Like Eval, but ensuring the result is a bool. Caches Boolean results and
@@ -283,7 +269,8 @@ absl::StatusOr<bool> EvalToBool(const Expression& expr,
       eval_cache->insert({&expr, absl::get<bool>(result)});
     return absl::get<bool>(result);
   } else {
-    return TypeError(context.source, expr.start_location(), expr.end_location())
+    return RuntimeTypeError(context.source, expr.start_location(),
+                            expr.end_location())
            << "expected expression of type bool";
   }
 }
@@ -295,7 +282,8 @@ absl::StatusOr<Integer> EvalToInt(const Expression& expr,
   ASSIGN_OR_RETURN(EvalResult result, Eval(expr, context, eval_cache));
   if (absl::holds_alternative<Integer>(result))
     return absl::get<Integer>(result);
-  return TypeError(context.source, expr.start_location(), expr.end_location())
+  return RuntimeTypeError(context.source, expr.start_location(),
+                          expr.end_location())
          << "expected expression of integral type";
 }
 
@@ -348,7 +336,8 @@ absl::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
         break;
     }
   }
-  return TypeError(context.source, expr.start_location(), expr.end_location())
+  return RuntimeTypeError(context.source, expr.start_location(),
+                          expr.end_location())
          << "cannot cast expression of type " << expr.type() << " to type "
          << type;
 }
@@ -638,7 +627,8 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
     case Expression::kKey: {
       auto it = context.entry.keys.find(expr.key());
       if (it == context.entry.keys.end()) {
-        TypeError(context.source, expr.start_location(), expr.end_location())
+        RuntimeTypeError(context.source, expr.start_location(),
+                         expr.end_location())
             << "unknown key " << expr.key() << " in table "
             << context.entry.table_name;
       }
@@ -651,8 +641,8 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
       if (attribute_name == "priority") {
         return Integer(context.entry.priority);
       } else {
-        return TypeError(context.source, expr.start_location(),
-                         expr.end_location())
+        return RuntimeTypeError(context.source, expr.start_location(),
+                                expr.end_location())
                << "unknown attribute '" << attribute_name << "'";
       }
     }
@@ -688,8 +678,8 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
       absl::StatusOr<EvalResult> result =
           absl::visit(EvalFieldAccess{.field = field}, composite_value);
       if (!result.ok()) {
-        return TypeError(context.source, expr.start_location(),
-                         expr.end_location())
+        return RuntimeTypeError(context.source, expr.start_location(),
+                                expr.end_location())
                << result.status().message();
       }
       return result;
@@ -736,7 +726,7 @@ absl::Status DynamicTypeCheck(const ConstraintSource& source,
     case Type::TYPE_NOT_SET:
       break;
   }
-  return TypeError(source, expr.start_location(), expr.end_location())
+  return RuntimeTypeError(source, expr.start_location(), expr.end_location())
          << "unexpected runtime representation of type " << expr.type();
 }
 
