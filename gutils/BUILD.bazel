@@ -105,3 +105,15 @@ cc_library(
     hdrs = ["overload.h"],
     visibility = ["//visibility:public"],
 )
+
+cc_library(
+    name = "collections",
+    hdrs = [
+        "collections.h",
+    ],
+    deps = [
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
