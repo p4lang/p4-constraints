@@ -28,6 +28,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gutils/proto.h"
+#include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/ast.pb.h"
 
@@ -114,6 +115,16 @@ absl::optional<int> TypeBitwidth(const Type& type) {
       return type.optional_match().bitwidth();
     default:
       return absl::nullopt;
+  }
+}
+
+absl::StatusOr<int> TypeBitwidthOrStatus(const Type& type) {
+  std::optional<int> bitwidth = TypeBitwidth(type);
+  if (bitwidth.has_value()) {
+    return *bitwidth;
+  } else {
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+           << "expected a type with bitwidth, but got: " << type;
   }
 }
 
