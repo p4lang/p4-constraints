@@ -64,18 +64,17 @@ jobs:
         START=${{ steps.start-time.outputs.formattedTime }}
         END=${{ steps.end-time.outputs.formattedTime }}
         DURATION=$(( $END - $START ))
-        echo $(du -sh $CACHE/*)
-        echo $(du -sk $CACHE/*)
-        echo $(ls -al $CACHE/*)
-        CACHE_SIZE_KB=$(du -sk $CACHE | cut -f1)
         echo "duration=$DURATION" | tee "$GITHUB_ENV"
+
+        echo $(du -sh $CACHE/*)
+        CACHE_SIZE_KB=$(du -sk $CACHE | cut -f1)
         echo "cache_size_kb=$CACHE_SIZE_KB" | tee "$GITHUB_ENV"
 
     - name: Compress bazel cache
       # Compress cache if it is larger than 10 MB.
       if: env.cache_size_kb > 10000
       # Taken from https://github.com/carbon-language/carbon-lang/pull/585.
-      run:
+      run: |
         total_file_count=$(find $CACHE -type f | wc -l)
         stale_file_count=$(find $CACHE -type f -atime $NUM_DAYS_CONSIDERED_STALE | wc -l)
         echo "Removing $stale_file_count files out of $total_file_count total."
