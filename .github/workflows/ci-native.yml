@@ -20,9 +20,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Create cache directory
-      run: mkdir -p $CACHE
-
     - name: Install p4c system dependencies (Flex, Bison, GMP)
       run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
 
@@ -30,6 +27,9 @@ jobs:
       run: |
         curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/$BAZEL"
         chmod +x $BAZEL
+
+    - name: Create cache directory
+      run: mkdir -p $CACHE
 
     - name: Mount bazel cache
       uses: actions/cache/restore@v3
