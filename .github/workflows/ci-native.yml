@@ -16,6 +16,7 @@ jobs:
     env:
       BAZEL: bazelisk-linux-amd64
       CACHE: ~/cache/bazel/disk-cache
+      NUM_DAYS_CONISDERED_STALE: +30
 
     steps:
     - uses: actions/checkout@v3
@@ -55,13 +56,25 @@ jobs:
         # Unix timestamp -- seconds since 1970.
         format: X
 
-    - name: Calculate duration
+    - name: Calculate duration and cache size
       run: |
         START=${{ steps.start-time.outputs.formattedTime }}
         END=${{ steps.end-time.outputs.formattedTime }}
         DURATION=$(( $END - $START ))
+        CACHE_SIZE_KB=$(du -sk $CACHE | cut -f1)
         echo "duration=$DURATION" >> "$GITHUB_ENV"
+        echo "cache_size_kb=$CACHE_SIZE_KB" >> "$GITHUB_ENV"
 
+    - name: Compress bazel cache
+      # Compress cache if it is larger than 10 MB.
+      if: env.cache_size_kb > 10000
+      # Taken from https://github.com/carbon-language/carbon-lang/pull/585.
+      run:
+        total_file_count=$(find $CACHE -type f | wc -l)
+        stale_file_count=$(find $CACHE -type f -atime $NUM_DAYS_CONISDERED_STALE | wc -l)
+        echo "Removing $stale_file_count files out of $total_file_count total."
+        find $CACHE -type f -atime $NUM_DAYS_CONISDERED_STALE -delete
+      
     - name: Save bazel cache
       uses: actions/cache/save@v3
       # We create a new cache entry if either of the following is true:
