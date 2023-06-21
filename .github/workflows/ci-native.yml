@@ -64,8 +64,9 @@ jobs:
         START=${{ steps.start-time.outputs.formattedTime }}
         END=${{ steps.end-time.outputs.formattedTime }}
         DURATION=$(( $END - $START ))
-        echo $(du -sh $CACHE)
-        echo $(du -sk $CACHE)
+        echo $(du -sh $CACHE/*)
+        echo $(du -sk $CACHE/*)
+        echo $(ls -al $CACHE/*)
         CACHE_SIZE_KB=$(du -sk $CACHE | cut -f1)
         echo "duration=$DURATION" | tee "$GITHUB_ENV"
         echo "cache_size_kb=$CACHE_SIZE_KB" | tee "$GITHUB_ENV"
