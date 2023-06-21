@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       BAZEL: bazelisk-linux-amd64
-      SWSS: https://x-token-auth:${{ secrets.PINS_GITHUB_BOT_PERSONAL_ACCESS_TOKEN }}@github.com/pins/sonic-swss-common.git
       CACHE: /tmp/bazel-disk-cache
 
     steps:
@@ -39,9 +38,6 @@ jobs:
       run: |
         curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/$BAZEL"
         chmod +x $BAZEL
-
-    - name: Set up GitHub credentials for private repos
-      run: git config --global url."${SWSS}".InsteadOf "git@github.com:pins/sonic-swss-common.git"
 
     - name: Save start time
       uses: josStorer/get-current-time@v2
