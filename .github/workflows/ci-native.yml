@@ -21,15 +21,12 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Install p4c system dependencies (Flex, Bison, GMP)
-      run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
+      run: sudo apt update && sudo apt install bison flex libfl-dev libgmp-dev
 
     - name: Install bazelisk
       run: |
         curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/$BAZEL"
         chmod +x $BAZEL
-
-    - name: Create cache directory
-      run: mkdir -p $CACHE
 
     - name: Mount bazel cache
       uses: actions/cache/restore@v3
@@ -42,7 +39,8 @@ jobs:
       uses: josStorer/get-current-time@v2
       id: start-time
       with:
-        format: SSSSSS
+        # Unix timestamp -- seconds since 1970.
+        format: X
 
     - name: Build
       run: ./$BAZEL build --disk_cache=$CACHE --test_output=errors //...
@@ -54,12 +52,13 @@ jobs:
       uses: josStorer/get-current-time@v2
       id: end-time
       with:
-        format: SSSSSS
+        # Unix timestamp -- seconds since 1970.
+        format: X
 
     - name: Calculate duration
       run: |
-        START=${{ steps.start-time.outputs.time }}
-        END=${{ steps.end-time.outputs.time }}
+        START=${{ steps.start-time.outputs.formattedTime }}
+        END=${{ steps.end-time.outputs.formattedTime }}
         DURATION=$(( $END - $START ))
         echo "duration=$DURATION" >> "$GITHUB_ENV"
 
