@@ -6,67 +6,79 @@ on:
   pull_request:
     branches: [ master ]
   schedule:
-    # Run daily at 00:00 (https://crontab.guru/#0_0_*_*_*).
+    # Run daily at midnight to ensure the cache stays fresh.
+    # https://crontab.guru/#0_0_*_*_*
     - cron: "0 0 * * *"
 
 jobs:
-
   build:
-    # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
-    runs-on: ubuntu-20.04
+    name: build
+    runs-on: ubuntu-22.04
     env:
       BAZEL: bazelisk-linux-amd64
+      SWSS: https://x-token-auth:${{ secrets.PINS_GITHUB_BOT_PERSONAL_ACCESS_TOKEN }}@github.com/pins/sonic-swss-common.git
+      CACHE: /tmp/bazel-disk-cache
+
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Mount bazel cache
-      uses: actions/cache@v2
+      uses: actions/cache/restore@v3
+      id: restore-cache
       with:
-        # See https://docs.bazel.build/versions/master/output_directories.html
-        path: "~/.cache/bazel"
+        path: $CACHE
         # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
-        key: new-${{ runner.os }}-build-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
+        key: ${{ runner.os }}-${{ hashFiles('**/*_deps.bzl', '.bazelrc') }}
         restore-keys: |
-          new-${{ runner.os }}-build-
-          new-${{ runner.os }}-
+          ${{ runner.os }}-
 
-    - name: Install p4c system dependencies (Flex, Bison, GMP)
-      run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
+    - name: Install system dependencies
+      run: ./install_dependencies.sh
 
     - name: Install bazelisk
       run: |
-        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.4/$BAZEL"
+        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/$BAZEL"
         chmod +x $BAZEL
+
+    - name: Set up GitHub credentials for private repos
+      run: git config --global url."${SWSS}".InsteadOf "git@github.com:pins/sonic-swss-common.git"
+
+    - name: Save start time
+      uses: josStorer/get-current-time@v2
+      id: start-time
+      with:
+        format: X  # Unix Timestamp -- seconds since 1970.
 
     - name: Build
-      run: ./$BAZEL build //...
-
-  test:
-    # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
-    runs-on: ubuntu-20.04
-    env:
-      BAZEL: bazelisk-linux-amd64
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Mount bazel cache
-      uses: actions/cache@v2
-      with:
-        # See https://docs.bazel.build/versions/master/output_directories.html
-        path: "~/.cache/bazel"
-        # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
-        key: new-${{ runner.os }}-test-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
-        restore-keys: |
-          new-${{ runner.os }}-test-
-          new-${{ runner.os }}-
-
-    - name: Install p4c system dependencies (Flex, Bison, GMP)
-      run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
-
-    - name: Install bazelisk
-      run: |
-        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.4/$BAZEL"
-        chmod +x $BAZEL
+      run: ./$BAZEL build --test_output=errors --disk_cache="$CACHE" //...
 
     - name: Test
-      run: ./$BAZEL test //... --test_output=errors
+      run: ./$BAZEL test --test_output=errors --disk_cache="$CACHE" //...
+
+    - name: Save end time
+      uses: josStorer/get-current-time@v2
+      id: end-time
+      with:
+        format: X  # Unix Timestamp -- seconds since 1970.
+
+    - name: Calculate duration
+      run: |
+        START=${{ steps.start-time.outputs.time }}
+        END=${{ steps.end-time.outputs.time }}
+        DURATION=$(( $END - $START ))
+        echo "duration=$DURATION" >> "$GITHUB_ENV"
+
+    - name: Save bazel cache
+      uses: actions/cache/save@v3
+      # We create a new cache entry if either of the following is true:
+      # - We had a cache miss for the primary key.
+      # - We are on the master branch.
+      # - It took more than 5 minutes to build and test.
+      if: >
+        !steps.restore-cache.outputs.cache-hit
+        || github.ref_name == 'master'
+        || env.duration > 300
+      with:
+        path: $CACHE
+        # See https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
+        key: ${{ runner.os }}-${{ hashFiles('**/*_deps.bzl', '.bazelrc') }}-${{ github.run_id }}
