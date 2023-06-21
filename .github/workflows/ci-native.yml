@@ -32,8 +32,8 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-
 
-    - name: Install system dependencies
-      run: ./install_dependencies.sh
+    - name: Install p4c system dependencies (Flex, Bison, GMP)
+      run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
 
     - name: Install bazelisk
       run: |
