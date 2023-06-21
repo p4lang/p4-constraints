@@ -35,7 +35,7 @@ jobs:
       uses: actions/cache/restore@v3
       id: restore-cache
       with:
-        path: $CACHE
+        path: ${{ env.CACHE }}
         key: ${{ runner.os }}
 
     - name: Save start time
@@ -74,6 +74,6 @@ jobs:
         || github.ref_name == 'master'
         || env.duration > 300
       with:
-        path: $CACHE
+        path: ${{ env.CACHE }}
         # See https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
         key: ${{ runner.os }}-${{ github.run_id }}
