@@ -16,7 +16,7 @@ jobs:
     env:
       BAZEL: bazelisk-linux-amd64
       CACHE: .cache/bazel/disk-cache
-      NUM_DAYS_CONSIDERED_STALE: +30
+      NUM_DAYS_CONSIDERED_STALE: "+30"
 
     steps:
     - uses: actions/checkout@v3
