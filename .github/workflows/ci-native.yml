@@ -16,7 +16,7 @@ jobs:
     env:
       BAZEL: bazelisk-linux-amd64
       CACHE: ~/.cache/bazel/disk-cache
-      NUM_DAYS_CONISDERED_STALE: +30
+      NUM_DAYS_CONSIDERED_STALE: +30
 
     steps:
     - uses: actions/checkout@v3
@@ -74,9 +74,9 @@ jobs:
       # Taken from https://github.com/carbon-language/carbon-lang/pull/585.
       run:
         total_file_count=$(find $CACHE -type f | wc -l)
-        stale_file_count=$(find $CACHE -type f -atime $NUM_DAYS_CONISDERED_STALE | wc -l)
+        stale_file_count=$(find $CACHE -type f -atime $NUM_DAYS_CONSIDERED_STALE | wc -l)
         echo "Removing $stale_file_count files out of $total_file_count total."
-        find $CACHE -type f -atime $NUM_DAYS_CONISDERED_STALE -delete
+        find $CACHE -type f -atime $NUM_DAYS_CONSIDERED_STALE -delete
       
     - name: Save bazel cache
       uses: actions/cache/save@v3
