@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       BAZEL: bazelisk-linux-amd64
-      CACHE: /tmp/bazel-disk-cache
+      CACHE: /.cache/bazel
 
     steps:
     - uses: actions/checkout@v3
