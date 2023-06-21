@@ -59,25 +59,19 @@ jobs:
         # Unix timestamp -- seconds since 1970.
         format: X
 
-    - name: Calculate duration and cache size
+    - name: Calculate build duration
       run: |
         START=${{ steps.start-time.outputs.formattedTime }}
         END=${{ steps.end-time.outputs.formattedTime }}
         DURATION=$(( $END - $START ))
         echo "duration=$DURATION" | tee "$GITHUB_ENV"
 
-        echo $(du -sh $CACHE/*)
-        CACHE_SIZE_KB=$(du -sk $CACHE | cut -f1)
-        echo "cache_size_kb=$CACHE_SIZE_KB" | tee "$GITHUB_ENV"
-
     - name: Compress bazel cache
-      # Compress cache if it is larger than 10 MB.
-      if: env.cache_size_kb > 10000
       # Taken from https://github.com/carbon-language/carbon-lang/pull/585.
       run: |
         total_file_count=$(find $CACHE -type f | wc -l)
         stale_file_count=$(find $CACHE -type f -atime $NUM_DAYS_CONSIDERED_STALE | wc -l)
-        echo "Removing $stale_file_count files out of $total_file_count total."
+        echo "Removing $stale_file_count stale files (not accessed in $NUM_DAYS_CONSIDERED_STALE days) out of $total_file_count files total."
         find $CACHE -type f -atime $NUM_DAYS_CONSIDERED_STALE -delete
       
     - name: Save bazel cache
@@ -85,11 +79,11 @@ jobs:
       # We create a new cache entry if either of the following is true:
       # - We had a cache miss for the primary key.
       # - We are on the master branch.
-      # - It took more than 5 minutes to build and test.
+      # - It took more than 3 minutes to build and test.
       if: >
         !steps.restore-cache.outputs.cache-hit
         || github.ref_name == 'master'
-        || env.duration > 300
+        || env.duration > 180
       with:
         path: ${{ env.CACHE }}
         # See https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
