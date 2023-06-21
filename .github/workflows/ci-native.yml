@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       BAZEL: bazelisk-linux-amd64
-      CACHE: ~/cache/bazel/disk-cache
+      CACHE: ~/.cache/bazel/disk-cache
       NUM_DAYS_CONISDERED_STALE: +30
 
     steps:
