@@ -16,17 +16,13 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       BAZEL: bazelisk-linux-amd64
-      CACHE: /.cache/bazel
+      CACHE: /tmp/cache/bazel
 
     steps:
     - uses: actions/checkout@v3
 
-    - name: Mount bazel cache
-      uses: actions/cache/restore@v3
-      id: restore-cache
-      with:
-        path: $CACHE
-        key: ${{ runner.os }}
+    - name: Create cache directory
+      run: mkdir -P $CACHE
 
     - name: Install p4c system dependencies (Flex, Bison, GMP)
       run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
@@ -35,6 +31,13 @@ jobs:
       run: |
         curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/$BAZEL"
         chmod +x $BAZEL
+
+    - name: Mount bazel cache
+      uses: actions/cache/restore@v3
+      id: restore-cache
+      with:
+        path: $CACHE
+        key: ${{ runner.os }}
 
     - name: Save start time
       uses: josStorer/get-current-time@v2
