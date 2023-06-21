@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       BAZEL: bazelisk-linux-amd64
-      CACHE: /tmp/cache/bazel
+      CACHE: ~/cache/bazel/disk-cache
 
     steps:
     - uses: actions/checkout@v3
@@ -45,10 +45,10 @@ jobs:
         format: SSSSSS
 
     - name: Build
-      run: ./$BAZEL build --test_output=errors //...
+      run: ./$BAZEL build --disk_cache=$CACHE --test_output=errors //...
 
     - name: Test
-      run: ./$BAZEL test --test_output=errors //...
+      run: ./$BAZEL test --disk_cache=$CACHE --test_output=errors //...
 
     - name: Save end time
       uses: josStorer/get-current-time@v2

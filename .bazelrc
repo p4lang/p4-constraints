@@ -4,8 +4,5 @@ try-import user.bazelrc
 # Use C++17.
 build --cxxopt='-std=c++17' --host_cxxopt='-std=c++17'
 
-# Use disk cache.
-build --disk_cache=/tmp/cache/bazel
-
 # Disable unhelpful warnings.
 build --copt='-Wno-sign-compare' --host_copt='-Wno-sign-compare'
