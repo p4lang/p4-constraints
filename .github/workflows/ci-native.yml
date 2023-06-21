@@ -12,7 +12,6 @@ on:
 
 jobs:
   build:
-    name: build
     runs-on: ubuntu-22.04
     env:
       BAZEL: bazelisk-linux-amd64
@@ -22,7 +21,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Create cache directory
-      run: mkdir -P $CACHE
+      run: mkdir -p $CACHE
 
     - name: Install p4c system dependencies (Flex, Bison, GMP)
       run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
