@@ -16,6 +16,8 @@
 
 #include "p4_constraints/backend/symbolic_interpreter.h"
 
+#include <cstdint>
+#include <limits>
 #include <string>
 #include <variant>
 
@@ -131,6 +133,13 @@ absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
   }
   return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
          << "got invalid type: " << key;
+}
+
+SymbolicAttribute AddSymbolicPriority(z3::solver& solver) {
+  z3::expr priority_key = solver.ctx().int_const("priority");
+  solver.add(priority_key > 0);
+  solver.add(priority_key <= std::numeric_limits<int32_t>::max());
+  return SymbolicAttribute{.value = priority_key};
 }
 
 absl::StatusOr<z3::expr> GetValue(const SymbolicKey& symbolic_key) {
