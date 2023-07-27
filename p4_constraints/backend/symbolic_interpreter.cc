@@ -17,7 +17,9 @@
 #include "p4_constraints/backend/symbolic_interpreter.h"
 
 #include <cstdint>
+#include <functional>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -25,13 +27,16 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
 #include "gutils/collections.h"
 #include "gutils/overload.h"
 #include "gutils/source_location.h"
 #include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
@@ -409,6 +414,175 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
          << "got invalid expression: " << expr.DebugString();
 }
 
+// Turns a bitstring (expressed as a normal string with only 0s and 1s) into a
+// compact P4Runtime bytestring (i.e. one without leading 0s).
+absl::StatusOr<std::string> BitstringToP4RuntimeBytestring(
+    absl::string_view bitstring, int bitwidth) {
+  std::string padded_bitstring(bitstring);
+  // If bitwidth is not divisible by 8, pad beginning with 0s.
+  if (bitwidth % 8 != 0) {
+    padded_bitstring =
+        absl::StrCat(std::string(8 - bitwidth % 8, '0'), padded_bitstring);
+  }
+
+  // Construct a bytestring bit-by-bit.
+  std::string bytestring;
+  bytestring.reserve((bitwidth + 7) / 8);
+  uint8_t byte = 0;
+  // Track if we've seen non-zero byte to skip leading zeroes.
+  bool seen_non_zero_byte = false;
+  for (int i = 0; i < padded_bitstring.size(); i++) {
+    byte <<= 1;
+    if (padded_bitstring[i] == '1') {
+      byte += 1;
+    }
+    if ((i + 1) % 8 == 0) {
+      // Skip leading zero bytes.
+      if (seen_non_zero_byte || byte != 0) {
+        bytestring += byte;
+        seen_non_zero_byte = true;
+      }
+      byte = 0;
+    }
+  }
+  // Bytestrings may not be empty, so if the bitstring is all 0s, then we
+  // concretize it to be the zero byte.
+  if (bytestring.empty()) {
+    bytestring = std::string{'\0'};
+  }
+  return bytestring;
+}
+
+// Turns a hexstring into a compact P4Runtime bytestring (i.e. one without
+// leading 0s).
+absl::StatusOr<std::string> HexstringToP4RuntimeBytestring(
+    absl::string_view hexstring) {
+  // Get rid of leading zeroes.
+  if (hexstring.find_first_not_of('0') < hexstring.size()) {
+    hexstring.remove_prefix(hexstring.find_first_not_of('0'));
+  } else {
+    // hexstring was just 0, so we make it a byte-sized hex string equal to 0.
+    return std::string{'\0'};
+  }
+  // The hex string length needs to be divisible by 2 to be convertible to a
+  // bytestring, so we pad with a 0 if it's too short.
+  return absl::HexStringToBytes(
+      hexstring.length() % 2 != 0 ? absl::StrCat("0", hexstring) : hexstring);
+}
+
+absl::StatusOr<std::string> Z3BitvectorValueToP4RuntimeBytestring(
+    absl::string_view z3_value, int bitwidth) {
+  if (absl::ConsumePrefix(&z3_value, "#x")) {
+    return HexstringToP4RuntimeBytestring(z3_value);
+  }
+  if (absl::ConsumePrefix(&z3_value, "#b")) {
+    return BitstringToP4RuntimeBytestring(z3_value, bitwidth);
+  }
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+         << "Expected a Z3 bitvector value starting with '#x' or '#b', but got "
+            "'"
+         << z3_value << "'.";
+}
+
+absl::StatusOr<std::optional<p4::v1::FieldMatch>> ConcretizeKey(
+    const SymbolicKey& match_key, const p4_constraints::KeyInfo& key_info,
+    const z3::model& model) {
+  p4::v1::FieldMatch match;
+  match.set_field_id(key_info.id);
+  ASSIGN_OR_RETURN(int bitwidth,
+                   p4_constraints::ast::TypeBitwidthOrStatus(key_info.type));
+  switch (key_info.type.type_case()) {
+    case p4_constraints::ast::Type::kExact: {
+      ASSIGN_OR_RETURN(z3::expr match_key_value, GetValue(match_key));
+      ASSIGN_OR_RETURN(
+          *match.mutable_exact()->mutable_value(),
+          // Even if the match_key_value is uninterpreted in the model, we
+          // require the evaluation to generate a value for it, since exact
+          // matches must be present.
+          Z3BitvectorValueToP4RuntimeBytestring(
+              model.eval(match_key_value, /*model_completion=*/true)
+                  .to_string(),
+              bitwidth));
+      return match;
+    }
+    case p4_constraints::ast::Type::kOptionalMatch:
+    case p4_constraints::ast::Type::kTernary: {
+      ASSIGN_OR_RETURN(z3::expr key_mask, GetMask(match_key));
+      // We use a mask of all 0 bits to denote the wildcard match in our Z3
+      // encoding.
+      if (model.eval(key_mask == 0, /*model_completion=*/true).is_true())
+        return std::nullopt;
+      ASSIGN_OR_RETURN(z3::expr match_key_value, GetValue(match_key));
+
+      if (key_info.type.has_optional_match()) {
+        ASSIGN_OR_RETURN(
+            *match.mutable_optional()->mutable_value(),
+            Z3BitvectorValueToP4RuntimeBytestring(
+                model.eval(match_key_value, /*model_completion=*/true)
+                    .to_string(),
+                bitwidth));
+      } else {
+        ASSIGN_OR_RETURN(
+            *match.mutable_ternary()->mutable_value(),
+            Z3BitvectorValueToP4RuntimeBytestring(
+                model.eval(match_key_value, /*model_completion=*/true)
+                    .to_string(),
+                bitwidth));
+        ASSIGN_OR_RETURN(
+            *match.mutable_ternary()->mutable_mask(),
+            Z3BitvectorValueToP4RuntimeBytestring(
+                model.eval(key_mask, /*model_completion=*/true).to_string(),
+                bitwidth));
+      }
+      return match;
+    }
+
+    case p4_constraints::ast::Type::kLpm: {
+      ASSIGN_OR_RETURN(z3::expr key_prefix_length, GetPrefixLength(match_key));
+      if (!model.eval(key_prefix_length, /*model_completion=*/true)
+               .is_numeral()) {
+        return gutils::InternalErrorBuilder(GUTILS_LOC)
+               << "Prefix length should always be an integer. Instead, got '"
+               << model.eval(key_prefix_length)
+               << "' for key: " << key_info.name;
+      }
+      int prefix_length =
+          model.eval(key_prefix_length, /*model_completion=*/true)
+              .get_numeral_int();
+      // We use a prefix length of 0 to denote the wildcard match in Z3.
+      if (prefix_length == 0) return std::nullopt;
+      ASSIGN_OR_RETURN(z3::expr match_key_value, GetValue(match_key));
+
+      ASSIGN_OR_RETURN(
+          *match.mutable_lpm()->mutable_value(),
+          Z3BitvectorValueToP4RuntimeBytestring(
+              model.eval(match_key_value, /*model_completion=*/true)
+                  .to_string(),
+              bitwidth));
+      match.mutable_lpm()->set_prefix_len(prefix_length);
+      return match;
+    }
+
+    // TODO(b/291779521): Range matches are not currently supported.
+    case ast::Type::kRange:
+      return gutils::UnimplementedErrorBuilder(GUTILS_LOC)
+             << "Range matches are not currently supported by the "
+                "p4-constraints symbolic representation.";
+
+    // Non-match types.
+    case p4_constraints::ast::Type::kUnknown:
+    case p4_constraints::ast::Type::kUnsupported:
+    case p4_constraints::ast::Type::kBoolean:
+    case p4_constraints::ast::Type::kArbitraryInt:
+    case p4_constraints::ast::Type::kFixedUnsigned:
+    case p4_constraints::ast::Type::TYPE_NOT_SET:
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+             << "expected a match type, but got: " << key_info;
+  }
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+         << "got invalid type: " << key_info;
+}
+
 }  // namespace
 
 absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
@@ -484,7 +658,8 @@ absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
 }
 
 SymbolicAttribute AddSymbolicPriority(z3::solver& solver) {
-  z3::expr priority_key = solver.ctx().int_const("priority");
+  z3::expr priority_key =
+      solver.ctx().int_const(kSymbolicPriorityAttributeName);
   solver.add(priority_key > 0);
   solver.add(priority_key <= std::numeric_limits<int32_t>::max());
   return SymbolicAttribute{.value = priority_key};
@@ -506,6 +681,50 @@ absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
   return EvalSymbolicallyTo<z3::expr>(constraint, constraint_source,
                                       symbolic_key_by_name,
                                       symbolic_attribute_by_name, solver);
+}
+
+absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
+    const z3::model& model, const TableInfo& table_info,
+    const absl::flat_hash_map<std::string, SymbolicKey>& symbolic_key_by_name,
+    const absl::flat_hash_map<std::string, SymbolicAttribute>&
+        symbolic_attribute_by_name,
+    std::function<absl::StatusOr<bool>(absl::string_view key_name)>
+        skip_key_named) {
+  p4::v1::TableEntry table_entry;
+  table_entry.set_table_id(table_info.id);
+
+  // Construct match fields by evaluating their respective entries in the model.
+  for (const auto& [key_name, key_info] : table_info.keys_by_name) {
+    ASSIGN_OR_RETURN(bool key_should_be_skipped, skip_key_named(key_name));
+    if (key_should_be_skipped) continue;
+
+    ASSIGN_OR_RETURN(const SymbolicKey* symbolic_key,
+                     gutils::FindPtrOrStatus(symbolic_key_by_name, key_name));
+    ASSIGN_OR_RETURN(std::optional<p4::v1::FieldMatch> match,
+                     ConcretizeKey(*symbolic_key, key_info, model));
+
+    // A match without a value indicates a wildcard match.
+    if (match.has_value()) {
+      *table_entry.add_match() = *match;
+    }
+  }
+
+  // Set priority if it exists.
+  if (auto priority_key = gutils::FindPtrOrStatus(
+          symbolic_attribute_by_name, kSymbolicPriorityAttributeName);
+      priority_key.ok()) {
+    if (model.has_interp((*priority_key)->value.decl())) {
+      table_entry.set_priority(
+          model.eval((*priority_key)->value).get_numeral_int());
+    } else {
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+             << "A priority SymbolicAttribute existed, but it was not "
+                "constrained. This should never happen. Please use "
+                "AddSymbolicPriority to initialize a priority for the symbolic "
+                "interpreter.";
+    }
+  }
+  return table_entry;
 }
 
 absl::StatusOr<z3::expr> GetValue(const SymbolicKey& symbolic_key) {
