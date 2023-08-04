@@ -231,7 +231,7 @@ void AddMatchFields(const ast::Expression& expr,
       AddMatchFields(expr.field_access().expr(), field_set);
       return;
     // Currently priority is the only metadata and that is not a key.
-    case ast::Expression::kMetadataAccess:
+    case ast::Expression::kAttributeAccess:
       return;
     case ast::Expression::kIntegerConstant:
       return;
@@ -264,7 +264,7 @@ absl::StatusOr<int> Size(const ast::Expression& ast, SizeCache* size_cache) {
     case Expression::kArithmeticNegation:
     case Expression::kTypeCast:
     case Expression::kFieldAccess:
-    case Expression::kMetadataAccess:
+    case Expression::kAttributeAccess:
       // Uses an early return for these cases because they all resolve to a
       // single value (not an expression) and are therefore treated as having
       // size 1. Result is not cached because it provides no benefit beyond

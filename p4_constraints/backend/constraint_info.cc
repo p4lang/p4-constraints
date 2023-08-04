@@ -174,16 +174,17 @@ absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
 
 }  // namespace
 
-std::optional<MetadataInfo> GetMetadataInfo(absl::string_view metadata_name) {
+std::optional<AttributeInfo> GetAttributeInfo(
+    absl::string_view attribute_name) {
   // ArbitraryInt ast type.
   ast::Type arbitrary_int;
   arbitrary_int.mutable_arbitrary_int();
 
-  if (metadata_name == "priority") {
-    return MetadataInfo{.name = "priority", .type = arbitrary_int};
+  if (attribute_name == "priority") {
+    return AttributeInfo{.name = "priority", .type = arbitrary_int};
   }
 
-  // Unknown metadata.
+  // Unknown attribute.
   return absl::nullopt;
 }
 

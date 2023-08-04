@@ -73,4 +73,4 @@ Type error: operand type optional<32> does not support ordered comparison
     | 
 102 |     ::unknown > 10;
     |     ^^^^^^^^^
-Type error: unknown metadata 'unknown'
+Type error: unknown attribute 'unknown'

@@ -195,7 +195,7 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //
 //   constraint ::=
 //     | 'true' | 'false'
-//     |  <numeral> | <key> | <metadata_access>
+//     |  <numeral> | <key> | <attribute_access>
 //     | '!' constraint
 //     | '-' constraint
 //     | '(' constraint ')'
@@ -204,7 +204,7 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //     | constraint ('==' | '!=' | '>' | '>=' | '<' | '<=') constraint
 //
 //   <key> ::= <id> ('.' <id>)*
-//   <metadata_access> ::= '::' <id>
+//   <attribute_access> ::= '::' <id>
 //
 // As usual (see https://en.wikipedia.org/wiki/Left_recursion), we accomplish
 // this by removing left recursion from the grammar by rewriting it as follows:
@@ -213,7 +213,7 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //
 //   initial ::=
 //     | 'true' | 'false'
-//     | <numeral> | <key> | <metadata_access>
+//     | <numeral> | <key> | <attribute_access>
 //     | '!' constraint
 //     | '-' constraint
 //     | '(' constraint ')'
@@ -254,9 +254,9 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
       break;
     }
     case Token::DOUBLE_COLON: {
-      ASSIGN_OR_RETURN(const Token metadata_name,
+      ASSIGN_OR_RETURN(const Token attribute_name,
                        ExpectTokenKind(Token::ID, tokens));
-      ASSIGN_OR_RETURN(ast, ast::MakeMetadataAccess(token, metadata_name));
+      ASSIGN_OR_RETURN(ast, ast::MakeAttributeAccess(token, attribute_name));
       break;
     }
     case Token::BANG: {
