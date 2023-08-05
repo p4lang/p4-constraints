@@ -82,7 +82,7 @@ table:
 
 Note that an `optional` match is just a restricted kind of `ternary` match whose mask always satisfies the following constraint:
 ```
-// Wildcard match or wildcard match.
+// Wildcard match or exact match.
 optional_match_key::mask == 0 || optional_match_key::mask == -1
 ```
 
