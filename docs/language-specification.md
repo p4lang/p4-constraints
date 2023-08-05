@@ -68,27 +68,48 @@ with `k` being of type `bit<W>`. Then the fields that can be accessed using
 the `::` operator together with their types are summarized in the following
 table:
 
-| <match_type> | field            | field type |
-|--------------|------------------|------------|
-| exact        | k::value         | bit\<W\>   |
-| ternary      | k::value         | bit\<W\>   |
+| <match_type> | field            | field type | assumed P4Runtime well-formedness constraints | 
+|--------------|------------------|------------|-----------------------------------------------|
+| exact        | k::value         | bit\<W\>   | 
+| ternary      | k::value         | bit\<W\>   | masked-off bits are zero: `value & !mask == 0`
 |              | k::mask          | bit\<W\>   |
-| optional     | k::value         | bit\<W\>   |
-|              | k::mask          | bit\<W\>   |
-| lpm          | k::value         | bit\<W\>   |
-|              | k::prefix_length | int        |
-| range        | k::low           | bit\<W\>   |
+| optional     | k::value         | bit\<W\>   | masked-off bits are zero: `value & !mask == 0` 
+|              | k::mask          | bit\<W\>   | wildcad or exact match: `mask == -1 \|\| mask == 0`
+| lpm          | k::value         | bit\<W\>   | masked-off bits are zero:`value & !prefix_mask == 0`<br> where `prefix_mask` is a `W`-bit vector whose upper `prefix_length` bits are 1 and the lower bits are 0
+|              | k::prefix_length | int        | `0 <= prefix_length && prefix_length <= W` 
+| range        | k::low           | bit\<W\>   | `low < high \|\| (low == 0 & high == 0)`
 |              | k::high          | bit\<W\>   |
 
 Note that an `optional` match is just a restricted kind of `ternary` match whose mask always satisfies the following constraint:
 ```
-// Exact match or wildcard match.
+// Wildcard match or wildcard match.
 optional_match_key::mask == 0 || optional_match_key::mask == -1
 ```
 
 When `k` is of type `bool`, everything behaves precisely as if `k` was of type
 `bit<1>`, with the boolean constant `true` and `false` being mapped to `1` and
 `0`, respectively.
+
+
+### Assumed P4runtime Well-Formedness Constraints
+
+In p4-constraints, we assume that all table entries we consider satisify certain 
+*well-formedness constraints* that do not require an explicit 
+`@entry_restriction`.
+These well-formedness constraints are shown in the table above and essentially
+say that the entries are valid [according to the P4Runtime standard].
+This includes *canonicity constraints* that rule out distinct but semanitcally
+equivalent representations of table entries. For example, using
+[P4's mask notation], the ternaries `10 &&& 10` and `11 &&& 11` are equivalent,
+as both match the set of bitvectors `{10, 11}`. But only `10 &&& 10` is legal
+[according to the P4Runtime standard], which says that  masked-off bits must be
+0. In general, this is captured by the constraint `value & !mask == 0`.
+
+*CAUTION:* As of May 2024, p4-constraint's implementation *assumes*, but
+*does not enforce* these P4Runtime well-formedness constraints.
+
+[according to the P4Runtime standard]: https://p4.org/p4-spec/p4runtime/v1.3.0/P4Runtime-Spec.html#sec-match-format
+[P4's mask notation]: https://p4.org/p4-spec/docs/P4-16-v1.2.4.html#sec-cubes
 
 ### Attribute access
 
