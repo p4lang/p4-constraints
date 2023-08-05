@@ -90,7 +90,7 @@ When `k` is of type `bool`, everything behaves precisely as if `k` was of type
 `bit<1>`, with the boolean constant `true` and `false` being mapped to `1` and
 `0`, respectively.
 
-### Implicit Well-Formedness Constraints
+#### Implicit Well-Formedness Constraints
 
 In p4-constraints, we assume that all table entries we consider satisify certain 
 *well-formedness constraints* that do not require an explicit `@entry_restriction`.
