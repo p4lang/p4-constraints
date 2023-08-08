@@ -68,9 +68,9 @@ with `k` being of type `bit<W>`. Then the fields that can be accessed using
 the `::` operator together with their types are summarized in the following
 table:
 
-| <match_type> | field            | field type | implicit well-formedness constraints | 
-|--------------|------------------|------------|--------------------------------------|
-| exact        | k::value         | bit\<W\>   | none |
+| <match_type> | field            | field type | implicit P4Runtime well-formedness constraints | 
+|--------------|------------------|------------|------------------------------------------------|
+| exact        | k::value         | bit\<W\>   | none
 | ternary      | k::value         | bit\<W\>   | masked-off bits are zero: `value & !mask == 0`
 |              | k::mask          | bit\<W\>   |
 | optional     | k::value         | bit\<W\>   | masked-off bits are zero: `value & !mask == 0` 
