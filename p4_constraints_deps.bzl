@@ -55,3 +55,18 @@ def p4_constraints_deps():
             strip_prefix = "p4c-a9aa5ff46affe8fd5dde78c2411d1bc58a715b33",
             sha256 = "fa22c3d2b3105a39a73fc3938cbc6cd5d7895113a3e6ed6c5a48fbbd958a28af",
         )
+    if not native.existing_rule("com_github_z3prover_z3"):
+        http_archive(
+            name = "com_github_z3prover_z3",
+            url = "https://github.com/Z3Prover/z3/archive/z3-4.8.12.tar.gz",
+            strip_prefix = "z3-z3-4.8.12",
+            sha256 = "e3aaefde68b839299cbc988178529535e66048398f7d083b40c69fe0da55f8b7",
+            build_file = "@//:bazel/BUILD.z3.bazel",
+        )
+    if not native.existing_rule("rules_foreign_cc"):  # Required for Z3.
+        http_archive(
+            name = "rules_foreign_cc",
+            sha256 = "d54742ffbdc6924f222d2179f0e10e911c5c659c4ae74158e9fe827aad862ac6",
+            strip_prefix = "rules_foreign_cc-0.2.0",
+            url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.2.0.tar.gz",
+        )

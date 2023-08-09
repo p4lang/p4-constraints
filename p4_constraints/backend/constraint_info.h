@@ -25,10 +25,13 @@
 
 #include <stdint.h>
 
+#include <ostream>
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -45,6 +48,12 @@ struct KeyInfo {
   // Derives from MatchField.match_type and MatchField.bitwidth in p4info.proto.
   ast::Type type;
 };
+
+template <typename Sink>
+void AbslStringify(Sink& sink, const KeyInfo& info) {
+  absl::Format(&sink, "KeyInfo{ id: %d; name: \"%s\"; type: { %s }; }", info.id,
+               info.name, info.type.ShortDebugString());
+}
 
 struct TableInfo {
   uint32_t id;       // Same as Table.preamble.id in p4info.proto.
@@ -83,6 +92,12 @@ struct MetadataInfo {
 // Returns information for a given metadata name, std::nullopt for unknown
 // metadata.
 std::optional<MetadataInfo> GetMetadataInfo(absl::string_view metadata_name);
+
+// -- Pretty Printers ----------------------------------------------------------
+
+inline std::ostream& operator<<(std::ostream& os, const KeyInfo& info) {
+  return os << absl::StrCat(info);
+}
 
 }  // namespace p4_constraints
 
