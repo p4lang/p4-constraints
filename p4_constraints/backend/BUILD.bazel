@@ -88,6 +88,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:optional",
         "@com_googlesource_code_re2//:re2",
     ],
@@ -136,6 +137,43 @@ cc_test(
         "//p4_constraints:constraint_source",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "symbolic_interpreter",
+    srcs = [
+        "symbolic_interpreter.cc",
+    ],
+    hdrs = [
+        "symbolic_interpreter.h",
+    ],
+    deps = [
+        ":constraint_info",
+        "//gutils:overload",
+        "//gutils:source_location",
+        "//gutils:status",
+        "//p4_constraints:ast",
+        "//p4_constraints:ast_cc_proto",
+        "@com_github_z3prover_z3//:api",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "symbolic_interpreter_test",
+    srcs = ["symbolic_interpreter_test.cc"],
+    deps = [
+        ":constraint_info",
+        ":symbolic_interpreter",
+        "//gutils:parse_text_proto",
+        "//gutils:status_matchers",
+        "//p4_constraints:ast_cc_proto",
+        "@com_github_z3prover_z3//:api",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
