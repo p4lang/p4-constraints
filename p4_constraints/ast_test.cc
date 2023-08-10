@@ -90,10 +90,10 @@ TEST(SizeTest, SizeOfFieldAccessOneAndNotCached) {
   EXPECT_THAT(size_cache.size(), Eq(0));
 }
 
-TEST(SizeTest, SizeOfMetaAccessOneAndNotCached) {
+TEST(SizeTest, SizeOfAttrAccessOneAndNotCached) {
   // ::priority
   Expression expr =
-      ParseRawAst(R"pb(metadata_access { metadata_name: "priority" })pb");
+      ParseRawAst(R"pb(attribute_access { attribute_name: "priority" })pb");
   SizeCache size_cache;
   EXPECT_THAT(Size(expr, &size_cache), IsOkAndHolds(1));
   EXPECT_THAT(size_cache.size(), Eq(0));

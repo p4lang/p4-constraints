@@ -35,9 +35,9 @@ absl::StatusOr<ast::Expression> MakeBooleanConstant(const Token& boolean);
 // Status otherwise.
 absl::StatusOr<ast::Expression> MakeIntegerConstant(const Token& numeral);
 
-// Returns an AST for table entry metadata access (such as ::priority).
-absl::StatusOr<ast::Expression> MakeMetadataAccess(const Token& double_colon,
-                                                   const Token& metadata_name);
+// Returns an AST for table entry attribute access (such as ::priority).
+absl::StatusOr<ast::Expression> MakeAttributeAccess(
+    const Token& double_colon, const Token& attribute_name);
 
 // Returns an AST `a` such that `a.key() == "id1.id2...idn"` if given ID tokens
 // `{t1, ..., tn}` such that `idi == ti.text`, or an error Status otherwise.

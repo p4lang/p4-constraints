@@ -150,11 +150,11 @@ absl::StatusOr<ast::Expression> MakeKey(absl::Span<const Token> key_fragments) {
   return ast;
 }
 
-absl::StatusOr<ast::Expression> MakeMetadataAccess(const Token& double_colon,
-                                                   const Token& metadata_name) {
+absl::StatusOr<ast::Expression> MakeAttributeAccess(
+    const Token& double_colon, const Token& attribute_name) {
   ast::Expression ast = LocatedExpression(double_colon.start_location,
-                                          metadata_name.end_location);
-  ast.mutable_metadata_access()->set_metadata_name(metadata_name.text);
+                                          attribute_name.end_location);
+  ast.mutable_attribute_access()->set_attribute_name(attribute_name.text);
   return ast;
 }
 

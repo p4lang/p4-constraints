@@ -91,7 +91,7 @@ class InferAndCheckTypesTest : public ::testing::Test {
       case ast::Expression::kBooleanConstant:
       case ast::Expression::kIntegerConstant:
       case ast::Expression::kKey:
-      case ast::Expression::kMetadataAccess:
+      case ast::Expression::kAttributeAccess:
       case ast::Expression::EXPRESSION_NOT_SET:
         return;
       case ast::Expression::kBinaryExpression:
@@ -501,9 +501,9 @@ TEST_F(InferAndCheckTypesTest, FieldAccess_AccessFieldOfScalarExpression) {
   }
 }
 
-TEST_F(InferAndCheckTypesTest, MetadataAccessTypeChecks) {
+TEST_F(InferAndCheckTypesTest, AttributeAccessTypeChecks) {
   Expression expr = ParseTextProtoOrDie<Expression>(R"pb(
-    metadata_access { metadata_name: "priority" }
+    attribute_access { attribute_name: "priority" }
   )pb");
   ASSERT_OK(InferAndCheckTypes(&expr, kTableInfo)) << expr.DebugString();
   EXPECT_EQ(expr.type(), kArbitraryInt) << expr.DebugString();

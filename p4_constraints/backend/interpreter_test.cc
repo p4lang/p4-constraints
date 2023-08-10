@@ -220,7 +220,7 @@ Expression GetPriorityEqualityConstraint(const int32_t priority) {
       binop: EQ
       left {
         type { arbitrary_int {} }
-        metadata_access { metadata_name: "priority" }
+        attribute_access { attribute_name: "priority" }
       }
       right {
         type { arbitrary_int {} }

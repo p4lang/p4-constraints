@@ -247,24 +247,24 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       return absl::OkStatus();
     }
 
-    case Expression::kMetadataAccess: {
-      const std::string& metadata_name =
-          expr->metadata_access().metadata_name();
-      const auto metadata_info = GetMetadataInfo(metadata_name);
-      if (metadata_info == std::nullopt) {
+    case Expression::kAttributeAccess: {
+      const std::string& attribute_name =
+          expr->attribute_access().attribute_name();
+      const auto attribute_info = GetAttributeInfo(attribute_name);
+      if (attribute_info == std::nullopt) {
         return TypeError(table_info.constraint_source, expr->start_location(),
                          expr->end_location())
-               << "unknown metadata '" << metadata_name << "'";
+               << "unknown attribute '" << attribute_name << "'";
       }
       Type& expr_type = *expr->mutable_type();
-      expr_type = metadata_info->type;
+      expr_type = attribute_info->type;
       if (expr_type.type_case() == Type::kUnknown ||
           expr_type.type_case() == Type::kUnsupported) {
-        // Since we hardcode the type of metadata in the source code, this line
+        // Since we hardcode the type of attribute in the source code, this line
         // should never be reached.
         return InternalError(table_info.constraint_source,
                              expr->start_location(), expr->end_location())
-               << "metadata '" << metadata_name << "' has illegal type "
+               << "attribute '" << attribute_name << "' has illegal type "
                << TypeName(expr_type);
       }
       return absl::OkStatus();

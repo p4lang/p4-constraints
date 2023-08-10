@@ -645,14 +645,15 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
       return it->second;
     }
 
-    case Expression::kMetadataAccess: {
-      const std::string metadata_name = expr.metadata_access().metadata_name();
-      if (metadata_name == "priority") {
+    case Expression::kAttributeAccess: {
+      const std::string attribute_name =
+          expr.attribute_access().attribute_name();
+      if (attribute_name == "priority") {
         return Integer(context.entry.priority);
       } else {
         return TypeError(context.source, expr.start_location(),
                          expr.end_location())
-               << "unknown metadata '" << metadata_name << "'";
+               << "unknown attribute '" << attribute_name << "'";
       }
     }
 

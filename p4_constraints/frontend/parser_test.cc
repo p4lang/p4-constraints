@@ -253,8 +253,9 @@ TEST_F(ParserTest, Positive) {
           {{kLpar, kLpar, kLpar, kTrue, kRpar, kRpar, kRpar},
            "boolean_constant: true"},
 
-          // Metadata access.
-          {{kDoubleColon, kId}, R"pb(metadata_access { metadata_name: "" })pb"},
+          // Attribute access.
+          {{kDoubleColon, kId},
+           R"pb(attribute_access { attribute_name: "" })pb"},
       };
 
   for (const auto& test : tests) {

@@ -90,24 +90,24 @@ When `k` is of type `bool`, everything behaves precisely as if `k` was of type
 `bit<1>`, with the boolean constant `true` and `false` being mapped to `1` and
 `0`, respectively.
 
-### Metadata access
+### Attribute access
 
 A table entry might include data other than the values for the keys.
-We refer to this information as "metadata", and it can be accessed in the
-constraint by `::<metadata>` syntax:
+We refer to this information as "attribute", and it can be accessed in the
+constraint by `::<attribute>` syntax:
 ```
-// Accessing priority metadata of the table entry.
+// Accessing priority attribute of the table entry.
 ::priority < 0x7ffffff
 ```
 
 The operator `::` here should not be confused with the projection operator for
 accessing fields of a key. If positioned at the beginining of a constraint, the
-operator indicates metadata access. If positioned after a filed access, it
+operator indicates attribute access. If positioned after a filed access, it
 indicates projection.
 
-Here are the list of metadata that are currently supported:
+Here are the list of attribute that are currently supported:
 
-| metadata     | type  | description                      |
+| attribute    | type  | description                      |
 |--------------|-------|----------------------------------|
 | ::priority   | int   | The priority of the table entry. |
 
@@ -171,7 +171,7 @@ expression ::=
   | 'true' | 'false'                                               // Boolean constants.
   | numeral                                                        // Numeric constants.
   | key                                                            // Table keys.
-  | metadata_access                                                // Accesssing table entry metadata.
+  | attribute_access                                               // Accessing table entry attribute.
   | '!' expression                                                 // Boolean negation.
   | '-' expression                                                 // Arithmetic negation.
   | '(' expression ')'                                             // Parentheses.
@@ -179,7 +179,7 @@ expression ::=
   | expression ('&&' | '||' | '->' | ';') expression               // Binary boolean operators.
   | expression ('==' | '!=' | '>' | '>=' | '<' | '<=') expression  // Comparisons.
 
-metadata_access ::= '::' id                                        // Entry metadata access (e.g. "::priority").
+attribute_access ::= '::' id                                       // Entry attribute access (e.g. "::priority").
 
 numeral ::=
   | (0[dD])? [0-9]+                                                // Decimal numerals.
@@ -201,7 +201,7 @@ higher in the table means "binds stronger".
 | Syntax               | Semantics           | Associativity | Examples                                            |
 |----------------------|---------------------|---------------|-----------------------------------------------------|
 | :: (after key)       | Field access        | N/A           | ipv4.dst::prefix_length                             |
-| :: (otherwise)       | Metadata access     | N/A           | ::priority                                          |
+| :: (otherwise)       | Attribute access    | N/A           | ::priority                                          |
 | !                    | Boolean negation    | N/A           | !true, !(key == 2), !!false                         |
 | -                    | Arithmetic negation | N/A           | -1, -ipv4.dst::prefix_length, --2                   |
 | ==, !=, >, >=, <, <= | Comparison          | none          | 2 == 4, 1 > -12, true != false                      |
