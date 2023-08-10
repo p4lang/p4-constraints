@@ -171,6 +171,7 @@ cc_test(
         ":symbolic_interpreter",
         "//gutils:parse_text_proto",
         "//gutils:status_matchers",
+        "//gutils:testing",
         "//p4_constraints:ast_cc_proto",
         "@com_github_z3prover_z3//:api",
         "@com_google_absl//absl/status",

@@ -8,6 +8,7 @@
 #include "absl/status/status.h"
 #include "gutils/parse_text_proto.h"
 #include "gutils/status_matchers.h"
+#include "gutils/testing.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "z3++.h"
@@ -16,6 +17,7 @@ namespace p4_constraints {
 namespace {
 
 using ::gutils::ParseTextProtoOrDie;
+using ::gutils::SnakeCaseToCamelCase;
 using ::gutils::testing::status::IsOk;
 using ::gutils::testing::status::StatusIs;
 using ::p4_constraints::ast::Type;
@@ -118,7 +120,7 @@ INSTANTIATE_TEST_SUITE_P(
         },
     }),
     [](const testing::TestParamInfo<KeyInfo>& info) {
-      return info.param.name;
+      return SnakeCaseToCamelCase(info.param.name);
     });
 
 TEST_P(AddSymbolicKeyNegativeTest, AddSymbolicKeyReturnsStatus) {
@@ -149,7 +151,7 @@ INSTANTIATE_TEST_SUITE_P(
         },
     }),
     [](const testing::TestParamInfo<KeyInfo>& info) {
-      return info.param.name;
+      return SnakeCaseToCamelCase(info.param.name);
     });
 
 TEST(AddSymbolicKeySensibleConstraintsTest, OptionalCanHaveZeroMask) {
