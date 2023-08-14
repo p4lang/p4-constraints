@@ -1,6 +1,9 @@
 // This file provides tools for symbolically representing table entries that
 // satisfy a given p4-constraint, and for synthesizing them into concrete table
 // entries.
+//
+// Currently, a Z3 solver used with this API may only encode a single table
+// entry at a time.
 
 /*
  * Copyright 2023 The P4-Constraints Authors
@@ -60,6 +63,11 @@ struct SymbolicLpm {
   z3::expr prefix_length;
 };
 
+// Currently, the only symbolic attribute supported is priority.
+struct SymbolicAttribute {
+  z3::expr value;
+};
+
 // Z3 representation of a single match key in a P4 table entry.
 using SymbolicKey = std::variant<SymbolicExact, SymbolicTernary, SymbolicLpm>;
 
@@ -80,12 +88,23 @@ using SymbolicKey = std::variant<SymbolicExact, SymbolicTernary, SymbolicLpm>;
 //    still satisfy any p4-constraints.
 //
 // Expects `key` to have a non-zero bitwidth.
+// NOTE: This API will only work correctly if the `solver` represents a single
+// table entry.
 absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
                                            z3::solver& solver);
 
+// Creates and returns a attribute key for table priority and constrains it to
+// be between 1 and MAX_INT32 (inclusive).
+// Note1: Only needed for (and should only be used with) tables that
+// require/expect priority.
+// NOTE2: This API will only work correctly if the `solver` represents a single
+// table entry.
+SymbolicAttribute AddSymbolicPriority(z3::solver& solver);
+
 // -- Accessors ----------------------------------------------------------------
 
-// Gets the Z3 expression in the `value` field of `symbolic_key`.
+// Gets the Z3 expression in the `value` field of `symbolic_key`, if it is
+// not SymbolicAttribute. Otherwise, returns an InvalidArgumentError.
 absl::StatusOr<z3::expr> GetValue(const SymbolicKey& symbolic_key);
 
 // Gets the Z3 expression in the `mask` field of `symbolic_key`, if it is an
@@ -113,6 +132,11 @@ template <typename Sink>
 void AbslStringify(Sink& sink, const SymbolicLpm& lpm) {
   absl::Format(&sink, "SymbolicLpm{ value: '%s' prefix_length: '%s' }",
                lpm.value.to_string(), lpm.prefix_length.to_string());
+}
+template <typename Sink>
+void AbslStringify(Sink& sink, const SymbolicAttribute& attribute) {
+  absl::Format(&sink, "SymbolicAttribute{ value: '%s' }",
+               attribute.value.to_string());
 }
 
 template <typename Sink>

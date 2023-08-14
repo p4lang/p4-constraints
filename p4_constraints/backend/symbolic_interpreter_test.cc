@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -404,6 +405,42 @@ TEST(AddSymbolicKeySensibleConstraintsTest,
   ASSERT_OK_AND_ASSIGN(z3::expr prefix_length, GetPrefixLength(key));
   solver.add(prefix_length == 2);
   solver.add(value == 0xF00F00);
+  EXPECT_EQ(solver.check(), z3::unsat);
+}
+
+TEST(AddSymbolicPriorityTest, IsSatisfiable) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  AddSymbolicPriority(solver);
+  EXPECT_EQ(solver.check(), z3::sat);
+}
+
+TEST(AddSymbolicPriorityTest, ZeroIsUnsat) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  SymbolicAttribute priority_key = AddSymbolicPriority(solver);
+  solver.add(priority_key.value == 0);
+  EXPECT_EQ(solver.check(), z3::unsat);
+}
+
+TEST(AddSymbolicPriorityTest, Positive32BitIntegerIsSat) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  SymbolicAttribute priority_key = AddSymbolicPriority(solver);
+  solver.add(priority_key.value == 42);
+  EXPECT_EQ(solver.check(), z3::sat);
+}
+
+TEST(AddSymbolicPriorityTest, PositiveTooLargeIntegerIsUnsat) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  SymbolicAttribute priority_key = AddSymbolicPriority(solver);
+  z3::expr too_large_value = solver_context.int_val(0xFFF'FFFF'FFFF'FFFF);
+  solver.add(priority_key.value > too_large_value);
   EXPECT_EQ(solver.check(), z3::unsat);
 }
 
