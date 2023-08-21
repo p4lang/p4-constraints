@@ -15,6 +15,7 @@ cc_library(
     ],
     deps = [
         ":constraint_info",
+        ":errors",
         "//gutils:ordered_map",
         "//gutils:overload",
         "//gutils:ret_check",
@@ -75,6 +76,7 @@ cc_library(
         "type_checker.h",
     ],
     deps = [
+        "//gutils:source_location",
         "//gutils:status",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
@@ -151,15 +153,34 @@ cc_library(
     ],
     deps = [
         ":constraint_info",
+        ":errors",
+        "//gutils:collections",
         "//gutils:overload",
         "//gutils:source_location",
         "//gutils:status",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
         "@com_github_z3prover_z3//:api",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_library(
+    name = "errors",
+    srcs = ["errors.cc"],
+    hdrs = ["errors.h"],
+    deps = [
+        "//gutils:source_location",
+        "//gutils:status",
+        "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
+        "//p4_constraints:quote",
+        "@com_google_absl//absl/status:statusor",
     ],
 )
 
@@ -174,7 +195,9 @@ cc_test(
         "//gutils:testing",
         "//p4_constraints:ast_cc_proto",
         "@com_github_z3prover_z3//:api",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )
