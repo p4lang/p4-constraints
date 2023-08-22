@@ -300,22 +300,16 @@ absl::StatusOr<SymbolicEvalResult> EvalTypeCast(
 // Forward declared to allow mutual-recursion.
 absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
     const ast::Expression& expr, const ConstraintSource& constraint_source,
-    const absl::flat_hash_map<std::string, SymbolicKey>& symbolic_key_by_name,
-    const absl::flat_hash_map<std::string, SymbolicAttribute>&
-        symbolic_attribute_by_name,
-    z3::solver& solver);
+    const SymbolicEnvironment& environment, z3::solver& solver);
 
 template <class T>
-absl::StatusOr<T> EvalSymbolicallyTo(
-    const ast::Expression& expr, const ConstraintSource& constraint_source,
-    const absl::flat_hash_map<std::string, SymbolicKey>& symbolic_key_by_name,
-    const absl::flat_hash_map<std::string, SymbolicAttribute>&
-        symbolic_attribute_by_name,
-    z3::solver& solver) {
+absl::StatusOr<T> EvalSymbolicallyTo(const ast::Expression& expr,
+                                     const ConstraintSource& constraint_source,
+                                     const SymbolicEnvironment& environment,
+                                     z3::solver& solver) {
   ASSIGN_OR_RETURN(
       SymbolicEvalResult result,
-      EvalSymbolically(expr, constraint_source, symbolic_key_by_name,
-                       symbolic_attribute_by_name, solver));
+      EvalSymbolically(expr, constraint_source, environment, solver));
 
   T* t = std::get_if<T>(&result);
   if (t == nullptr) {
@@ -330,10 +324,7 @@ absl::StatusOr<T> EvalSymbolicallyTo(
 
 absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
     const ast::Expression& expr, const ConstraintSource& constraint_source,
-    const absl::flat_hash_map<std::string, SymbolicKey>& symbolic_key_by_name,
-    const absl::flat_hash_map<std::string, SymbolicAttribute>&
-        symbolic_attribute_by_name,
-    z3::solver& solver) {
+    const SymbolicEnvironment& environment, z3::solver& solver) {
   switch (expr.expression_case()) {
     case ast::Expression::kBooleanConstant:
       return solver.ctx().bool_val(expr.boolean_constant());
@@ -342,8 +333,7 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
       ASSIGN_OR_RETURN(
           z3::expr bool_result,
           EvalSymbolicallyTo<z3::expr>(expr.boolean_negation(),
-                                       constraint_source, symbolic_key_by_name,
-                                       symbolic_attribute_by_name, solver));
+                                       constraint_source, environment, solver));
       return !bool_result;
     }
 
@@ -354,15 +344,14 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
       ASSIGN_OR_RETURN(
           z3::expr int_result,
           EvalSymbolicallyTo<z3::expr>(expr.arithmetic_negation(),
-                                       constraint_source, symbolic_key_by_name,
-                                       symbolic_attribute_by_name, solver));
+                                       constraint_source, environment, solver));
       return -int_result;
     }
 
     case ast::Expression::kKey: {
-      ASSIGN_OR_RETURN(
-          const SymbolicKey* key,
-          gutils::FindPtrOrStatus(symbolic_key_by_name, expr.key()));
+      ASSIGN_OR_RETURN(const SymbolicKey* key,
+                       gutils::FindPtrOrStatus(environment.symbolic_key_by_name,
+                                               expr.key()));
       return *key;
     }
 
@@ -371,7 +360,7 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
       // moment. If there were, this logic would need to change.
       ASSIGN_OR_RETURN(
           const SymbolicKey* key,
-          gutils::FindPtrOrStatus(symbolic_key_by_name,
+          gutils::FindPtrOrStatus(environment.symbolic_key_by_name,
                                   expr.field_access().expr().key()));
       return GetFieldAccess(*key, expr.field_access().field());
     }
@@ -380,20 +369,20 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
       // All attributes should be in the map.
       ASSIGN_OR_RETURN(
           const SymbolicAttribute* attribute,
-          gutils::FindPtrOrStatus(symbolic_attribute_by_name,
+          gutils::FindPtrOrStatus(environment.symbolic_attribute_by_name,
                                   expr.attribute_access().attribute_name()));
       return attribute->value;
     }
 
     case ast::Expression::kBinaryExpression: {
-      ASSIGN_OR_RETURN(SymbolicEvalResult left_result,
-                       EvalSymbolically(expr.binary_expression().left(),
-                                        constraint_source, symbolic_key_by_name,
-                                        symbolic_attribute_by_name, solver));
-      ASSIGN_OR_RETURN(SymbolicEvalResult right_result,
-                       EvalSymbolically(expr.binary_expression().right(),
-                                        constraint_source, symbolic_key_by_name,
-                                        symbolic_attribute_by_name, solver));
+      ASSIGN_OR_RETURN(
+          SymbolicEvalResult left_result,
+          EvalSymbolically(expr.binary_expression().left(), constraint_source,
+                           environment, solver));
+      ASSIGN_OR_RETURN(
+          SymbolicEvalResult right_result,
+          EvalSymbolically(expr.binary_expression().right(), constraint_source,
+                           environment, solver));
       return EvalBinaryExpression(left_result, expr.binary_expression().binop(),
                                   right_result);
     }
@@ -402,8 +391,7 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
       ASSIGN_OR_RETURN(
           z3::expr pre_type_cast_result,
           EvalSymbolicallyTo<z3::expr>(expr.type_cast(), constraint_source,
-                                       symbolic_key_by_name,
-                                       symbolic_attribute_by_name, solver));
+                                       environment, solver));
       return EvalTypeCast(pre_type_cast_result, expr.type(), solver);
     }
 
@@ -668,10 +656,7 @@ SymbolicAttribute AddSymbolicPriority(z3::solver& solver) {
 absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
     const ast::Expression& constraint,
     const ConstraintSource& constraint_source,
-    const absl::flat_hash_map<std::string, SymbolicKey>& symbolic_key_by_name,
-    const absl::flat_hash_map<std::string, SymbolicAttribute>&
-        symbolic_attribute_by_name,
-    z3::solver& solver) {
+    const SymbolicEnvironment& environment, z3::solver& solver) {
   // TODO(b/296865478): Run the typechecker here instead when it is idempotent.
   if (!constraint.type().has_boolean()) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
@@ -679,15 +664,12 @@ absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
            << constraint.DebugString();
   }
   return EvalSymbolicallyTo<z3::expr>(constraint, constraint_source,
-                                      symbolic_key_by_name,
-                                      symbolic_attribute_by_name, solver);
+                                      environment, solver);
 }
 
 absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
     const z3::model& model, const TableInfo& table_info,
-    const absl::flat_hash_map<std::string, SymbolicKey>& symbolic_key_by_name,
-    const absl::flat_hash_map<std::string, SymbolicAttribute>&
-        symbolic_attribute_by_name,
+    const SymbolicEnvironment& environment,
     std::function<absl::StatusOr<bool>(absl::string_view key_name)>
         skip_key_named) {
   p4::v1::TableEntry table_entry;
@@ -698,8 +680,9 @@ absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
     ASSIGN_OR_RETURN(bool key_should_be_skipped, skip_key_named(key_name));
     if (key_should_be_skipped) continue;
 
-    ASSIGN_OR_RETURN(const SymbolicKey* symbolic_key,
-                     gutils::FindPtrOrStatus(symbolic_key_by_name, key_name));
+    ASSIGN_OR_RETURN(
+        const SymbolicKey* symbolic_key,
+        gutils::FindPtrOrStatus(environment.symbolic_key_by_name, key_name));
     ASSIGN_OR_RETURN(std::optional<p4::v1::FieldMatch> match,
                      ConcretizeKey(*symbolic_key, key_info, model));
 
@@ -710,8 +693,9 @@ absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
   }
 
   // Set priority if it exists.
-  if (auto priority_key = gutils::FindPtrOrStatus(
-          symbolic_attribute_by_name, kSymbolicPriorityAttributeName);
+  if (auto priority_key =
+          gutils::FindPtrOrStatus(environment.symbolic_attribute_by_name,
+                                  kSymbolicPriorityAttributeName);
       priority_key.ok()) {
     if (model.has_interp((*priority_key)->value.decl())) {
       table_entry.set_priority(

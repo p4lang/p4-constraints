@@ -81,6 +81,12 @@ constexpr char kSymbolicPriorityAttributeName[] = "priority";
 // Z3 representation of a single match key in a P4 table entry.
 using SymbolicKey = std::variant<SymbolicExact, SymbolicTernary, SymbolicLpm>;
 
+struct SymbolicEnvironment {
+  absl::flat_hash_map<std::string, SymbolicKey> symbolic_key_by_name;
+  absl::flat_hash_map<std::string, SymbolicAttribute>
+      symbolic_attribute_by_name;
+};
+
 // -- Main Functions -----------------------------------------------------------
 
 // Creates a `SymbolicKey` that symbolically represents the match field key
@@ -112,35 +118,29 @@ absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
 SymbolicAttribute AddSymbolicPriority(z3::solver& solver);
 
 // Translates a P4-Constraints expression into a Z3 expression using the
-// `symbolic_key_by_name` and `symbolic_attribute_by_name` mappings to interpret
-// keys and attributes respectively in the constraint. All symbolic keys
-// and attributes must already exist in the solver's context.
-// Invalid or not properly type-checked constraints will yield an
-// InvalidArgumentError or InternalError. The `constraint_source` is used to
+// `environment` maps to interpret keys and attributes in the
+// constraint. All symbolic keys and attributes must already exist in the
+// solver's context. Invalid or not properly type-checked constraints will yield
+// an InvalidArgumentError or InternalError. The `constraint_source` is used to
 // construct more palatable error messages.
 // NOTE: This API will only work correctly if the `solver` represents a single
 // table entry (as opposed to multiple).
 absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
     const ast::Expression& constraint,
     const ConstraintSource& constraint_source,
-    const absl::flat_hash_map<std::string, SymbolicKey>& symbolic_key_by_name,
-    const absl::flat_hash_map<std::string, SymbolicAttribute>&
-        symbolic_attribute_by_name,
-    z3::solver& solver);
+    const SymbolicEnvironment& environment, z3::solver& solver);
 
 // Returns an entry for the table given by `table_info` derived from `model`.
-// All keys named in `table_info` must be mapped by `name_to_symbolic_key`
-// unless `skip_key_named(name)` holds for the key `name`.
-// NOTE: The entry will NOT contain an action and is thus not a valid P4Runtime
-// entry without modification.
-// NOTE: This API will only work correctly if the  `model` represents a single
-// table entry (as opposed to multiple).
+// All keys named in `table_info` must be mapped by
+// `environment.symbolic_key_by_name` unless `skip_key_named(name)` holds for
+// the key `name`. NOTE: The entry will NOT contain an action and is thus not a
+// valid P4Runtime entry without modification. NOTE: This API will only work
+// correctly if the  `model` represents a single table entry (as opposed to
+// multiple).
 // TODO(b/242201770): Extract actions once action constraints are supported.
 absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
     const z3::model& model, const TableInfo& table_info,
-    const absl::flat_hash_map<std::string, SymbolicKey>& symbolic_key_by_name,
-    const absl::flat_hash_map<std::string, SymbolicAttribute>&
-        symbolic_attribute_by_name,
+    const SymbolicEnvironment& environment,
     std::function<absl::StatusOr<bool>(absl::string_view key_name)>
         skip_key_named = [](absl::string_view key_name) { return false; });
 
