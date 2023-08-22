@@ -20,12 +20,10 @@
 #include <stdint.h>
 
 #include <cstring>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
@@ -104,8 +102,12 @@ std::string EvalResultToString(const EvalResult& result) {
 
 // -- Parsing P4RT table entries -----------------------------------------------
 
-// See https://p4.org/p4runtime/spec/master/P4Runtime-Spec.html#sec-bytestrings.
-static absl::StatusOr<Integer> ParseP4RTInteger(const std::string& int_str) {
+// See
+// https://p4.org/p4-spec/docs/p4runtime-spec-working-draft-html-version.html#sec-bytestrings.
+static absl::StatusOr<Integer> ParseP4RTInteger(std::string int_str) {
+  // Remove leading zero-bits, to properly convert to a c_str in next step,
+  // allowing for non-canonical bytestrings.
+  int_str.erase(0, int_str.find_first_not_of('\0'));
   mpz_class integer;
   const char* chars = int_str.c_str();
   const size_t char_count = strlen(chars);
