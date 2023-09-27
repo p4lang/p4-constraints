@@ -537,10 +537,9 @@ TEST(EvaluateConstraintSymbolicallyTest,
   for (const auto& [name, key] : table_info.keys_by_name) {
     ASSERT_OK(AddSymbolicKey(key, solver));
   }
-  EXPECT_THAT(EvaluateConstraintSymbolically(
-                  *table_info.constraint, table_info.constraint_source,
-                  /*symbolic_key_by_name=*/{},
-                  /*symbolic_attribute_by_name=*/{}, solver),
+  EXPECT_THAT(EvaluateConstraintSymbolically(*table_info.constraint,
+                                             table_info.constraint_source,
+                                             /*environment=*/{}, solver),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
@@ -563,24 +562,21 @@ TEST_P(ConstraintTest,
       GetTableInfoWithConstraint(GetParam().constraint_string);
 
   // Add symbolic table keys to symbolic key map.
-  absl::flat_hash_map<std::string, SymbolicKey> symbolic_key_by_name;
+  SymbolicEnvironment environment;
   for (const auto& [key_name, key_info] : table_info.keys_by_name) {
     ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(key_info, solver));
-    symbolic_key_by_name.emplace(key_name, std::move(key));
+    environment.symbolic_key_by_name.insert({key_name, std::move(key)});
   }
 
   // Add symbolic priority to attribute map.
-  absl::flat_hash_map<std::string, SymbolicAttribute>
-      symbolic_attribute_by_name;
   SymbolicAttribute symbolic_priority = AddSymbolicPriority(solver);
-  symbolic_attribute_by_name.emplace(kSymbolicPriorityAttributeName,
-                                     std::move(symbolic_priority));
+  environment.symbolic_attribute_by_name.insert(
+      {kSymbolicPriorityAttributeName, std::move(symbolic_priority)});
 
-  ASSERT_OK_AND_ASSIGN(
-      z3::expr z3_constraint,
-      EvaluateConstraintSymbolically(
-          *table_info.constraint, table_info.constraint_source,
-          symbolic_key_by_name, symbolic_attribute_by_name, solver));
+  ASSERT_OK_AND_ASSIGN(z3::expr z3_constraint,
+                       EvaluateConstraintSymbolically(
+                           *table_info.constraint, table_info.constraint_source,
+                           environment, solver));
   solver.add(z3_constraint);
   EXPECT_EQ(solver.check(), GetParam().is_sat ? z3::sat : z3::unsat);
 }
@@ -596,31 +592,27 @@ TEST_P(ConstraintTest, ConcretizeEntryGivesEntrySatisfyingConstraints) {
       GetTableInfoWithConstraint(GetParam().constraint_string);
 
   // Add symbolic table keys to symbolic key map.
-  absl::flat_hash_map<std::string, SymbolicKey> symbolic_key_by_name;
+  SymbolicEnvironment environment;
   for (const auto& [key_name, key_info] : table_info.keys_by_name) {
     ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(key_info, solver));
-    symbolic_key_by_name.emplace(key_name, std::move(key));
+    environment.symbolic_key_by_name.insert({key_name, std::move(key)});
   }
 
   // Add symbolic priority to attribute map.
-  absl::flat_hash_map<std::string, SymbolicAttribute>
-      symbolic_attribute_by_name;
   SymbolicAttribute symbolic_priority = AddSymbolicPriority(solver);
-  symbolic_attribute_by_name.emplace(kSymbolicPriorityAttributeName,
-                                     std::move(symbolic_priority));
+  environment.symbolic_attribute_by_name.insert(
+      {kSymbolicPriorityAttributeName, std::move(symbolic_priority)});
 
-  ASSERT_OK_AND_ASSIGN(
-      z3::expr z3_constraint,
-      EvaluateConstraintSymbolically(
-          *table_info.constraint, table_info.constraint_source,
-          symbolic_key_by_name, symbolic_attribute_by_name, solver));
+  ASSERT_OK_AND_ASSIGN(z3::expr z3_constraint,
+                       EvaluateConstraintSymbolically(
+                           *table_info.constraint, table_info.constraint_source,
+                           environment, solver));
   solver.add(z3_constraint);
 
   ASSERT_EQ(solver.check(), z3::sat);
   ASSERT_OK_AND_ASSIGN(
       p4::v1::TableEntry concretized_entry,
-      ConcretizeEntry(solver.get_model(), table_info, symbolic_key_by_name,
-                      symbolic_attribute_by_name));
+      ConcretizeEntry(solver.get_model(), table_info, environment));
 
   // Sanity check that every exact value is not the empty string.
   for (const auto& match : concretized_entry.match()) {
@@ -777,31 +769,27 @@ TEST_P(FullySpecifiedConstraintTest, ConcretizeEntryGivesExactEntry) {
   }
 
   // Add symbolic table keys to symbolic key map.
-  absl::flat_hash_map<std::string, SymbolicKey> symbolic_key_by_name;
+  SymbolicEnvironment environment;
   for (const auto& [key_name, key_info] : table_info.keys_by_name) {
     ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(key_info, solver));
-    symbolic_key_by_name.emplace(key_name, std::move(key));
+    environment.symbolic_key_by_name.insert({key_name, std::move(key)});
   }
 
   // Add symbolic priority to attribute map.
-  absl::flat_hash_map<std::string, SymbolicAttribute>
-      symbolic_attribute_by_name;
   SymbolicAttribute symbolic_priority = AddSymbolicPriority(solver);
-  symbolic_attribute_by_name.emplace(kSymbolicPriorityAttributeName,
-                                     std::move(symbolic_priority));
+  environment.symbolic_attribute_by_name.insert(
+      {kSymbolicPriorityAttributeName, std::move(symbolic_priority)});
 
-  ASSERT_OK_AND_ASSIGN(
-      z3::expr z3_constraint,
-      EvaluateConstraintSymbolically(
-          *table_info.constraint, table_info.constraint_source,
-          symbolic_key_by_name, symbolic_attribute_by_name, solver));
+  ASSERT_OK_AND_ASSIGN(z3::expr z3_constraint,
+                       EvaluateConstraintSymbolically(
+                           *table_info.constraint, table_info.constraint_source,
+                           environment, solver));
   solver.add(z3_constraint);
 
   ASSERT_EQ(solver.check(), z3::sat);
   ASSERT_OK_AND_ASSIGN(
       p4::v1::TableEntry concretized_entry,
-      ConcretizeEntry(solver.get_model(), table_info, symbolic_key_by_name,
-                      symbolic_attribute_by_name,
+      ConcretizeEntry(solver.get_model(), table_info, environment,
                       [&](absl::string_view key_name) {
                         return GetParam().keys_to_skip.contains(key_name);
                       }));
