@@ -24,6 +24,7 @@
 #ifndef P4_CONSTRAINTS_BACKEND_SYMBOLIC_INTERPRETER_H_
 #define P4_CONSTRAINTS_BACKEND_SYMBOLIC_INTERPRETER_H_
 
+#include <functional>
 #include <ostream>
 #include <string>
 #include <variant>
@@ -32,7 +33,9 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "gutils/overload.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/constraint_source.h"
@@ -73,6 +76,8 @@ struct SymbolicAttribute {
   z3::expr value;
 };
 
+constexpr char kSymbolicPriorityAttributeName[] = "priority";
+
 // Z3 representation of a single match key in a P4 table entry.
 using SymbolicKey = std::variant<SymbolicExact, SymbolicTernary, SymbolicLpm>;
 
@@ -94,7 +99,7 @@ using SymbolicKey = std::variant<SymbolicExact, SymbolicTernary, SymbolicLpm>;
 //
 // Expects `key` to have a non-zero bitwidth.
 // NOTE: This API will only work correctly if the `solver` represents a single
-// table entry.
+// table entry (as opposed to multiple).
 absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
                                            z3::solver& solver);
 
@@ -103,7 +108,7 @@ absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
 // NOTE: Only needed for (and should only be used with) tables that
 // require/expect priority.
 // NOTE: This API will only work correctly if the `solver` represents a single
-// table entry.
+// table entry (as opposed to multiple).
 SymbolicAttribute AddSymbolicPriority(z3::solver& solver);
 
 // Translates a P4-Constraints expression into a Z3 expression using the
@@ -114,7 +119,7 @@ SymbolicAttribute AddSymbolicPriority(z3::solver& solver);
 // InvalidArgumentError or InternalError. The `constraint_source` is used to
 // construct more palatable error messages.
 // NOTE: This API will only work correctly if the `solver` represents a single
-// table entry.
+// table entry (as opposed to multiple).
 absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
     const ast::Expression& constraint,
     const ConstraintSource& constraint_source,
@@ -122,6 +127,22 @@ absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
     const absl::flat_hash_map<std::string, SymbolicAttribute>&
         symbolic_attribute_by_name,
     z3::solver& solver);
+
+// Returns an entry for the table given by `table_info` derived from `model`.
+// All keys named in `table_info` must be mapped by `name_to_symbolic_key`
+// unless `skip_key_named(name)` holds for the key `name`.
+// NOTE: The entry will NOT contain an action and is thus not a valid P4Runtime
+// entry without modification.
+// NOTE: This API will only work correctly if the  `model` represents a single
+// table entry (as opposed to multiple).
+// TODO(b/242201770): Extract actions once action constraints are supported.
+absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
+    const z3::model& model, const TableInfo& table_info,
+    const absl::flat_hash_map<std::string, SymbolicKey>& symbolic_key_by_name,
+    const absl::flat_hash_map<std::string, SymbolicAttribute>&
+        symbolic_attribute_by_name,
+    std::function<absl::StatusOr<bool>(absl::string_view key_name)>
+        skip_key_named = [](absl::string_view key_name) { return false; });
 
 // -- Accessors ----------------------------------------------------------------
 

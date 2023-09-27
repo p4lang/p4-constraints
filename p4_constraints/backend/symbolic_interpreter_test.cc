@@ -8,14 +8,19 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
 #include "gutils/parse_text_proto.h"
+#include "gutils/protocol_buffer_matchers.h"
 #include "gutils/status_matchers.h"
 #include "gutils/testing.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/backend/interpreter.h"
 #include "p4_constraints/backend/type_checker.h"
 #include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/parser.h"
@@ -26,7 +31,10 @@ namespace {
 
 using ::gutils::ParseTextProtoOrDie;
 using ::gutils::SnakeCaseToCamelCase;
+using ::gutils::testing::EqualsProto;
+using ::gutils::testing::proto::IgnoringRepeatedFieldOrdering;
 using ::gutils::testing::status::IsOk;
+using ::gutils::testing::status::IsOkAndHolds;
 using ::gutils::testing::status::StatusIs;
 using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::Type;
@@ -458,6 +466,11 @@ TableInfo GetTableInfoWithConstraint(absl::string_view constraint_string) {
   const Type kLpm32 = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }");
   const Type kOptional32 =
       ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
+  // Keys whose bitwidth is not a multiple of 8 may be handled somewhat
+  // differently, so they are good to test.
+  const Type kExact11 = ParseTextProtoOrDie<Type>("exact { bitwidth: 11 }");
+  const Type kOptional28 =
+      ParseTextProtoOrDie<Type>("optional_match { bitwidth: 28 }");
   const std::string kTableName = "table";
 
   ConstraintSource source{
@@ -476,6 +489,8 @@ TableInfo GetTableInfoWithConstraint(absl::string_view constraint_string) {
               {2, {2, "ternary32", kTernary32}},
               {3, {3, "lpm32", kLpm32}},
               {4, {4, "optional32", kOptional32}},
+              {5, {5, "exact11", kExact11}},
+              {6, {6, "optional28", kOptional28}},
           },
       .keys_by_name =
           {
@@ -483,6 +498,8 @@ TableInfo GetTableInfoWithConstraint(absl::string_view constraint_string) {
               {"ternary32", {2, "ternary32", kTernary32}},
               {"lpm32", {3, "lpm32", kLpm32}},
               {"optional32", {4, "optional32", kOptional32}},
+              {"exact11", {5, "exact11", kExact11}},
+              {"optional28", {6, "optional28", kOptional28}},
           },
   };
 
@@ -522,8 +539,8 @@ TEST(EvaluateConstraintSymbolicallyTest,
   }
   EXPECT_THAT(EvaluateConstraintSymbolically(
                   *table_info.constraint, table_info.constraint_source,
-                  /*name_to_symbolic_key=*/{},
-                  /*name_to_symbolic_attribute=*/{}, solver),
+                  /*symbolic_key_by_name=*/{},
+                  /*symbolic_attribute_by_name=*/{}, solver),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
@@ -544,29 +561,83 @@ TEST_P(ConstraintTest,
 
   TableInfo table_info =
       GetTableInfoWithConstraint(GetParam().constraint_string);
-  // Constraint type must be boolean to not fail early.
-  table_info.constraint->mutable_type()->mutable_boolean();
 
   // Add symbolic table keys to symbolic key map.
-  absl::flat_hash_map<std::string, SymbolicKey> name_to_symbolic_key;
+  absl::flat_hash_map<std::string, SymbolicKey> symbolic_key_by_name;
   for (const auto& [key_name, key_info] : table_info.keys_by_name) {
     ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(key_info, solver));
-    name_to_symbolic_key.emplace(key_name, std::move(key));
+    symbolic_key_by_name.emplace(key_name, std::move(key));
   }
 
   // Add symbolic priority to attribute map.
   absl::flat_hash_map<std::string, SymbolicAttribute>
-      name_to_symbolic_attribute;
+      symbolic_attribute_by_name;
   SymbolicAttribute symbolic_priority = AddSymbolicPriority(solver);
-  name_to_symbolic_attribute.emplace("priority", std::move(symbolic_priority));
+  symbolic_attribute_by_name.emplace(kSymbolicPriorityAttributeName,
+                                     std::move(symbolic_priority));
 
   ASSERT_OK_AND_ASSIGN(
       z3::expr z3_constraint,
       EvaluateConstraintSymbolically(
           *table_info.constraint, table_info.constraint_source,
-          name_to_symbolic_key, name_to_symbolic_attribute, solver));
+          symbolic_key_by_name, symbolic_attribute_by_name, solver));
   solver.add(z3_constraint);
   EXPECT_EQ(solver.check(), GetParam().is_sat ? z3::sat : z3::unsat);
+}
+
+TEST_P(ConstraintTest, ConcretizeEntryGivesEntrySatisfyingConstraints) {
+  if (!GetParam().is_sat) {
+    GTEST_SKIP() << "Test only sensible for satisfiable constraints";
+  }
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  TableInfo table_info =
+      GetTableInfoWithConstraint(GetParam().constraint_string);
+
+  // Add symbolic table keys to symbolic key map.
+  absl::flat_hash_map<std::string, SymbolicKey> symbolic_key_by_name;
+  for (const auto& [key_name, key_info] : table_info.keys_by_name) {
+    ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(key_info, solver));
+    symbolic_key_by_name.emplace(key_name, std::move(key));
+  }
+
+  // Add symbolic priority to attribute map.
+  absl::flat_hash_map<std::string, SymbolicAttribute>
+      symbolic_attribute_by_name;
+  SymbolicAttribute symbolic_priority = AddSymbolicPriority(solver);
+  symbolic_attribute_by_name.emplace(kSymbolicPriorityAttributeName,
+                                     std::move(symbolic_priority));
+
+  ASSERT_OK_AND_ASSIGN(
+      z3::expr z3_constraint,
+      EvaluateConstraintSymbolically(
+          *table_info.constraint, table_info.constraint_source,
+          symbolic_key_by_name, symbolic_attribute_by_name, solver));
+  solver.add(z3_constraint);
+
+  ASSERT_EQ(solver.check(), z3::sat);
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::TableEntry concretized_entry,
+      ConcretizeEntry(solver.get_model(), table_info, symbolic_key_by_name,
+                      symbolic_attribute_by_name));
+
+  // Sanity check that every exact value is not the empty string.
+  for (const auto& match : concretized_entry.match()) {
+    if (match.has_exact()) {
+      EXPECT_NE(match.exact().value(), "");
+    }
+  }
+
+  ConstraintInfo context{{table_info.id, table_info}};
+  // The empty string signifies that the entry doesn't violate the constraint.
+  EXPECT_THAT(ReasonEntryViolatesConstraint(concretized_entry, context),
+              IsOkAndHolds(""))
+      << "\nFor entry:\n"
+      << concretized_entry.DebugString()
+      << "\nConstraint string: " << GetParam().constraint_string
+      << "\nConstraint: " << table_info.constraint->DebugString()
+      << "\nAnd solver state: " << solver.to_smt2();
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -624,7 +695,7 @@ INSTANTIATE_TEST_SUITE_P(
         },
         {
             .test_name = "optional_equals_sat",
-            .constraint_string = "optional32 == 42",
+            .constraint_string = "optional32 == 1",
             .is_sat = true,
         },
         {
@@ -647,10 +718,280 @@ INSTANTIATE_TEST_SUITE_P(
             .constraint_string = "::priority > 50",
             .is_sat = true,
         },
+        {
+            .test_name = "exact_may_have_odd_bitwidth",
+            .constraint_string = "exact11 == 137",
+            .is_sat = true,
+        },
+        {
+            .test_name = "lpm_can_have_zero_prefix",
+            .constraint_string = "lpm32::prefix_length == 0",
+            .is_sat = true,
+        },
+        {
+            .test_name = "optional28_equals_sat",
+            .constraint_string = "optional28 == 1",
+            .is_sat = true,
+        },
     }),
     [](const testing::TestParamInfo<ConstraintTestCase>& info) {
       return SnakeCaseToCamelCase(info.param.test_name);
     });
 
+struct FullySpecifiedConstraintTestCase {
+  std::string test_name;
+  // A protobuf string representing an boolean AST Expression representing a
+  // constraint. Must fully specify the entry given below.
+  std::string constraint_string;
+  // Should be set with the only entry that can possibly meet the constraint
+  // string.
+  p4::v1::TableEntry expected_concretized_entry;
+  // Optionally, specify a set of keys that should be skipped when concretizing
+  // the table entry. This only makes sense for non-required keys.
+  absl::flat_hash_set<std::string> keys_to_skip;
+};
+
+using FullySpecifiedConstraintTest =
+    testing::TestWithParam<FullySpecifiedConstraintTestCase>;
+
+TEST_P(FullySpecifiedConstraintTest, ConcretizeEntryGivesExactEntry) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  TableInfo table_info =
+      GetTableInfoWithConstraint(GetParam().constraint_string);
+  ConstraintInfo context{{table_info.id, table_info}};
+  // TODO(b/297400616): p4-constraints currently does not correctly translate
+  // the bytestring representing 1280 to 1280 (instead turning it into 5).
+  if (!absl::StrContains(GetParam().constraint_string, "1280")) {
+    // Sanity check that the expected entry actually satisfies the constraint.
+    // The empty string signifies that the entry doesn't violate the constraint.
+    ASSERT_THAT(ReasonEntryViolatesConstraint(
+                    GetParam().expected_concretized_entry, context),
+                IsOkAndHolds(""))
+        << "\nFor entry:\n"
+        << GetParam().expected_concretized_entry.DebugString()
+        << "\nConstraint string: " << GetParam().constraint_string
+        << "\nConstraint: " << table_info.constraint->DebugString()
+        << "\nAnd solver state: " << solver.to_smt2();
+  }
+
+  // Add symbolic table keys to symbolic key map.
+  absl::flat_hash_map<std::string, SymbolicKey> symbolic_key_by_name;
+  for (const auto& [key_name, key_info] : table_info.keys_by_name) {
+    ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(key_info, solver));
+    symbolic_key_by_name.emplace(key_name, std::move(key));
+  }
+
+  // Add symbolic priority to attribute map.
+  absl::flat_hash_map<std::string, SymbolicAttribute>
+      symbolic_attribute_by_name;
+  SymbolicAttribute symbolic_priority = AddSymbolicPriority(solver);
+  symbolic_attribute_by_name.emplace(kSymbolicPriorityAttributeName,
+                                     std::move(symbolic_priority));
+
+  ASSERT_OK_AND_ASSIGN(
+      z3::expr z3_constraint,
+      EvaluateConstraintSymbolically(
+          *table_info.constraint, table_info.constraint_source,
+          symbolic_key_by_name, symbolic_attribute_by_name, solver));
+  solver.add(z3_constraint);
+
+  ASSERT_EQ(solver.check(), z3::sat);
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::TableEntry concretized_entry,
+      ConcretizeEntry(solver.get_model(), table_info, symbolic_key_by_name,
+                      symbolic_attribute_by_name,
+                      [&](absl::string_view key_name) {
+                        return GetParam().keys_to_skip.contains(key_name);
+                      }));
+
+  EXPECT_THAT(concretized_entry, IgnoringRepeatedFieldOrdering(EqualsProto(
+                                     GetParam().expected_concretized_entry)));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    CheckExactEntryOutput, FullySpecifiedConstraintTest,
+    testing::ValuesIn(std::vector<FullySpecifiedConstraintTestCase>{
+        {
+            .test_name = "only_equals",
+            .constraint_string =
+                "exact11 == 5; exact32 == 5; ::priority == 50; "
+                "lpm32::prefix_length == 0; ternary32::mask == 0; "
+                "optional32::mask == 0; optional28::mask == 0;",
+            .expected_concretized_entry =
+                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                  table_id: 1
+                  match {
+                    field_id: 1
+                    exact { value: "\005" }
+                  }
+                  match {
+                    field_id: 5
+                    exact { value: "\005" }
+                  }
+                  priority: 50
+                )pb"),
+        },
+        {
+            .test_name = "last_byte_zero_in_exacts",
+            .constraint_string =
+                "exact11 == 1280; exact32 == 1280; ::priority == 50; "
+                "lpm32::prefix_length == 0; ternary32::mask == 0; "
+                "optional32::mask == 0; optional28::mask == 0;",
+            .expected_concretized_entry =
+                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                  table_id: 1
+                  match {
+                    field_id: 1
+                    exact { value: "\005\000" }
+                  }
+                  match {
+                    field_id: 5
+                    exact { value: "\005\000" }
+                  }
+                  priority: 50
+                )pb"),
+        },
+        {
+            .test_name = "with_inequalities",
+            .constraint_string = "::priority > 1; ::priority < 3; "
+                                 "lpm32::prefix_length == 0; ternary32::mask "
+                                 "== 0; optional32::mask == 0; exact11 == 1; "
+                                 "exact32 == 1; optional28::mask == 0;",
+            .expected_concretized_entry =
+                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                  table_id: 1
+                  match {
+                    field_id: 1
+                    exact { value: "\001" }
+                  }
+                  match {
+                    field_id: 5
+                    exact { value: "\001" }
+                  }
+                  priority: 2
+                )pb"),
+        },
+        {
+            .test_name = "set_lpm",
+            .constraint_string = "lpm32 == 5; "
+                                 "ternary32::mask == 0; optional32::mask == 0; "
+                                 "exact11 == 1; exact32 == 1; ::priority == 1; "
+                                 "optional28::mask == 0;",
+            .expected_concretized_entry =
+                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                  table_id: 1
+                  match {
+                    field_id: 1
+                    exact { value: "\001" }
+                  }
+                  match {
+                    field_id: 3
+                    lpm { value: "\005" prefix_len: 32 }
+                  }
+                  match {
+                    field_id: 5
+                    exact { value: "\001" }
+                  }
+                  priority: 1
+                )pb"),
+        },
+        {
+            .test_name = "set_ternary",
+            .constraint_string =
+                "ternary32 == 5; "
+                "lpm32::prefix_length == 0; optional32::mask == 0; exact11 == "
+                "1; exact32 == 1; ::priority == 1; optional28::mask == 0;",
+            .expected_concretized_entry =
+                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                  table_id: 1
+                  match {
+                    field_id: 1
+                    exact { value: "\001" }
+                  }
+                  match {
+                    field_id: 2
+                    ternary { value: "\005" mask: "\377\377\377\377" }
+                  }
+                  match {
+                    field_id: 5
+                    exact { value: "\001" }
+                  }
+                  priority: 1
+                )pb"),
+        },
+        {
+            .test_name = "set_optional32",
+            .constraint_string =
+                "optional32 == 5; "
+                "lpm32::prefix_length == 0; ternary32::mask == 0;  exact11 == "
+                "1; exact32 == 1; ::priority == 1; optional28::mask == 0;",
+            .expected_concretized_entry =
+                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                  table_id: 1
+                  match {
+                    field_id: 1
+                    exact { value: "\001" }
+                  }
+                  match {
+                    field_id: 4
+                    optional { value: "\005" }
+                  }
+                  match {
+                    field_id: 5
+                    exact { value: "\001" }
+                  }
+                  priority: 1
+                )pb"),
+        },
+        {
+            .test_name = "set_optional28",
+            .constraint_string =
+                "optional28 == 5; "
+                "lpm32::prefix_length == 0; ternary32::mask == 0; exact11 == "
+                "1; exact32 == 1; ::priority == 1; optional32::mask == 0;",
+            .expected_concretized_entry =
+                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                  table_id: 1
+                  match {
+                    field_id: 1
+                    exact { value: "\001" }
+                  }
+                  match {
+                    field_id: 5
+                    exact { value: "\001" }
+                  }
+                  match {
+                    field_id: 6
+                    optional { value: "\005" }
+                  }
+                  priority: 1
+                )pb"),
+        },
+        {
+            .test_name = "skip_optionals",
+            .constraint_string =
+                "lpm32::prefix_length == 0; ternary32::mask == 0; exact11 == 1;"
+                "exact32 == 1; ::priority == 1;",
+            .expected_concretized_entry =
+                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                  table_id: 1
+                  match {
+                    field_id: 1
+                    exact { value: "\001" }
+                  }
+                  match {
+                    field_id: 5
+                    exact { value: "\001" }
+                  }
+                  priority: 1
+                )pb"),
+            .keys_to_skip = {"optional32", "optional28"},
+        },
+    }),
+    [](const testing::TestParamInfo<FullySpecifiedConstraintTestCase>& info) {
+      return SnakeCaseToCamelCase(info.param.test_name);
+    });
 }  // namespace
 }  // namespace p4_constraints

@@ -244,8 +244,75 @@ TEST_F(EntryMeetsConstraintTest, EntriesWithLeadingZeroesWork) {
   // Modify entry to have leading zeroes.
   p4::v1::TableEntry modified_entry = kTableEntry;
   modified_entry.mutable_match(0)->mutable_exact()->set_value(
-      absl::StrCat("\0", kTableEntry.match(0).exact().value()));
+      absl::StrCat(std::string{'\0'}, kTableEntry.match(0).exact().value()));
   EXPECT_THAT(EntryMeetsConstraint(modified_entry,
+                                   MakeConstraintInfo(exact_equals_num)),
+              IsOkAndHolds(true));
+}
+
+TEST_F(EntryMeetsConstraintTest, EntriesWithOnlyZeroesWork) {
+  const Expression exact_equals_num = ExpressionWithType(kBool, R"pb(
+    binary_expression {
+      binop: EQ
+      left {
+        type { exact { bitwidth: 32 } }
+        key: "exact32"
+      }
+      right {
+        type { exact { bitwidth: 32 } }
+        type_cast {
+          type { fixed_unsigned { bitwidth: 32 } }
+          type_cast {
+            type { arbitrary_int {} }
+            integer_constant: "0"
+          }
+        }
+      }
+    }
+  )pb");
+  // Unmodified entry should not meet constraint since exact32 != 0.
+  ASSERT_THAT(
+      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(exact_equals_num)),
+      IsOkAndHolds(false));
+
+  // Modify entry to be zero.
+  p4::v1::TableEntry modified_entry = kTableEntry;
+  modified_entry.mutable_match(0)->mutable_exact()->set_value(
+      std::string{'\0'});
+  ASSERT_THAT(EntryMeetsConstraint(modified_entry,
+                                   MakeConstraintInfo(exact_equals_num)),
+              IsOkAndHolds(true));
+}
+
+TEST_F(EntryMeetsConstraintTest, EntriesWithZeroAsciiValueWorks) {
+  const Expression exact_equals_num = ExpressionWithType(kBool, R"pb(
+    binary_expression {
+      binop: EQ
+      left {
+        type { exact { bitwidth: 32 } }
+        key: "exact32"
+      }
+      right {
+        type { exact { bitwidth: 32 } }
+        type_cast {
+          type { fixed_unsigned { bitwidth: 32 } }
+          type_cast {
+            type { arbitrary_int {} }
+            integer_constant: "48"
+          }
+        }
+      }
+    }
+  )pb");
+  // Unmodified entry should not meet constraint since exact32 != 48.
+  ASSERT_THAT(
+      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(exact_equals_num)),
+      IsOkAndHolds(false));
+
+  // Modify entry to be zero character.
+  p4::v1::TableEntry modified_entry = kTableEntry;
+  modified_entry.mutable_match(0)->mutable_exact()->set_value("0");
+  ASSERT_THAT(EntryMeetsConstraint(modified_entry,
                                    MakeConstraintInfo(exact_equals_num)),
               IsOkAndHolds(true));
 }
