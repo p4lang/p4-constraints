@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -38,6 +39,10 @@ using ::gutils::testing::status::IsOkAndHolds;
 using ::gutils::testing::status::StatusIs;
 using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::Type;
+using ::p4_constraints::internal_interpreter::AddSymbolicKey;
+using ::p4_constraints::internal_interpreter::AddSymbolicPriority;
+using ::p4_constraints::internal_interpreter::EvaluateConstraintSymbolically;
+using ::testing::IsEmpty;
 using ::testing::Not;
 
 // Tests basic properties with a suite of simple test cases.
@@ -632,6 +637,84 @@ TEST_P(ConstraintTest, ConcretizeEntryGivesEntrySatisfyingConstraints) {
       << "\nAnd solver state: " << solver.to_smt2();
 }
 
+TEST(EncodeValidTableEntryInZ3Test, WorksWithoutConstraints) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  TableInfo table_info = GetTableInfoWithConstraint("true");
+  table_info.constraint = std::nullopt;
+
+  ASSERT_OK_AND_ASSIGN(SymbolicEnvironment environment,
+                       EncodeValidTableEntryInZ3(table_info, solver));
+
+  EXPECT_EQ(solver.check(), z3::sat);
+}
+
+TEST(EncodeValidTableEntryInZ3Test, WorksWithoutPriority) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  TableInfo table_info = GetTableInfoWithConstraint("true");
+
+  // Remove the ternaries and optionals, so that no priority is required.
+  std::vector<KeyInfo> keys_to_remove;
+  for (const auto& [key_name, key_info] : table_info.keys_by_name) {
+    if (key_info.type.has_ternary() || key_info.type.has_optional_match()) {
+      keys_to_remove.push_back(key_info);
+    }
+  }
+  for (const KeyInfo& key : keys_to_remove) {
+    table_info.keys_by_name.erase(key.name);
+    table_info.keys_by_id.erase(key.id);
+  }
+
+  ASSERT_OK_AND_ASSIGN(SymbolicEnvironment environment,
+                       EncodeValidTableEntryInZ3(table_info, solver));
+  EXPECT_THAT(environment.symbolic_attribute_by_name, IsEmpty());
+
+  EXPECT_EQ(solver.check(), z3::sat);
+}
+
+TEST_P(ConstraintTest, EncodeValidTableEntryInZ3CheckSatAndUnsatCorrectness) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  TableInfo table_info =
+      GetTableInfoWithConstraint(GetParam().constraint_string);
+
+  ASSERT_OK_AND_ASSIGN(SymbolicEnvironment environment,
+                       EncodeValidTableEntryInZ3(table_info, solver));
+  EXPECT_EQ(solver.check(), GetParam().is_sat ? z3::sat : z3::unsat);
+}
+
+TEST_P(ConstraintTest, EncodeValidTableEntryInZ3AndConcretizeEntry) {
+  if (!GetParam().is_sat) {
+    GTEST_SKIP() << "Test only sensible for satisfiable constraints";
+  }
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  TableInfo table_info =
+      GetTableInfoWithConstraint(GetParam().constraint_string);
+
+  ASSERT_OK_AND_ASSIGN(SymbolicEnvironment environment,
+                       EncodeValidTableEntryInZ3(table_info, solver));
+  ASSERT_EQ(solver.check(), z3::sat);
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::TableEntry concretized_entry,
+      ConcretizeEntry(solver.get_model(), table_info, environment));
+
+  // The empty string signifies that the entry doesn't violate the constraint.
+  ConstraintInfo context{{table_info.id, table_info}};
+  EXPECT_THAT(ReasonEntryViolatesConstraint(concretized_entry, context),
+              IsOkAndHolds(""))
+      << "\nFor entry:\n"
+      << concretized_entry.DebugString()
+      << "\nConstraint string: " << GetParam().constraint_string
+      << "\nConstraint: " << table_info.constraint->DebugString()
+      << "\nAnd solver state: " << solver.to_smt2();
+}
+
 INSTANTIATE_TEST_SUITE_P(
     EvaluateConstraintSatisfiabilityTests, ConstraintTest,
     testing::ValuesIn(std::vector<ConstraintTestCase>{
@@ -785,6 +868,44 @@ TEST_P(FullySpecifiedConstraintTest, ConcretizeEntryGivesExactEntry) {
                            *table_info.constraint, table_info.constraint_source,
                            environment, solver));
   solver.add(z3_constraint);
+
+  ASSERT_EQ(solver.check(), z3::sat);
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::TableEntry concretized_entry,
+      ConcretizeEntry(solver.get_model(), table_info, environment,
+                      [&](absl::string_view key_name) {
+                        return GetParam().keys_to_skip.contains(key_name);
+                      }));
+
+  EXPECT_THAT(concretized_entry, IgnoringRepeatedFieldOrdering(EqualsProto(
+                                     GetParam().expected_concretized_entry)));
+}
+
+TEST_P(FullySpecifiedConstraintTest,
+       EncodeValidTableEntryInZ3AndConcretizeEntryGivesExactEntry) {
+  z3::context solver_context;
+  z3::solver solver(solver_context);
+
+  TableInfo table_info =
+      GetTableInfoWithConstraint(GetParam().constraint_string);
+  ConstraintInfo context{{table_info.id, table_info}};
+  // TODO(b/297400616): p4-constraints currently does not correctly translate
+  // the bytestring representing 1280 to 1280 (instead turning it into 5).
+  if (!absl::StrContains(GetParam().constraint_string, "1280")) {
+    // Sanity check that the expected entry actually satisfies the constraint.
+    // The empty string signifies that the entry doesn't violate the constraint.
+    ASSERT_THAT(ReasonEntryViolatesConstraint(
+                    GetParam().expected_concretized_entry, context),
+                IsOkAndHolds(""))
+        << "\nFor entry:\n"
+        << GetParam().expected_concretized_entry.DebugString()
+        << "\nConstraint string: " << GetParam().constraint_string
+        << "\nConstraint: " << table_info.constraint->DebugString()
+        << "\nAnd solver state: " << solver.to_smt2();
+  }
+
+  ASSERT_OK_AND_ASSIGN(SymbolicEnvironment environment,
+                       EncodeValidTableEntryInZ3(table_info, solver));
 
   ASSERT_EQ(solver.check(), z3::sat);
   ASSERT_OK_AND_ASSIGN(

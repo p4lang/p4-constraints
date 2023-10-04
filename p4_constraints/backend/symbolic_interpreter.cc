@@ -573,6 +573,8 @@ absl::StatusOr<std::optional<p4::v1::FieldMatch>> ConcretizeKey(
 
 }  // namespace
 
+namespace internal_interpreter {
+
 absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
                                            z3::solver& solver) {
   ASSIGN_OR_RETURN(int bitwidth, ast::TypeBitwidthOrStatus(key.type));
@@ -667,6 +669,8 @@ absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
                                       environment, solver);
 }
 
+}  // namespace internal_interpreter
+
 absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
     const z3::model& model, const TableInfo& table_info,
     const SymbolicEnvironment& environment,
@@ -709,6 +713,49 @@ absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
     }
   }
   return table_entry;
+}
+
+absl::StatusOr<SymbolicEnvironment> EncodeValidTableEntryInZ3(
+    const TableInfo& table, z3::solver& solver,
+    std::function<absl::StatusOr<bool>(absl::string_view key_name)>
+        skip_key_named) {
+  SymbolicEnvironment environment;
+  environment.symbolic_key_by_name.reserve(table.keys_by_name.size());
+
+  // Add keys to solver and map and determine whether the table needs a
+  // priority.
+  bool requires_priority = false;
+  for (const auto& [key_name, key_info] : table.keys_by_name) {
+    if (key_info.type.has_ternary() || key_info.type.has_optional_match()) {
+      // In P4Runtime, all tables with ternaries or optionals require priorities
+      // for their entries.
+      requires_priority = true;
+    }
+    ASSIGN_OR_RETURN(bool key_should_be_skipped, skip_key_named(key_name));
+    if (key_should_be_skipped) continue;
+
+    ASSIGN_OR_RETURN(SymbolicKey key,
+                     internal_interpreter::AddSymbolicKey(key_info, solver));
+    environment.symbolic_key_by_name.insert({key_name, std::move(key)});
+  }
+
+  if (requires_priority) {
+    SymbolicAttribute priority =
+        internal_interpreter::AddSymbolicPriority(solver);
+    environment.symbolic_attribute_by_name.insert(
+        {kSymbolicPriorityAttributeName, std::move(priority)});
+  }
+
+  // Add constraint if it exists.
+  if (table.constraint.has_value()) {
+    ASSIGN_OR_RETURN(
+        z3::expr constraint,
+        internal_interpreter::EvaluateConstraintSymbolically(
+            *table.constraint, table.constraint_source, environment, solver));
+    solver.add(constraint);
+  }
+
+  return environment;
 }
 
 absl::StatusOr<z3::expr> GetValue(const SymbolicKey& symbolic_key) {

@@ -89,54 +89,35 @@ struct SymbolicEnvironment {
 
 // -- Main Functions -----------------------------------------------------------
 
-// Creates a `SymbolicKey` that symbolically represents the match field key
-// given by `key` in Z3 and adds the match to the context in `solver`. Also adds
-// two forms of well-formedness constraints for that `key`:
-// 1) Domain constraints, enforcing the bitwidth of the various `value`s and the
-//    allowed values for `prefix_length` (for LPMs) and `mask` (for optionals).
-// 2) Canonicity constraints, enforcing that `value`s and their `mask`s or
-//    `prefix_length`s correspond to ensure compatibility with P4Runtime. E.g.
-//    on a switch, the following value and mask pairs behave identically, but we
-//    disallow the second with canonicity constraints:
-//    - 10 & 10
-//    - 11 & 10
-//    This is required to concretize symbolic keys to valid P4Runtime keys that
-//    still satisfy any p4-constraints.
-//
-// Expects `key` to have a non-zero bitwidth.
-// NOTE: This API will only work correctly if the `solver` represents a single
-// table entry (as opposed to multiple).
-absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
-                                           z3::solver& solver);
-
-// Creates and returns a attribute key for table priority and constrains it to
-// be between 1 and MAX_INT32 (inclusive).
-// NOTE: Only needed for (and should only be used with) tables that
-// require/expect priority.
-// NOTE: This API will only work correctly if the `solver` represents a single
-// table entry (as opposed to multiple).
-SymbolicAttribute AddSymbolicPriority(z3::solver& solver);
-
-// Translates a P4-Constraints expression into a Z3 expression using the
-// `environment` maps to interpret keys and attributes in the
-// constraint. All symbolic keys and attributes must already exist in the
-// solver's context. Invalid or not properly type-checked constraints will yield
-// an InvalidArgumentError or InternalError. The `constraint_source` is used to
-// construct more palatable error messages.
-// NOTE: This API will only work correctly if the `solver` represents a single
-// table entry (as opposed to multiple).
-absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
-    const ast::Expression& constraint,
-    const ConstraintSource& constraint_source,
-    const SymbolicEnvironment& environment, z3::solver& solver);
+// Adds sufficient symbolic constraints to `solver` to represent an entry for
+// `table` that respects its P4-Constraints and is well-formed according to the
+// P4Runtime specification.
+// Specifically, populates `solver` with all of the keys from `table` aside from
+// those skipped through `skip_key_named`. Also adds well-formedness constraints
+// (further described at the `AddSymbolicKey` function below) for each key and
+// Z3 versions of any p4-constraints given by `table.constraints`. If the
+// P4Runtime standard requires the table's entries to have a priority (i.e.
+// because at least one key is either Optional or Ternary), then a symbolic
+// priority with well-formedness constraints is also added. Returns a
+// SymbolicEnvironment mapping the names of all symbolic variables to their
+// symbolic expression counterparts.
+// NOTE: This API will only encode a single table entry (as opposed to multiple)
+// for a given `solver`. In other words, it is NOT possible to encode
+// constraints for multiple entries by calling this function more than once with
+// the same `solver`.
+absl::StatusOr<SymbolicEnvironment> EncodeValidTableEntryInZ3(
+    const TableInfo& table, z3::solver& solver,
+    std::function<absl::StatusOr<bool>(absl::string_view key_name)>
+        skip_key_named = [](absl::string_view key_name) { return false; });
 
 // Returns an entry for the table given by `table_info` derived from `model`.
 // All keys named in `table_info` must be mapped by
 // `environment.symbolic_key_by_name` unless `skip_key_named(name)` holds for
 // the key `name`. NOTE: The entry will NOT contain an action and is thus not a
-// valid P4Runtime entry without modification. NOTE: This API will only work
-// correctly if the  `model` represents a single table entry (as opposed to
-// multiple).
+// valid P4Runtime entry without modification.
+// NOTE: This API expects the `model` to represent a single table entry (as
+// opposed to multiple). This can be achieved by a call to
+// `EncodeValidTableEntryInZ3`.
 // TODO(b/242201770): Extract actions once action constraints are supported.
 absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
     const z3::model& model, const TableInfo& table_info,
@@ -217,6 +198,52 @@ inline std::ostream& operator<<(std::ostream& os,
                                 const SymbolicEvalResult& result) {
   return os << absl::StrCat(result);
 }
+
+// Exposed for testing only.
+namespace internal_interpreter {
+
+// Creates a `SymbolicKey` that symbolically represents the match field key
+// given by `key` in Z3 and adds the match to the context in `solver`. Also adds
+// two forms of well-formedness constraints for that `key`:
+// 1) Domain constraints, enforcing the bitwidth of the various `value`s and the
+//    allowed values for `prefix_length` (for LPMs) and `mask` (for optionals).
+// 2) Canonicity constraints, enforcing that `value`s and their `mask`s or
+//    `prefix_length`s correspond to ensure compatibility with P4Runtime. E.g.
+//    on a switch, the following value and mask pairs behave identically, but we
+//    disallow the second with canonicity constraints:
+//    - 10 & 10
+//    - 11 & 10
+//    This is required to concretize symbolic keys to valid P4Runtime keys that
+//    still satisfy any p4-constraints.
+//
+// Expects `key` to have a non-zero bitwidth.
+// NOTE: This API will only work correctly if the `solver` represents a single
+// table entry (as opposed to multiple).
+absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
+                                           z3::solver& solver);
+
+// Creates and returns a attribute key for table priority and constrains it to
+// be between 1 and MAX_INT32 (inclusive).
+// NOTE: Only needed for (and should only be used with) tables that
+// require/expect priority.
+// NOTE: This API will only work correctly if the `solver` represents a single
+// table entry (as opposed to multiple).
+SymbolicAttribute AddSymbolicPriority(z3::solver& solver);
+
+// Translates a P4-Constraints expression into a Z3 expression using the
+// `environment` maps to interpret keys and attributes in the
+// constraint. All symbolic keys and attributes must already exist in the
+// solver's context. Invalid or not properly type-checked constraints will yield
+// an InvalidArgumentError or InternalError. The `constraint_source` is used to
+// construct more palatable error messages.
+// NOTE: This API will only work correctly if the `solver` represents a single
+// table entry (as opposed to multiple).
+absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
+    const ast::Expression& constraint,
+    const ConstraintSource& constraint_source,
+    const SymbolicEnvironment& environment, z3::solver& solver);
+
+}  // namespace internal_interpreter
 
 }  // namespace p4_constraints
 
