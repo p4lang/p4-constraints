@@ -628,7 +628,13 @@ TEST_P(ConstraintTest, ConcretizeEntryGivesEntrySatisfyingConstraints) {
     }
   }
 
-  ConstraintInfo context{{table_info.id, table_info}};
+  ConstraintInfo context{
+      .action_info_by_id = {},
+      .table_info_by_id = {{
+          table_info.id,
+          table_info,
+      }},
+  };
   // The empty string signifies that the entry doesn't violate the constraint.
   EXPECT_THAT(ReasonEntryViolatesConstraint(concretized_entry, context),
               IsOkAndHolds(""))
@@ -707,7 +713,13 @@ TEST_P(ConstraintTest, EncodeValidTableEntryInZ3AndConcretizeEntry) {
       ConcretizeEntry(solver.get_model(), table_info, environment));
 
   // The empty string signifies that the entry doesn't violate the constraint.
-  ConstraintInfo context{{table_info.id, table_info}};
+  ConstraintInfo context{
+      .action_info_by_id = {},
+      .table_info_by_id = {{
+          table_info.id,
+          table_info,
+      }},
+  };
   EXPECT_THAT(ReasonEntryViolatesConstraint(concretized_entry, context),
               IsOkAndHolds(""))
       << "\nFor entry:\n"
@@ -837,7 +849,13 @@ TEST_P(FullySpecifiedConstraintTest, ConcretizeEntryGivesExactEntry) {
 
   TableInfo table_info =
       GetTableInfoWithConstraint(GetParam().constraint_string);
-  ConstraintInfo context{{table_info.id, table_info}};
+  ConstraintInfo context{
+      .action_info_by_id = {},
+      .table_info_by_id = {{
+          table_info.id,
+          table_info,
+      }},
+  };
   // TODO(b/297400616): p4-constraints currently does not correctly translate
   // the bytestring representing 1280 to 1280 (instead turning it into 5).
   if (!absl::StrContains(GetParam().constraint_string, "1280")) {
@@ -890,7 +908,13 @@ TEST_P(FullySpecifiedConstraintTest,
 
   TableInfo table_info =
       GetTableInfoWithConstraint(GetParam().constraint_string);
-  ConstraintInfo context{{table_info.id, table_info}};
+  ConstraintInfo context{
+      .action_info_by_id = {},
+      .table_info_by_id = {{
+          table_info.id,
+          table_info,
+      }},
+  };
   // TODO(b/297400616): p4-constraints currently does not correctly translate
   // the bytestring representing 1280 to 1280 (instead turning it into 5).
   if (!absl::StrContains(GetParam().constraint_string, "1280")) {

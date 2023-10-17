@@ -71,9 +71,24 @@ struct TableInfo {
   absl::flat_hash_map<std::string, KeyInfo> keys_by_name;
 };
 
+struct ActionInfo {
+  uint32_t id;       // Same as Action.preamble.id in p4info.proto.
+  std::string name;  // Same as Action.preamble.name in p4info.proto.
+
+  // An optional constraint (aka action_restriction) on actions.
+  absl::optional<ast::Expression> constraint;
+  // If member `constraint` is present, this captures its source. Arbitrary
+  // otherwise.
+  ConstraintSource constraint_source;
+};
+
 // Contains all information required for constraint checking.
-// Technically, a map from table IDs to TableInfo.
-using ConstraintInfo = absl::flat_hash_map<uint32_t, TableInfo>;
+struct ConstraintInfo {
+  // Maps from action IDs to ActionInfo.
+  absl::flat_hash_map<uint32_t, ActionInfo> action_info_by_id;
+  // Maps from table IDs to TableInfo.
+  absl::flat_hash_map<uint32_t, TableInfo> table_info_by_id;
+};
 
 // Translates P4Info to ConstraintInfo.
 //
