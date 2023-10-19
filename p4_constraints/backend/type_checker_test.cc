@@ -91,6 +91,7 @@ class InferAndCheckTypesTest : public ::testing::Test {
       case ast::Expression::kBooleanConstant:
       case ast::Expression::kIntegerConstant:
       case ast::Expression::kKey:
+      case ast::Expression::kActionParameter:
       case ast::Expression::kAttributeAccess:
       case ast::Expression::EXPRESSION_NOT_SET:
         return;

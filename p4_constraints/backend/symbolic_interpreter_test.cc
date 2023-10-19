@@ -24,6 +24,7 @@
 #include "p4_constraints/backend/interpreter.h"
 #include "p4_constraints/backend/type_checker.h"
 #include "p4_constraints/constraint_source.h"
+#include "p4_constraints/frontend/constraint_kind.h"
 #include "p4_constraints/frontend/parser.h"
 #include "z3++.h"
 
@@ -508,7 +509,8 @@ TableInfo GetTableInfoWithConstraint(absl::string_view constraint_string) {
           },
   };
 
-  auto constraint = ParseConstraint(table_info.constraint_source);
+  auto constraint = ParseConstraint(ConstraintKind::kTableConstraint,
+                                    table_info.constraint_source);
   CHECK_OK(constraint);
   CHECK_OK(InferAndCheckTypes(&(*constraint), table_info));
   table_info.constraint = *constraint;

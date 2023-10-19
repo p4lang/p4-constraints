@@ -23,6 +23,7 @@
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/frontend/constraint_kind.h"
 #include "p4_constraints/frontend/token.h"
 
 namespace p4_constraints {
@@ -39,9 +40,12 @@ absl::StatusOr<ast::Expression> MakeIntegerConstant(const Token& numeral);
 absl::StatusOr<ast::Expression> MakeAttributeAccess(
     const Token& double_colon, const Token& attribute_name);
 
-// Returns an AST `a` such that `a.key() == "id1.id2...idn"` if given ID tokens
-// `{t1, ..., tn}` such that `idi == ti.text`, or an error Status otherwise.
-absl::StatusOr<ast::Expression> MakeKey(absl::Span<const Token> key_fragments);
+// Returns an AST `a` such that `a.param() == "id1id2...idn"` (if parsing action
+// parameters) and `a.key() == "id1.id2...idn"` (if parsing keys) given ID
+// tokens `{t1, ..., tn}` such that `idi == ti.text`, or an error Status
+// otherwise.
+absl::StatusOr<ast::Expression> MakeVariable(absl::Span<const Token> tokens,
+                                             ConstraintKind constraint_kind);
 
 // Returns an AST (with the given operand) when given a BANG ('!') token,
 // or an error Status otherwise.

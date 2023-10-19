@@ -355,6 +355,11 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
       return *key;
     }
 
+    case ast::Expression::kActionParameter: {
+      return absl::UnimplementedError(
+          "TODO: b/293656077 - Support action constraints");
+    }
+
     case ast::Expression::kFieldAccess: {
       // There are no nested field accesses supported in P4-Constraints at the
       // moment. If there were, this logic would need to change.

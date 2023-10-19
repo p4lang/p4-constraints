@@ -36,6 +36,8 @@ message Expression {
     string integer_constant = 5;
     // A table key (aka "match field"), e.g. `header.ethernet.ether_type`.
     string key = 6;
+    // An action parameter.
+    string action_parameter = 13;
     Expression boolean_negation = 7;
     Expression arithmetic_negation = 8;
     // Type casts are not exposed in the surface language, but may be inserted
