@@ -83,6 +83,11 @@ using ConstraintInfo = absl::flat_hash_map<uint32_t, TableInfo>;
 absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info);
 
+// Returns a unique pointer to the TableInfo associated with a given table_id
+// or std::nullptr if the table_id cannot be found.
+const TableInfo* GetTableInfoOrNull(const ConstraintInfo& constraint_info,
+                                    uint32_t table_id);
+
 // Table entry attribute accessible in the constraint language, e.g. priority.
 struct AttributeInfo {
   std::string name;

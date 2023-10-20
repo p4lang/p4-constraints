@@ -188,6 +188,13 @@ std::optional<AttributeInfo> GetAttributeInfo(
   return absl::nullopt;
 }
 
+const TableInfo* GetTableInfoOrNull(const ConstraintInfo& constraint_info,
+                                    uint32_t table_id) {
+  auto it = constraint_info.find(table_id);
+  if (it == constraint_info.end()) return nullptr;
+  return &it->second;
+}
+
 absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info) {
   // Allocate output.
