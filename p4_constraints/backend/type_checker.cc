@@ -249,6 +249,11 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       return absl::OkStatus();
     }
 
+    case Expression::kActionParameter: {
+      return absl::UnimplementedError(
+          "TODO: b/293656077 - Support action constraints");
+    }
+
     case Expression::kAttributeAccess: {
       const std::string& attribute_name =
           expr->attribute_access().attribute_name();

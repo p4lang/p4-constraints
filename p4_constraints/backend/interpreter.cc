@@ -39,7 +39,6 @@
 #include "gutils/ordered_map.h"
 #include "gutils/overload.h"
 #include "gutils/ret_check.h"
-#include "gutils/status.h"
 #include "gutils/status_macros.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.h"
@@ -635,6 +634,11 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
             << context.entry.table_name;
       }
       return it->second;
+    }
+
+    case Expression::kActionParameter: {
+      return absl::UnimplementedError(
+          "TODO: b/293656077 - Support action constraints");
     }
 
     case Expression::kAttributeAccess: {

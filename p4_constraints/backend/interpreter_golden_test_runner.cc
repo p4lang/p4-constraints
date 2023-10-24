@@ -16,12 +16,9 @@
 // interpreter.cc. Expected output is `interpreter_golden_test_runner.expected`
 
 #include <iostream>
-#include <optional>
 #include <string>
 #include <vector>
 
-#include "absl/container/btree_map.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -35,6 +32,7 @@
 #include "p4_constraints/backend/interpreter.h"
 #include "p4_constraints/backend/type_checker.h"
 #include "p4_constraints/constraint_source.h"
+#include "p4_constraints/frontend/constraint_kind.h"
 #include "p4_constraints/frontend/parser.h"
 
 namespace p4_constraints {
@@ -87,7 +85,8 @@ absl::StatusOr<ConstraintInfo> MakeConstraintInfo(TestCase test_case) {
 
   TableInfo table_info = kTableInfo;
   table_info.constraint_source = source;
-  ASSIGN_OR_RETURN(Expression expression, ParseConstraint(source));
+  ASSIGN_OR_RETURN(Expression expression,
+                   ParseConstraint(ConstraintKind::kTableConstraint, source));
   CHECK_OK(InferAndCheckTypes(&(expression), kTableInfo));
   table_info.constraint = expression;
   return ConstraintInfo{{table_info.id, table_info}};

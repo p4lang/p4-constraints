@@ -14,8 +14,6 @@
 
 #include "p4_constraints/ast.h"
 
-#include <stdint.h>
-
 #include <string>
 
 #include "absl/container/flat_hash_set.h"
@@ -213,6 +211,8 @@ void AddMatchFields(const ast::Expression& expr,
   switch (expr.expression_case()) {
     case ast::Expression::kKey:
       field_set.insert(expr.key());
+      return;
+    case ast::Expression::kActionParameter:
       return;
     case ast::Expression::kBooleanNegation:
       AddMatchFields(expr.boolean_negation(), field_set);

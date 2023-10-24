@@ -27,6 +27,7 @@
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/ast_constructors.h"
+#include "p4_constraints/frontend/constraint_kind.h"
 #include "p4_constraints/frontend/lexer.h"
 #include "p4_constraints/frontend/token.h"
 #include "p4_constraints/quote.h"
@@ -224,8 +225,9 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //     | ('==' | '!=' | '>' | '>=' | '<' | '<=') constraint
 //
 // extension is then right-recursive and can be implemented using a while loop.
-absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
-                                                TokenStream* tokens) {
+absl::StatusOr<Expression> ParseConstraintAbove(ConstraintKind constraint_kind,
+                                                TokenStream* tokens,
+                                                int context_precedence) {
   // Try to parse an 'initial' AST.
   Expression ast;
   const Token token = tokens->Next();
@@ -243,14 +245,14 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
       break;
     }
     case Token::ID: {
-      // Parse key: ID (DOT ID)*
-      std::vector<Token> key_fragments = {token};
+      // Parse variable: ID (DOT ID)*
+      std::vector<Token> id_tokens = {token};
       while (tokens->Peek().kind == Token::DOT) {
         tokens->Next();  // discard Token::DOT
         ASSIGN_OR_RETURN(Token token, ExpectTokenKind(Token::ID, tokens));
-        key_fragments.push_back(token);
+        id_tokens.push_back(token);
       }
-      ASSIGN_OR_RETURN(ast, ast::MakeKey(key_fragments));
+      ASSIGN_OR_RETURN(ast, ast::MakeVariable(id_tokens, constraint_kind));
       break;
     }
     case Token::DOUBLE_COLON: {
@@ -260,19 +262,19 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
       break;
     }
     case Token::BANG: {
-      ASSIGN_OR_RETURN(
-          ast, ParseConstraintAbove(TokenPrecedence(token.kind), tokens));
+      ASSIGN_OR_RETURN(ast, ParseConstraintAbove(constraint_kind, tokens,
+                                                 TokenPrecedence(token.kind)));
       ASSIGN_OR_RETURN(ast, ast::MakeBooleanNegation(token, ast));
       break;
     }
     case Token::MINUS: {
-      ASSIGN_OR_RETURN(
-          ast, ParseConstraintAbove(TokenPrecedence(token.kind), tokens));
+      ASSIGN_OR_RETURN(ast, ParseConstraintAbove(constraint_kind, tokens,
+                                                 TokenPrecedence(token.kind)));
       ASSIGN_OR_RETURN(ast, ast::MakeArithmeticNegation(token, ast));
       break;
     }
     case Token::LPAR: {
-      ASSIGN_OR_RETURN(ast, ParseConstraintAbove(0, tokens));
+      ASSIGN_OR_RETURN(ast, ParseConstraintAbove(constraint_kind, tokens, 0));
       RETURN_IF_ERROR(ExpectTokenKind(Token::RPAR, tokens).status());
       break;
     }
@@ -343,9 +345,9 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
       ASSIGN_OR_RETURN(ast, ast::MakeFieldAccess(ast, field));
     } else {
       // token.kind is one of &&, ;, ||, ->, ==, !=, >, >=, <, <=.
-      ASSIGN_OR_RETURN(
-          Expression another_ast,
-          ParseConstraintAbove(TokenPrecedence(token.kind), tokens));
+      ASSIGN_OR_RETURN(Expression another_ast,
+                       ParseConstraintAbove(constraint_kind, tokens,
+                                            TokenPrecedence(token.kind)));
       ASSIGN_OR_RETURN(ast, ast::MakeBinaryExpression(token, ast, another_ast));
     }
   }
@@ -358,9 +360,11 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
 // is violated. Due to this tricky contract, we don't expose this function
 // publicly.
 absl::StatusOr<Expression> internal_parser::ParseConstraint(
-    const std::vector<Token>& tokens, const ConstraintSource& source) {
+    ConstraintKind constraint_kind, const std::vector<Token>& tokens,
+    const ConstraintSource& source) {
   TokenStream token_stream(tokens, source);
-  ASSIGN_OR_RETURN(Expression ast, ParseConstraintAbove(0, &token_stream));
+  ASSIGN_OR_RETURN(Expression ast,
+                   ParseConstraintAbove(constraint_kind, &token_stream, 0));
   RETURN_IF_ERROR(ExpectTokenKind(Token::END_OF_INPUT, &token_stream).status());
   return ast;
 }
@@ -369,9 +373,10 @@ absl::StatusOr<Expression> internal_parser::ParseConstraint(
 
 // Public-facing version of `internal_parser::ParseConstraint` that provides a
 // fool-proof & more-convenient API that combines lexing and parsing.
-absl::StatusOr<Expression> ParseConstraint(const ConstraintSource& source) {
+absl::StatusOr<Expression> ParseConstraint(ConstraintKind constraint_kind,
+                                           const ConstraintSource& source) {
   const std::vector<Token> tokens = Tokenize(source);
-  return internal_parser::ParseConstraint(tokens, source);
+  return internal_parser::ParseConstraint(constraint_kind, tokens, source);
 }
 
 }  // namespace p4_constraints

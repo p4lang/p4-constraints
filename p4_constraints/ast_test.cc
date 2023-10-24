@@ -19,6 +19,7 @@
 
 #include <string>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/strings/substitute.h"
 #include "gutils/parse_text_proto.h"
 #include "gutils/status_matchers.h"
@@ -291,6 +292,17 @@ TEST(SizeTest, NoCacheOkay) {
                                        }
                                      })pb");
   EXPECT_THAT(Size(expr, nullptr), IsOkAndHolds(Eq(7)));
+}
+
+TEST(AddMatchFields, ReturnsEmptyForActionParameter) {
+  Expression expr = ParseRawAst(R"pb(
+    binary_expression {
+      binop: GE
+      left { action_parameter: "1" }
+      right { action_parameter: "2" }
+    }
+  )pb");
+  EXPECT_THAT(GetMatchFields(expr), testing::IsEmpty());
 }
 
 }  // namespace ast

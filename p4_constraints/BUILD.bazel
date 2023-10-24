@@ -39,6 +39,7 @@ cc_test(
         ":ast",
         "//gutils:parse_text_proto",
         "//gutils:status_matchers",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],

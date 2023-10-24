@@ -21,11 +21,11 @@
 #include <utility>
 #include <vector>
 
-#include "absl/status/statusor.h"
 #include "gutils/protocol_buffer_matchers.h"
 #include "gutils/status_matchers.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/constraint_source.h"
+#include "p4_constraints/frontend/constraint_kind.h"
 #include "p4_constraints/frontend/token.h"
 
 namespace p4_constraints {
@@ -262,7 +262,8 @@ TEST_F(ParserTest, Positive) {
     const auto& tokens = test.first;
     const auto& expected_str = test.second;
 
-    EXPECT_THAT(internal_parser::ParseConstraint(tokens, kDummySource),
+    EXPECT_THAT(internal_parser::ParseConstraint(
+                    ConstraintKind::kTableConstraint, tokens, kDummySource),
                 IsOkAndHolds(Partially(EqualsProto(expected_str))));
   }
 }
@@ -299,7 +300,8 @@ TEST_F(ParserTest, Negative) {
   };
 
   for (auto& tokens : tests) {
-    auto result = internal_parser::ParseConstraint(tokens, kDummySource);
+    auto result = internal_parser::ParseConstraint(
+        ConstraintKind::kTableConstraint, tokens, kDummySource);
     if (result.ok()) {
       FAIL() << "Expected parsing to fail, but parsed "
              << result.value().DebugString();
@@ -307,4 +309,25 @@ TEST_F(ParserTest, Negative) {
   }
 }
 
+TEST_F(ParserTest, IdGetsParsedAsActionParameterInActionConstraintParsingMode) {
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kActionConstraint,
+                                       {kId, kEq, Binary("1")}, kDummySource),
+      IsOkAndHolds(Partially(EqualsProto(R"pb(binary_expression {
+                                                binop: EQ
+                                                left { action_parameter: "" }
+                                                right { integer_constant: "1" }
+                                              })pb"))));
+}
+
+TEST_F(ParserTest, IdGetsParsedAsKeyInTableConstraintParsingMode) {
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       {kId, kEq, Binary("1")}, kDummySource),
+      IsOkAndHolds(Partially(EqualsProto(R"pb(binary_expression {
+                                                binop: EQ
+                                                left { key: "" }
+                                                right { integer_constant: "1" }
+                                              })pb"))));
+}
 }  // namespace p4_constraints
