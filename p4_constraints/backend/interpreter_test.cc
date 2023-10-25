@@ -19,7 +19,6 @@
 #include <gtest/gtest.h>
 #include <stdint.h>
 
-#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -32,7 +31,6 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "gutils/parse_text_proto.h"
-#include "gutils/status_macros.h"
 #include "gutils/status_matchers.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.h"
@@ -129,7 +127,13 @@ class EntryMeetsConstraintTest : public ::testing::Test {
     table_info.constraint = expr;
     table_info.constraint_source.constraint_location.set_table_name(
         table_info.name);
-    return {{table_info.id, table_info}};
+    return {
+        .action_info_by_id = {},
+        .table_info_by_id = {{
+            table_info.id,
+            table_info,
+        }},
+    };
   }
 
   static Expression ExpressionWithType(const Type& type,

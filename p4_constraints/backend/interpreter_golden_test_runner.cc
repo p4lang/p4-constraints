@@ -89,12 +89,18 @@ absl::StatusOr<ConstraintInfo> MakeConstraintInfo(TestCase test_case) {
                    ParseConstraint(ConstraintKind::kTableConstraint, source));
   CHECK_OK(InferAndCheckTypes(&(expression), kTableInfo));
   table_info.constraint = expression;
-  return ConstraintInfo{{table_info.id, table_info}};
+  return ConstraintInfo{
+      .action_info_by_id = {},
+      .table_info_by_id{{
+          table_info.id,
+          table_info,
+      }},
+  };
 }
 
-// NOTE: Test cases only define the "exact" field for brevity but kTableInfo is
-// composed of several keys. These undeclared keys are implicitly set to hold
-// "catchall" values (i.e. range=[min,max], ternary=*).
+// NOTE: Test cases only define the "exact" field for brevity but kTableInfo
+// is composed of several keys. These undeclared keys are implicitly set to
+// hold "catchall" values (i.e. range=[min,max], ternary=*).
 std::vector<TestCase> TestCases() {
   std::vector<TestCase> test_cases;
   test_cases.push_back(TestCase{
@@ -239,8 +245,12 @@ absl::Status main() {
   for (const TestCase& test_case : TestCases()) {
     ASSIGN_OR_RETURN(ConstraintInfo constraint_info,
                      MakeConstraintInfo(test_case));
+    auto* table_info = GetTableInfoOrNull(constraint_info, 1);
+    if (table_info == nullptr) {
+      return absl::InvalidArgumentError("No table info");
+    }
     ASSIGN_OR_RETURN(TableEntry input,
-                     ParseEntry(test_case.table_entry, constraint_info.at(1)));
+                     ParseEntry(test_case.table_entry, *table_info));
     std::cout << "### ReasonEntryViolatestConstraint Test ###################\n"
               << "=== INPUT ===\n"
               << "--- Constraint ---\n"
@@ -255,6 +265,7 @@ absl::Status main() {
                 << (result->empty() ? "<empty>\n" : *result) << "\n";
     } else {
       std::cout << "=== ERROR ===\n" << result.status();
+      return absl::InvalidArgumentError(result.status().ToString());
     }
   }
   return absl::OkStatus();

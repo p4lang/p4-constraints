@@ -50,7 +50,6 @@ cc_test(
         ":constraint_info",
         ":interpreter",
         "//gutils:parse_text_proto",
-        "//gutils:status",
         "//gutils:status_matchers",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",

@@ -193,27 +193,37 @@ std::optional<AttributeInfo> GetAttributeInfo(
 
 const TableInfo* GetTableInfoOrNull(const ConstraintInfo& constraint_info,
                                     uint32_t table_id) {
-  auto it = constraint_info.find(table_id);
-  if (it == constraint_info.end()) return nullptr;
+  auto it = constraint_info.table_info_by_id.find(table_id);
+  if (it == constraint_info.table_info_by_id.end()) return nullptr;
   return &it->second;
 }
 
 absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info) {
   // Allocate output.
-  absl::flat_hash_map<uint32_t, TableInfo> info;
+  // TODO: b/293655979 - Populate the action_info_by_id map.
+  absl::flat_hash_map<uint32_t, ActionInfo> action_info_by_id;
+  absl::flat_hash_map<uint32_t, TableInfo> table_info_by_id;
+
   std::vector<absl::Status> errors;
 
   for (const Table& table : p4info.tables()) {
     absl::StatusOr<TableInfo> table_info = ParseTableInfo(table);
     if (!table_info.ok()) {
       errors.push_back(table_info.status());
-    } else if (!info.insert({table.preamble().id(), *table_info}).second) {
+    } else if (!table_info_by_id.insert({table.preamble().id(), *table_info})
+                    .second) {
       errors.push_back(gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
                        << "duplicate table: " << table.DebugString());
     }
   }
-  if (errors.empty()) return info;
+  if (errors.empty()) {
+    ConstraintInfo info{
+        .action_info_by_id = std::move(action_info_by_id),
+        .table_info_by_id = std::move(table_info_by_id),
+    };
+    return info;
+  }
   return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
          << "P4Info to constraint info translation failed with the following "
             "errors:\n- "
