@@ -146,8 +146,16 @@ absl::StatusOr<ast::Expression> MakeVariable(absl::Span<const Token> tokens,
   for (int i = 0; i < tokens.size(); i++) {
     const Token& id = tokens[i];
     RET_CHECK_EQ(id.kind, Token::ID);
-    if (constraint_kind == ConstraintKind::kTableConstraint)
-      key_or_param << (i == 0 ? "" : ".") << id.text;
+    switch (constraint_kind) {
+      case ConstraintKind::kTableConstraint: {
+        key_or_param << (i == 0 ? "" : ".") << id.text;
+        break;
+      }
+      case ConstraintKind::kActionConstraint: {
+        key_or_param << id.text;
+        break;
+      }
+    }
   }
   switch (constraint_kind) {
     case ConstraintKind::kTableConstraint: {

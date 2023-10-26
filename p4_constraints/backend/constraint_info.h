@@ -49,6 +49,15 @@ struct KeyInfo {
   ast::Type type;
 };
 
+struct ParamInfo {
+  uint32_t id;       // Same as Action.Param.id in p4info.proto.
+  std::string name;  // Same as Action.Param.name in p4info.proto.
+
+  // Param type specified by a combination of Action.Param.bitwidth and
+  // Action.Param.P4NamedType in p4info.proto.
+  ast::Type type;
+};
+
 template <typename Sink>
 void AbslStringify(Sink& sink, const KeyInfo& info) {
   absl::Format(&sink, "KeyInfo{ id: %d; name: \"%s\"; type: { %s }; }", info.id,
@@ -80,6 +89,11 @@ struct ActionInfo {
   // If member `constraint` is present, this captures its source. Arbitrary
   // otherwise.
   ConstraintSource constraint_source;
+
+  // Maps from param IDs to ParamInfo.
+  absl::flat_hash_map<uint32_t, ParamInfo> params_by_id;
+  // Maps from param names to ParamInfo.
+  absl::flat_hash_map<std::string, ParamInfo> params_by_name;
 };
 
 // Contains all information required for constraint checking.
@@ -98,10 +112,15 @@ struct ConstraintInfo {
 absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info);
 
-// Returns a unique pointer to the TableInfo associated with a given table_id
+// Returns a pointer to the TableInfo associated with a given table_id
 // or std::nullptr if the table_id cannot be found.
 const TableInfo* GetTableInfoOrNull(const ConstraintInfo& constraint_info,
                                     uint32_t table_id);
+
+// Returns a pointer to the ActionInfo associated with a given action_id
+// or std::nullptr if the action_id cannot be found.
+const ActionInfo* GetActionInfoOrNull(const ConstraintInfo& constraint_info,
+                                      uint32_t action_id);
 
 // Table entry attribute accessible in the constraint language, e.g. priority.
 struct AttributeInfo {

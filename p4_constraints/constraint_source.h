@@ -21,7 +21,7 @@
 
 namespace p4_constraints {
 
-// Convienent struct of source information for quoting.
+// Convenient struct of source information for quoting.
 struct ConstraintSource {
   std::string constraint_string;
   ast::SourceLocation constraint_location;

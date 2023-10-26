@@ -83,6 +83,20 @@ class InferAndCheckTypesTest : public ::testing::Test {
           {"range32", {0, "range32", kRange32}},
       }};
 
+  const ActionInfo kActionInfo{.id = 0,
+                               .name = "action",
+                               .constraint = {},
+                               .constraint_source =
+                                   ConstraintSource{
+                                       .constraint_string = " ",
+                                       .constraint_location = kMockLocation,
+                                   },
+                               .params_by_id = {},
+                               .params_by_name = {
+                                   {"bit16", {0, "bit16", kFixedUnsigned16}},
+                                   {"bit32", {0, "bit32", kFixedUnsigned32}},
+                               }};
+
   // Required by negative tests to avoid internal quoting errors.
   void AddMockSourceLocations(Expression& expr) {
     *expr.mutable_start_location() = kMockLocation;
@@ -173,13 +187,32 @@ TEST_F(InferAndCheckTypesTest, KnownVariablesTypeCheck) {
   }
 }
 
-TEST_F(InferAndCheckTypesTest, UnknownVariablesDontTypeCheck) {
-  std::string keys[] = {"unknown", "unsupported", "not even a key"};
-  for (auto& key : keys) {
+TEST_F(InferAndCheckTypesTest, KnownVariablesTypeForActionsCheck) {
+  std::pair<std::string, Type> param_type_pairs[] = {
+      {"bit16", kFixedUnsigned16},
+      {"bit32", kFixedUnsigned32},
+  };
+  for (auto& [param_name, param_type] : param_type_pairs) {
     Expression expr = ParseTextProtoOrDie<Expression>(
-        absl::Substitute(R"( key: "$0" )", key));
-    AddMockSourceLocations(expr);
-    EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
+        absl::Substitute(R"( action_parameter: "$0" )", param_name));
+    ASSERT_THAT(InferAndCheckTypes(&expr, kActionInfo), IsOk());
+    EXPECT_TRUE(expr.type() == param_type);
+  }
+}
+
+TEST_F(InferAndCheckTypesTest, UnknownVariablesDontTypeCheck) {
+  std::string variables[] = {"unknown", "unsupported", "not even valid"};
+  for (auto& variable : variables) {
+    Expression table_expr = ParseTextProtoOrDie<Expression>(
+        absl::Substitute(R"( key: "$0" )", variable));
+    AddMockSourceLocations(table_expr);
+    EXPECT_THAT(InferAndCheckTypes(&table_expr, kTableInfo),
+                StatusIs(StatusCode::kInvalidArgument));
+
+    Expression action_expr = ParseTextProtoOrDie<Expression>(
+        absl::Substitute(R"( action_parameter: "$0" )", variable));
+    AddMockSourceLocations(action_expr);
+    EXPECT_THAT(InferAndCheckTypes(&action_expr, kActionInfo),
                 StatusIs(StatusCode::kInvalidArgument));
   }
 }
@@ -227,6 +260,14 @@ TEST_F(InferAndCheckTypesTest, BooleanNegationOfNonBooleansDoesNotTypeCheck) {
                 StatusIs(StatusCode::kInvalidArgument))
         << "cannot negate key " << key;
   }
+  for (std::string param : {"bit16", "bit32"}) {
+    expr = ParseTextProtoOrDie<Expression>(absl::Substitute(
+        R"(boolean_negation { action_parameter: "$0" })", param));
+    AddMockSourceLocations(expr);
+    ASSERT_THAT(InferAndCheckTypes(&expr, kActionInfo),
+                StatusIs(StatusCode::kInvalidArgument))
+        << "cannot negate action parameter";
+  }
 }
 
 TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfIntTypeChecks) {
@@ -271,6 +312,14 @@ TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfNonIntDoesNotTypeChecks) {
     ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                 StatusIs(StatusCode::kInvalidArgument))
         << "cannot negate key " << key;
+  }
+  for (std::string param : {"bit32", "bit16"}) {
+    expr = ParseTextProtoOrDie<Expression>(absl::Substitute(
+        R"(arithmetic_negation { action_parameter: "$0" })", param));
+    AddMockSourceLocations(expr);
+    ASSERT_THAT(InferAndCheckTypes(&expr, kActionInfo),
+                StatusIs(StatusCode::kInvalidArgument))
+        << "cannot negate " << param;
   }
 }
 

@@ -15,6 +15,7 @@
 #include "p4_constraints/backend/type_checker.h"
 
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -171,11 +172,11 @@ absl::Status CastTransitivelyTo(Expression* expr, Type target_type) {
 // and mutates the expressions by wrapping them with type casts to the least
 // upper bound. Otherwise, Unify returns an InvalidArgument Status.
 absl::StatusOr<Type> Unify(Expression* left, Expression* right,
-                           const TableInfo& table_info) {
+                           const ConstraintSource& constraint_source) {
   const absl::optional<Type> least_upper_bound =
       LeastUpperBound(left->type(), right->type());
   if (!least_upper_bound.has_value()) {
-    return StaticTypeError(table_info.constraint_source, left->start_location(),
+    return StaticTypeError(constraint_source, left->start_location(),
                            right->end_location())
            << "cannot unify types " << left->type() << " and " << right->type();
   }
@@ -221,27 +222,53 @@ absl::optional<Type> FieldTypeOfCompositeType(const Type& composite_type,
 
 // -- Type checking ------------------------------------------------------------
 
-absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
+const ConstraintSource& GetConstraintSource(const ActionInfo* action_info,
+                                            const TableInfo* table_info) {
+  if (action_info == nullptr) return table_info->constraint_source;
+  return action_info->constraint_source;
+}
+
+absl::Status InferAndCheckTypes(Expression* expr, const ActionInfo* action_info,
+                                const TableInfo* table_info) {
+  const ConstraintSource& constraint_source =
+      GetConstraintSource(action_info, table_info);
+
+  // We expect exactly one of {action_info, table_info} to be set.
+  if (action_info != nullptr && table_info != nullptr) {
+    return gutils::InternalErrorBuilder(GUTILS_LOC)
+           << "Both action_info and table_info are nullptr.";
+  }
+  if (action_info == nullptr && table_info == nullptr) {
+    return gutils::InternalErrorBuilder(GUTILS_LOC)
+           << "Both action_info and table_info are not nullptr.";
+  }
+
   switch (expr->expression_case()) {
-    case Expression::kBooleanConstant:
+    case ast::Expression::kBooleanConstant:
       expr->mutable_type()->mutable_boolean();
       return absl::OkStatus();
 
-    case Expression::kIntegerConstant:
+    case ast::Expression::kIntegerConstant:
       expr->mutable_type()->mutable_arbitrary_int();
       return absl::OkStatus();
 
-    case Expression::kKey: {
-      const std::string& key = expr->key();
-      const auto& key_info = table_info.keys_by_name.find(key);
-      if (key_info == table_info.keys_by_name.end())
-        return StaticTypeError(table_info.constraint_source,
+    case ast::Expression::kKey: {
+      // This case only applies to TableInfo.
+      if (table_info == nullptr) {
+        return StaticTypeError(constraint_source, expr->start_location(),
+                               expr->end_location())
+               << "unexpected key in action constraint";
+      }
+      const std::string_view key = expr->key();
+      const auto& key_info = table_info->keys_by_name.find(key);
+      if (key_info == table_info->keys_by_name.end())
+        return StaticTypeError(table_info->constraint_source,
                                expr->start_location(), expr->end_location())
                << "unknown key " << key;
       *expr->mutable_type() = key_info->second.type;
       if (expr->type().type_case() == Type::kUnknown ||
           expr->type().type_case() == Type::kUnsupported) {
-        return StaticTypeError(table_info.constraint_source,
+        return StaticTypeError(table_info->constraint_source,
                                expr->start_location(), expr->end_location())
                << "key " << key << " has illegal type "
                << TypeName(expr->type());
@@ -249,40 +276,35 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       return absl::OkStatus();
     }
 
-    case Expression::kActionParameter: {
-      return absl::UnimplementedError(
-          "TODO: b/293656077 - Support action constraints");
-    }
-
-    case Expression::kAttributeAccess: {
-      const std::string& attribute_name =
-          expr->attribute_access().attribute_name();
-      const auto attribute_info = GetAttributeInfo(attribute_name);
-      if (attribute_info == std::nullopt) {
-        return StaticTypeError(table_info.constraint_source,
-                               expr->start_location(), expr->end_location())
-               << "unknown attribute '" << attribute_name << "'";
+    case ast::Expression::kActionParameter: {
+      // This case only applies to ActionInfo.
+      if (action_info == nullptr) {
+        return StaticTypeError(constraint_source, expr->start_location(),
+                               expr->end_location())
+               << "unexpected action parameter in table constraint";
       }
-      Type& expr_type = *expr->mutable_type();
-      expr_type = attribute_info->type;
-      if (expr_type.type_case() == Type::kUnknown ||
-          expr_type.type_case() == Type::kUnsupported) {
-        // Since we hardcode the type of attribute in the source code, this line
-        // should never be reached.
-        return InternalError(table_info.constraint_source,
-                             expr->start_location(), expr->end_location())
-               << "attribute '" << attribute_name << "' has illegal type "
-               << TypeName(expr_type);
+      const std::string_view param = expr->action_parameter();
+      const auto& param_info = action_info->params_by_name.find(param);
+      if (param_info == action_info->params_by_name.end())
+        return StaticTypeError(action_info->constraint_source,
+                               expr->start_location(), expr->end_location())
+               << "unknown action parameter " << param;
+      *expr->mutable_type() = param_info->second.type;
+      if (expr->type().type_case() == Type::kUnknown ||
+          expr->type().type_case() == Type::kUnsupported) {
+        return StaticTypeError(action_info->constraint_source,
+                               expr->start_location(), expr->end_location())
+               << "action parameter " << param << " has illegal type "
+               << TypeName(expr->type());
       }
       return absl::OkStatus();
     }
 
-    case Expression::kBooleanNegation: {
+    case ast::Expression::kBooleanNegation: {
       Expression* sub_expr = expr->mutable_boolean_negation();
-      RETURN_IF_ERROR(InferAndCheckTypes(sub_expr, table_info));
+      RETURN_IF_ERROR(InferAndCheckTypes(sub_expr, action_info, table_info));
       if (!sub_expr->type().has_boolean()) {
-        return StaticTypeError(table_info.constraint_source,
-                               sub_expr->start_location(),
+        return StaticTypeError(constraint_source, sub_expr->start_location(),
                                sub_expr->end_location())
                << "expected type bool, got " << TypeName(sub_expr->type());
       }
@@ -290,12 +312,11 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       return absl::OkStatus();
     }
 
-    case Expression::kArithmeticNegation: {
+    case ast::Expression::kArithmeticNegation: {
       Expression* sub_expr = expr->mutable_arithmetic_negation();
-      RETURN_IF_ERROR(InferAndCheckTypes(sub_expr, table_info));
+      RETURN_IF_ERROR(InferAndCheckTypes(sub_expr, action_info, table_info));
       if (!sub_expr->type().has_arbitrary_int()) {
-        return StaticTypeError(table_info.constraint_source,
-                               sub_expr->start_location(),
+        return StaticTypeError(constraint_source, sub_expr->start_location(),
                                sub_expr->end_location())
                << "expected type int, got " << TypeName(sub_expr->type());
       }
@@ -303,19 +324,24 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       return absl::OkStatus();
     }
 
+    case ast::Expression::kTypeCast:
+      return StaticTypeError(constraint_source, expr->start_location(),
+                             expr->end_location())
+             << "type casts should only be inserted by the type checker";
+
     case Expression::kBinaryExpression: {
       BinaryExpression* bin_expr = expr->mutable_binary_expression();
       Expression* left = bin_expr->mutable_left();
       Expression* right = bin_expr->mutable_right();
-      RETURN_IF_ERROR(InferAndCheckTypes(left, table_info));
-      RETURN_IF_ERROR(InferAndCheckTypes(right, table_info));
+      RETURN_IF_ERROR(InferAndCheckTypes(left, action_info, table_info));
+      RETURN_IF_ERROR(InferAndCheckTypes(right, action_info, table_info));
       switch (bin_expr->binop()) {
         case ast::BinaryOperator::AND:
         case ast::BinaryOperator::OR:
         case ast::BinaryOperator::IMPLIES: {
           for (auto subexpr : {left, right}) {
             if (!subexpr->type().has_boolean()) {
-              return StaticTypeError(table_info.constraint_source,
+              return StaticTypeError(constraint_source,
                                      subexpr->start_location(),
                                      subexpr->end_location())
                      << "expected type bool, got " << TypeName(subexpr->type());
@@ -330,13 +356,13 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
         case ast::BinaryOperator::LE:
         case ast::BinaryOperator::EQ:
         case ast::BinaryOperator::NE: {
-          ASSIGN_OR_RETURN(Type type, Unify(left, right, table_info));
+          ASSIGN_OR_RETURN(Type type, Unify(left, right, constraint_source));
           // Unordered types only support == and !=.
           if (bin_expr->binop() != ast::BinaryOperator::EQ &&
               bin_expr->binop() != ast::BinaryOperator::NE &&
               !TypeHasOrdering(type)) {
-            return StaticTypeError(table_info.constraint_source,
-                                   expr->start_location(), expr->end_location())
+            return StaticTypeError(constraint_source, expr->start_location(),
+                                   expr->end_location())
                    << "operand type " << type
                    << " does not support ordered comparison";
           }
@@ -350,20 +376,16 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       }
     }
 
-    case Expression::kTypeCast:
-      return StaticTypeError(table_info.constraint_source,
-                             expr->start_location(), expr->end_location())
-             << "type casts should only be inserted by the type checker";
-
-    case Expression::kFieldAccess: {
+    case ast::Expression::kFieldAccess: {
       Expression* composite_expr = expr->mutable_field_access()->mutable_expr();
       const std::string& field = expr->mutable_field_access()->field();
-      RETURN_IF_ERROR(InferAndCheckTypes(composite_expr, table_info));
+      RETURN_IF_ERROR(
+          InferAndCheckTypes(composite_expr, action_info, table_info));
       absl::optional<Type> field_type =
           FieldTypeOfCompositeType(composite_expr->type(), field);
       if (!field_type.has_value()) {
-        return StaticTypeError(table_info.constraint_source,
-                               expr->start_location(), expr->end_location())
+        return StaticTypeError(constraint_source, expr->start_location(),
+                               expr->end_location())
                << "expression of type " << composite_expr->type()
                << " has no field '" << field << "'";
       }
@@ -371,12 +393,43 @@ absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
       return absl::OkStatus();
     }
 
-    case Expression::EXPRESSION_NOT_SET:
+    case ast::Expression::kAttributeAccess: {
+      const std::string& attribute_name =
+          expr->attribute_access().attribute_name();
+      const auto attribute_info = GetAttributeInfo(attribute_name);
+      if (attribute_info == std::nullopt) {
+        return StaticTypeError(constraint_source, expr->start_location(),
+                               expr->end_location())
+               << "unknown attribute '" << attribute_name << "'";
+      }
+      Type& expr_type = *expr->mutable_type();
+      expr_type = attribute_info->type;
+      if (expr_type.type_case() == Type::kUnknown ||
+          expr_type.type_case() == Type::kUnsupported) {
+        // Since we hardcode the type of attribute in the source code, this line
+        // should never be reached.
+        return InternalError(constraint_source, expr->start_location(),
+                             expr->end_location())
+               << "attribute '" << attribute_name << "' has illegal type "
+               << TypeName(expr_type);
+      }
+      return absl::OkStatus();
+    }
+
+    case ast::Expression::EXPRESSION_NOT_SET:
       break;
   }
-  return StaticTypeError(table_info.constraint_source, expr->start_location(),
+  return StaticTypeError(constraint_source, expr->start_location(),
                          expr->end_location())
          << "unexpected expression: " << expr->DebugString();
+}  // namespace
+
+absl::Status InferAndCheckTypes(Expression* expr, const TableInfo& table_info) {
+  return InferAndCheckTypes(expr, /*action_info=*/nullptr, &table_info);
 }
 
+absl::Status InferAndCheckTypes(Expression* expr,
+                                const ActionInfo& action_info) {
+  return InferAndCheckTypes(expr, &action_info, /*table_info=*/nullptr);
+}
 }  // namespace p4_constraints
