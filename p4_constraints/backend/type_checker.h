@@ -34,14 +34,16 @@ namespace p4_constraints {
 //   the correct types.
 // - It may insert type-casts, making implicit casts explicit.
 //
-// Upon successful completion of this function, the given expression is
+// Upon successful completion of these functions, the given expression is
 // guaranteed to contain no ast::Type::Unknown/Unsupported types.
 //
-// This function should not be called on an `expr` that has already been type
+// These functions should not be called on an `expr` that has already been type
 // checked (more specifically, on an `expr` that already contains type casts).
 // Doing so will result in an InvalidInput Error.
 absl::Status InferAndCheckTypes(ast::Expression* expr,
                                 const TableInfo& table_info);
+absl::Status InferAndCheckTypes(ast::Expression* expr,
+                                const ActionInfo& action_info);
 
 }  // namespace p4_constraints
 

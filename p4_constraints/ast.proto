@@ -184,5 +184,10 @@ message SourceLocation {
     // If present, `line` and `column` are relative to an @entry_restriction
     // annotation attached to a table of the given name.
     string table_name = 4;
+
+    // P4 action name. Prefer `file_path` whenever possible.
+    // If present, `line` and `column` are relative to an @action_restriction
+    // annotation attached to an action of the given name.
+    string action_name = 5;
   }
 }
