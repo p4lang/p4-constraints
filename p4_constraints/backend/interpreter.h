@@ -36,16 +36,14 @@
 
 namespace p4_constraints {
 
-// Checks if a given table entry satisfies the entry constraint attached to its
-// associated table. Returns the empty string if this is the case, or a
-// human-readable nonempty string explaining why it is not the case otherwise.
-// This function has the same runtime on successes as `EntryMeetsConstraint`
-// and longer runtimes on failure (by a constant factor) and should generally be
-// preferred. Returns an InvalidArgument Status if the entry belongs to a table
-// not present in ConstraintInfo, or if it is inconsistent with the table
+// Checks if a given table entry satisfies the entry/action(s) constraint(s)
+// attached to its associated table/action(s). Returns the empty string if this
+// is the case or a human-readable nonempty string explaining why it is not the
+// case otherwise. Returns an InvalidArgument Status if the entry/action(s)
+// don't belong in ConstraintInfo or is inconsistent with the table/action(s)
 // definition in ConstraintInfo.
 absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
-    const p4::v1::TableEntry& entry, const ConstraintInfo& context);
+    const p4::v1::TableEntry& entry, const ConstraintInfo& constraint_info);
 
 // -- END OF PUBLIC INTERFACE --------------------------------------------------
 
@@ -141,17 +139,23 @@ struct TableEntry {
   // In contrast to p4::v1::TableEntry, all keys must be present, i.e. this must
   // be a total map from key names to values.
   absl::flat_hash_map<std::string, EvalResult> keys;
-  // TODO(smolkaj): once we support actions, they will be added here.
 };
 
-// Parses p4::v1::TableEntry
-absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
-                                      const TableInfo& table_info);
+// Parsed representation of p4::v1::Action.
+struct ActionInvocation {
+  uint32_t action_id;
+  std::string action_name;
+  // Map of param names to param values.
+  absl::flat_hash_map<std::string, Integer> action_parameters;
+};
 
 // Context under which an `Expression` is evaluated. An `EvaluationContext` is
 // "valid" for a given `Expression` iff the following holds:
-//   -`entry` must contain all fields in the expression, with correct type. If
-//     not, an Error Status is returned
+// - If the `Expression` being evaluated is a Table constraint, then
+// `constraint_context` is a TableEntry type. If the `Expression` being
+// evaluated is an Action constraint, then `constraint_context` is an
+// ActionInvocation type. `constraint_context` must contain all fields in the
+// expression, with correct type. If not, an Error Status is returned.
 //   -`source` must be the source from which the expression was parsed. If not,
 //     behaviour is undefined (depending on the source, either an InternalError
 //     will be given or a non-sense quote will be returned)
@@ -160,17 +164,32 @@ absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
 // expensive copies. This leads to the possibility of dangling references, use
 // with caution.
 struct EvaluationContext {
-  const TableEntry& entry;
-  const ConstraintSource& source;
+  std::variant<ActionInvocation, TableEntry> constraint_context;
+  const ConstraintSource& constraint_source;
 };
+
+// Parses p4::v1::TableEntry into an EvaluationContext using keys, table name,
+// and constraint source from table_info. Returns InvalidArgument if it is not
+// possible to parse entry fields into keys or if an exact match key is not
+// present in the entry.
+absl::StatusOr<EvaluationContext> ParseTableEntry(
+    const p4::v1::TableEntry& entry, const TableInfo& table_info);
+
+// Parses p4::v1::Action into an EvaluationContext using action parameters,
+// action name, and constraint source from action_info. Returns InvalidArgument
+// if an Action parameter cannot be found in action_info or if there are
+// duplicate action parameters.
+absl::StatusOr<EvaluationContext> ParseAction(const p4::v1::Action& action,
+                                              const ActionInfo& action_info);
 
 // Used to memoize evaluation results to avoid re-computation.
 using EvaluationCache = absl::flat_hash_map<const ast::Expression*, bool>;
 
 // Evaluates `expr` over `context.entry` to an `EvalResult`. Returns error
-// status if AST is malformed and uses `context.source` to quote constraint.
-// `eval_cache` holds boolean results, useful for avoiding recomputation when an
-// explanation is desired. Passing a nullptr for `eval-cache` disables caching.
+// status if AST is malformed and uses `context.constraint_source` to quote
+// constraint. `eval_cache` holds boolean results, useful for avoiding
+// recomputation when an explanation is desired. Passing a nullptr for
+// `eval-cache` disables caching.
 absl::StatusOr<EvalResult> Eval(const ast::Expression& expr,
                                 const EvaluationContext& context,
                                 EvaluationCache* eval_cache);
@@ -188,8 +207,8 @@ absl::StatusOr<EvalResult> Eval(const ast::Expression& expr,
 // Uses `eval_cache` and `size_cache` to avoid recomputation, allowing it to run
 // in linear time. Given current language specification, search only requires
 // traversal of nodes with type boolean. Traversal of non-boolean nodes or an
-// invalid AST will return InternalError Status. Uses `context.source` to quote
-// constraint on error.
+// invalid AST will return InternalError Status. Uses
+// `context.constraint_source` to quote constraint on error.
 absl::StatusOr<const ast::Expression*> MinimalSubexpressionLeadingToEvalResult(
     const ast::Expression& expression, const EvaluationContext& context,
     EvaluationCache& eval_cache, ast::SizeCache& size_cache);

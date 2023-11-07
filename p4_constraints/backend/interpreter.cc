@@ -184,8 +184,8 @@ absl::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
   }
 }
 
-absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
-                                      const TableInfo& table_info) {
+absl::StatusOr<EvaluationContext> ParseTableEntry(
+    const p4::v1::TableEntry& entry, const TableInfo& table_info) {
   absl::flat_hash_map<std::string, EvalResult> keys;
 
   // Parse all keys that are explicitly present.
@@ -234,10 +234,45 @@ absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
            << key_info.type.DebugString();
   }
 
-  return TableEntry{
+  TableEntry table_entry{
       .table_name = table_info.name,
       .priority = entry.priority(),
-      .keys = keys,
+      .keys = std::move(keys),
+  };
+
+  return EvaluationContext{
+      .constraint_context = std::move(table_entry),
+      .constraint_source = table_info.constraint_source,
+  };
+}
+
+absl::StatusOr<EvaluationContext> ParseAction(const p4::v1::Action& action,
+                                              const ActionInfo& action_info) {
+  absl::flat_hash_map<std::string, Integer> action_parameters;
+
+  // Parse action parameters.
+  for (const p4::v1::Action_Param& param : action.params()) {
+    int32_t param_id = param.param_id();
+    Integer param_value = ParseP4RTInteger(param.value());
+    auto it = action_info.params_by_id.find(param_id);
+    if (it == action_info.params_by_id.end()) {
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+             << "unknown action param with ID " << P4IDToString(param_id);
+    }
+    if (action_parameters.contains(it->second.name)) {
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+             << "duplicate action param with ID " << P4IDToString(param_id);
+    }
+    action_parameters[it->second.name] = param_value;
+  }
+  ActionInvocation action_invocation{
+      .action_id = action.action_id(),
+      .action_name = action_info.name,
+      .action_parameters = std::move(action_parameters),
+  };
+  return EvaluationContext{
+      .constraint_context = std::move(action_invocation),
+      .constraint_source = action_info.constraint_source,
   };
 }
 
@@ -258,7 +293,7 @@ absl::StatusOr<bool> EvalToBool(const Expression& expr,
       eval_cache->insert({&expr, absl::get<bool>(result)});
     return absl::get<bool>(result);
   } else {
-    return RuntimeTypeError(context.source, expr.start_location(),
+    return RuntimeTypeError(context.constraint_source, expr.start_location(),
                             expr.end_location())
            << "expected expression of type bool";
   }
@@ -271,7 +306,7 @@ absl::StatusOr<Integer> EvalToInt(const Expression& expr,
   ASSIGN_OR_RETURN(EvalResult result, Eval(expr, context, eval_cache));
   if (absl::holds_alternative<Integer>(result))
     return absl::get<Integer>(result);
-  return RuntimeTypeError(context.source, expr.start_location(),
+  return RuntimeTypeError(context.constraint_source, expr.start_location(),
                           expr.end_location())
          << "expected expression of integral type";
 }
@@ -325,7 +360,7 @@ absl::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
         break;
     }
   }
-  return RuntimeTypeError(context.source, expr.start_location(),
+  return RuntimeTypeError(context.constraint_source, expr.start_location(),
                           expr.end_location())
          << "cannot cast expression of type " << expr.type() << " to type "
          << type;
@@ -563,33 +598,63 @@ absl::StatusOr<std::string> ExplainConstraintViolation(
                        expr, context, eval_cache, size_cache));
   ASSIGN_OR_RETURN(bool truth_value,
                    EvalToBool(*explanation, context, &eval_cache));
-  ASSIGN_OR_RETURN(
-      std::string reason,
-      QuoteSubConstraint(context.source, explanation->start_location(),
-                         explanation->end_location()));
-  absl::flat_hash_set<std::string> relevant_fields =
-      ast::GetMatchFields(*explanation);
-  // Ordered for determinism when golden testing.
-  std::string key_info = absl::StrJoin(
-      gutils::Ordered(context.entry.keys), "",
-      [&](std::string* out, const std::pair<std::string, EvalResult>& pair) {
-        if (relevant_fields.contains(pair.first)) {
-          absl::StrAppend(out, "Field: \"", pair.first,
-                          "\" -> Value: ", EvalResultToString(pair.second),
-                          "\n");
-        }
-      });
+  ASSIGN_OR_RETURN(std::string reason,
+                   QuoteSubConstraint(context.constraint_source,
+                                      explanation->start_location(),
+                                      explanation->end_location()));
 
-  return absl::StrFormat(
-      "All entries must %ssatisfy:"
-      "\n\n%s\n"
-      "But your entry does%s.\n"
-      ">>>Relevant Entry Info<<<\n"
-      "Table Name: \"%s\"\n"
-      "Priority:%d\n"
-      "%s",
-      (truth_value ? "not " : ""), reason, (truth_value ? "" : " not"),
-      context.entry.table_name, context.entry.priority, key_info);
+  const absl::flat_hash_set<std::string> relevant_fields =
+      ast::GetMatchFields(*explanation);
+  return std::visit(
+      gutils::Overload{
+          [&](const TableEntry& table_entry) -> std::string {
+            // Ordered for determinism when golden testing.
+            std::string key_info = absl::StrJoin(
+                gutils::Ordered(table_entry.keys), "",
+                [&](std::string* out,
+                    const std::pair<std::string, EvalResult>& pair) {
+                  if (relevant_fields.contains(pair.first)) {
+                    absl::StrAppend(
+                        out, "Field: \"", pair.first,
+                        "\" -> Value: ", EvalResultToString(pair.second), "\n");
+                  }
+                });
+            return absl::StrFormat(
+                "All entries must %ssatisfy:"
+                "\n\n%s\n"
+                "But your entry does%s.\n"
+                ">>>Relevant Entry Info<<<\n"
+                "Table Name: \"%s\"\n"
+                "Priority:%d\n"
+                "%s",
+                (truth_value ? "not " : ""), reason,
+                (truth_value ? "" : " not"), table_entry.table_name,
+                table_entry.priority, key_info);
+          },
+          [&](const ActionInvocation& action_invocation) -> std::string {
+            std::string param_info = absl::StrJoin(
+                gutils::Ordered(action_invocation.action_parameters), "",
+                [&](std::string* out,
+                    const std::pair<std::string, Integer>& pair) {
+                  if (relevant_fields.contains(pair.first)) {
+                    absl::StrAppend(out, "Param name: \"", pair.first,
+                                    "\" -> Value: ", pair.second.get_str(),
+                                    "\n");
+                  }
+                });
+            return absl::StrFormat(
+                "All actions must %ssatisfy:"
+                "\n\n%s\n"
+                "But your entry does%s.\n"
+                ">>>Relevant Action Info<<<\n"
+                "Action Name: \"%s\"\n"
+                "%s",
+                (truth_value ? "not " : ""), reason,
+                (truth_value ? "" : " not"), action_invocation.action_name,
+                param_info);
+          },
+      },
+      context.constraint_context);
 }
 // -- Main evaluator -----------------------------------------------------------
 
@@ -614,29 +679,59 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
     }
 
     case Expression::kKey: {
-      auto it = context.entry.keys.find(expr.key());
-      if (it == context.entry.keys.end()) {
-        return RuntimeTypeError(context.source, expr.start_location(),
-                                expr.end_location())
+      const TableEntry* table_entry =
+          std::get_if<TableEntry>(&context.constraint_context);
+      if (table_entry == nullptr) {
+        return RuntimeTypeError(context.constraint_source,
+                                expr.start_location(), expr.end_location())
+               << "Found a reference to a key in an action constraint.";
+      }
+
+      auto it = table_entry->keys.find(expr.key());
+      if (it == table_entry->keys.end()) {
+        return RuntimeTypeError(context.constraint_source,
+                                expr.start_location(), expr.end_location())
                << "unknown key " << expr.key() << " in table "
-               << context.entry.table_name;
+               << table_entry->table_name;
       }
       return it->second;
     }
 
     case Expression::kActionParameter: {
-      return absl::UnimplementedError(
-          "TODO: b/293656077 - Support action constraints");
+      const ActionInvocation* action_invocation =
+          std::get_if<ActionInvocation>(&context.constraint_context);
+      if (action_invocation == nullptr) {
+        return RuntimeTypeError(context.constraint_source,
+                                expr.start_location(), expr.end_location())
+               << "Found a reference to an action parameter in a table "
+                  "constraint.";
+      }
+      auto it =
+          action_invocation->action_parameters.find(expr.action_parameter());
+      if (it == action_invocation->action_parameters.end()) {
+        return RuntimeTypeError(context.constraint_source,
+                                expr.start_location(), expr.end_location())
+               << "unknown action parameter " << expr.action_parameter()
+               << " in action " << action_invocation->action_name;
+      }
+      return it->second;
     }
 
     case Expression::kAttributeAccess: {
+      const TableEntry* table_entry =
+          std::get_if<TableEntry>(&context.constraint_context);
+      if (table_entry == nullptr) {
+        return RuntimeTypeError(context.constraint_source,
+                                expr.start_location(), expr.end_location())
+               << "The constraint context does not contain a TableEntry.";
+      }
       const std::string attribute_name =
           expr.attribute_access().attribute_name();
       if (attribute_name == "priority") {
-        return Integer(context.entry.priority);
+        return Integer(table_entry->priority);
       } else {
-        return RuntimeTypeError(context.source, expr.start_location(),
-                                expr.end_location())
+        return RuntimeTypeError(context.constraint_source,
+                                expr.start_location(), expr.end_location())
                << "unknown attribute '" << attribute_name << "'";
       }
     }
@@ -672,8 +767,8 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
       absl::StatusOr<EvalResult> result =
           absl::visit(EvalFieldAccess{.field = field}, composite_value);
       if (!result.ok()) {
-        return RuntimeTypeError(context.source, expr.start_location(),
-                                expr.end_location())
+        return RuntimeTypeError(context.constraint_source,
+                                expr.start_location(), expr.end_location())
                << result.status().message();
       }
       return result;
@@ -732,8 +827,55 @@ absl::StatusOr<EvalResult> Eval(const Expression& expr,
                                 const EvaluationContext& context,
                                 EvaluationCache* eval_cache) {
   ASSIGN_OR_RETURN(EvalResult result, Eval_(expr, context, eval_cache));
-  RETURN_IF_ERROR(DynamicTypeCheck(context.source, expr, result));
+  RETURN_IF_ERROR(DynamicTypeCheck(context.constraint_source, expr, result));
   return result;
+}
+
+absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
+    const p4::v1::Action& action, const ConstraintInfo& constraint_info) {
+  const uint32_t action_id = action.action_id();
+  auto* action_info = GetActionInfoOrNull(constraint_info, action_id);
+  if (action_info == nullptr) {
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+           << "action entry with unknown action ID " << P4IDToString(action_id);
+  }
+  // Check if action has an action restriction.
+  if (!action_info->constraint.has_value()) return "";
+
+  const Expression& constraint = *action_info->constraint;
+  if (constraint.type().type_case() != Type::kBoolean) {
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+           << "action " << action_info->name
+           << " has non-boolean constraint: " << constraint.DebugString();
+  }
+
+  EvaluationCache eval_cache;
+  ast::SizeCache size_cache;
+  ASSIGN_OR_RETURN(const EvaluationContext eval_context,
+                   ParseAction(action, *action_info),
+                   _ << " while parsing P4RT table entry for action '"
+                     << action_info->name << "':");
+
+  ASSIGN_OR_RETURN(bool entry_meets_constraint,
+                   EvalToBool(constraint, eval_context, &eval_cache));
+  if (!entry_meets_constraint) {
+    return ExplainConstraintViolation(constraint, eval_context, eval_cache,
+                                      size_cache);
+  }
+  return "";
+}
+
+absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
+    const p4::v1::ActionProfileActionSet& action_set,
+    const ConstraintInfo& constraint_info) {
+  for (const p4::v1::ActionProfileAction& action_profile_action :
+       action_set.action_profile_actions()) {
+    ASSIGN_OR_RETURN(std::string reason,
+                     ReasonEntryViolatesConstraint(
+                         action_profile_action.action(), constraint_info));
+    if (!reason.empty()) return reason;
+  }
+  return "";
 }
 
 }  // namespace internal_interpreter
@@ -741,48 +883,68 @@ absl::StatusOr<EvalResult> Eval(const Expression& expr,
 // -- Public interface ---------------------------------------------------------
 
 absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
-    const p4::v1::TableEntry& entry, const ConstraintInfo& context) {
-  using ::p4_constraints::ast::SizeCache;
+    const p4::v1::TableEntry& entry, const ConstraintInfo& constraint_info) {
   using ::p4_constraints::internal_interpreter::EvalToBool;
   using ::p4_constraints::internal_interpreter::EvaluationCache;
   using ::p4_constraints::internal_interpreter::EvaluationContext;
   using ::p4_constraints::internal_interpreter::ExplainConstraintViolation;
   using ::p4_constraints::internal_interpreter::P4IDToString;
-  using ::p4_constraints::internal_interpreter::ParseEntry;
+  using ::p4_constraints::internal_interpreter::ParseAction;
+  using ::p4_constraints::internal_interpreter::ParseTableEntry;
   using ::p4_constraints::internal_interpreter::TableEntry;
 
   // Find table associated with entry.
-  auto* table_info = GetTableInfoOrNull(context, entry.table_id());
+  auto* table_info = GetTableInfoOrNull(constraint_info, entry.table_id());
   if (table_info == nullptr) {
     return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
            << "table entry with unknown table ID "
            << P4IDToString(entry.table_id());
   }
   // Check if entry satisfies table constraint (if present).
-  if (!table_info->constraint.has_value()) return "";
-  const Expression& constraint = table_info->constraint.value();
-  if (constraint.type().type_case() != Type::kBoolean) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-           << "table " << table_info->name
-           << " has non-boolean constraint: " << constraint.DebugString();
+  if (table_info->constraint.has_value()) {
+    const Expression& constraint = table_info->constraint.value();
+    if (constraint.type().type_case() != Type::kBoolean) {
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+             << "table " << table_info->name
+             << " has non-boolean constraint: " << constraint.DebugString();
+    }
+    // Parse entry and check constraint.
+    ASSIGN_OR_RETURN(const EvaluationContext eval_context,
+                     ParseTableEntry(entry, *table_info),
+                     _ << " while parsing P4RT table entry for table '"
+                       << table_info->name << "':");
+    EvaluationCache eval_cache;
+    ast::SizeCache size_cache;
+    ASSIGN_OR_RETURN(bool entry_satisfies_constraint,
+                     EvalToBool(constraint, eval_context, &eval_cache));
+
+    if (!entry_satisfies_constraint) {
+      return ExplainConstraintViolation(constraint, eval_context, eval_cache,
+                                        size_cache);
+    }
   }
 
-  // Parse entry and check constraint.
-  ASSIGN_OR_RETURN(const TableEntry parsed_entry,
-                   ParseEntry(entry, *table_info),
-                   _ << " while parsing P4RT table entry for table '"
-                     << table_info->name << "':");
-  EvaluationContext eval_context{
-      .entry = parsed_entry,
-      .source = table_info->constraint_source,
-  };
-  EvaluationCache eval_cache;
-  ASSIGN_OR_RETURN(bool entry_satisfies_constraint,
-                   EvalToBool(constraint, eval_context, &eval_cache));
-  if (entry_satisfies_constraint) return "";
-  SizeCache size_cache;
-  return ExplainConstraintViolation(constraint, eval_context, eval_cache,
-                                    size_cache);
+  if (!entry.has_action()) return "";
+
+  switch (entry.action().type_case()) {
+    case p4::v1::TableAction::kAction:
+      return internal_interpreter::ReasonEntryViolatesConstraint(
+          entry.action().action(), constraint_info);
+    case p4::v1::TableAction::kActionProfileMemberId:
+    case p4::v1::TableAction::kActionProfileGroupId:
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+             << "action restrictions not supported for entries with the given "
+                "kind of action: "
+             << entry.DebugString();
+    case p4::v1::TableAction::kActionProfileActionSet: {
+      return internal_interpreter::ReasonEntryViolatesConstraint(
+          entry.action().action_profile_action_set(), constraint_info);
+    }
+    case p4::v1::TableAction::TYPE_NOT_SET:
+      break;
+  }
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+         << "unknown action type " << entry.action().type_case();
 }
 
 }  // namespace p4_constraints

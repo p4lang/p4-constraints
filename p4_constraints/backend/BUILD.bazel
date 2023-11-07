@@ -103,6 +103,7 @@ cc_test(
     linkstatic = True,
     deps = [
         ":constraint_info",
+        ":errors",
         ":interpreter",
         "//gutils:ordered_map",
         "//gutils:parse_text_proto",

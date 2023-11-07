@@ -17,6 +17,7 @@
 
 #include <iostream>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "absl/log/check.h"
@@ -29,6 +30,7 @@
 #include "gutils/parse_text_proto.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/backend/errors.h"
 #include "p4_constraints/backend/interpreter.h"
 #include "p4_constraints/backend/type_checker.h"
 #include "p4_constraints/constraint_source.h"
@@ -228,9 +230,20 @@ std::vector<TestCase> TestCases() {
   return test_cases;
 }
 
-std::string EntryToString(const TableEntry& entry) {
+absl::StatusOr<std::string> EntryToString(const EvaluationContext& context,
+                                          const TableInfo& table_info) {
+  const TableEntry* table_entry =
+      std::get_if<TableEntry>(&context.constraint_context);
+  if (table_entry == nullptr) {
+    return RuntimeTypeError(context.constraint_source,
+                            table_info.constraint->start_location(),
+                            table_info.constraint->end_location())
+           << "The constraint context does not contain a TableEntry.";
+  }
+
   std::string key_info = absl::StrJoin(
-      gutils::Ordered(entry.keys), "\n", [](std::string* out, auto pair) {
+      gutils::Ordered(table_entry->keys), "\n",
+      [](std::string* out, auto pair) {
         absl::StrAppend(out, "Key:\"", pair.first,
                         "\" -> Value: ", EvalResultToString(pair.second));
       });
@@ -238,7 +251,7 @@ std::string EntryToString(const TableEntry& entry) {
       "Table Name: \"%s\"\n"
       "Priority:%d\n"
       "%s\n",
-      entry.table_name, entry.priority, key_info);
+      table_entry->table_name, table_entry->priority, key_info);
 }
 
 absl::Status main() {
@@ -249,15 +262,20 @@ absl::Status main() {
     if (table_info == nullptr) {
       return absl::InvalidArgumentError("No table info");
     }
-    ASSIGN_OR_RETURN(TableEntry input,
-                     ParseEntry(test_case.table_entry, *table_info));
+    ASSIGN_OR_RETURN(const EvaluationContext context,
+                     ParseTableEntry(test_case.table_entry, *table_info));
+
+    absl::StatusOr<std::string> entry = EntryToString(context, *table_info);
+    if (!entry.ok()) {
+      std::cout << "=== ERROR ===\n" << entry.status();
+      return absl::InvalidArgumentError(entry.status().ToString());
+    }
     std::cout << "### ReasonEntryViolatestConstraint Test ###################\n"
               << "=== INPUT ===\n"
               << "--- Constraint ---\n"
               << test_case.constraint << "\n"
               << "--- Table Entry ---\n"
-              << EntryToString(input) << "\n";
-
+              << *entry << "\n";
     absl::StatusOr<std::string> result =
         ReasonEntryViolatesConstraint(test_case.table_entry, constraint_info);
     if (result.ok()) {
