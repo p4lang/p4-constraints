@@ -47,14 +47,6 @@ namespace p4_constraints {
 absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
     const p4::v1::TableEntry& entry, const ConstraintInfo& context);
 
-// Checks if a given table entry satisfies the entry constraint attached to its
-// associated table. Returns true if this is the case or if no constraint
-// exists. Returns an InvalidArgument Status if the entry belongs to a table not
-// present in ConstraintInfo, or if it is inconsistent with the table definition
-// in ConstraintInfo.
-absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
-                                          const ConstraintInfo& context);
-
 // -- END OF PUBLIC INTERFACE --------------------------------------------------
 
 // Exposed for testing only.

@@ -50,10 +50,11 @@ using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::Type;
 using ::testing::Contains;
 using ::testing::Eq;
+using ::testing::Not;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 
-class EntryMeetsConstraintTest : public ::testing::Test {
+class ReasonEntryViolatesConstraintTest : public ::testing::Test {
  public:
   const Type kUnknown = ParseTextProtoOrDie<Type>("unknown {}");
   const Type kUnsupported =
@@ -183,44 +184,54 @@ class EntryMeetsConstraintTest : public ::testing::Test {
   }
 };
 
-class EvalTest : public EntryMeetsConstraintTest {};
-class EvalToBoolCacheTest : public EntryMeetsConstraintTest {};
+class EvalTest : public ReasonEntryViolatesConstraintTest {};
+class EvalToBoolCacheTest : public ReasonEntryViolatesConstraintTest {};
 
-TEST_F(EntryMeetsConstraintTest, EmptyExpressionErrors) {
+TEST_F(ReasonEntryViolatesConstraintTest, EmptyExpressionErrors) {
   const Expression kExpr;
-  EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(kExpr)),
-              StatusIs(StatusCode::kInvalidArgument));
+  EXPECT_THAT(
+      ReasonEntryViolatesConstraint(kTableEntry, MakeConstraintInfo(kExpr)),
+      StatusIs(StatusCode::kInvalidArgument));
 }
 
-TEST_F(EntryMeetsConstraintTest, BooleanConstants) {
+TEST_F(ReasonEntryViolatesConstraintTest, BooleanConstants) {
   const Expression kConstTrue =
       ExpressionWithType(kBool, "boolean_constant: true");
-  const Expression kConstFalse =
-      ExpressionWithType(kBool, "boolean_constant: false");
-  EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(kConstTrue)),
-              IsOkAndHolds(Eq(true)));
-  EXPECT_THAT(
-      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(kConstFalse)),
-      IsOkAndHolds(Eq(false)));
+
+  // start_location and end_location provided for quoting.
+  Expression const_false = ParseTextProtoOrDie<Expression>(R"pb(
+    start_location { table_name: "table" }
+    end_location { table_name: "table" }
+    type { boolean {} }
+    boolean_constant: false
+  )pb");
+
+  EXPECT_THAT(ReasonEntryViolatesConstraint(kTableEntry,
+                                            MakeConstraintInfo(kConstTrue)),
+              IsOkAndHolds(Eq("")));
+  EXPECT_THAT(ReasonEntryViolatesConstraint(kTableEntry,
+                                            MakeConstraintInfo(const_false)),
+              IsOkAndHolds(Not(Eq(""))));
 }
 
-TEST_F(EntryMeetsConstraintTest, NonBooleanConstraintsAreRejected) {
+TEST_F(ReasonEntryViolatesConstraintTest, NonBooleanConstraintsAreRejected) {
   for (const Type& type : {kArbitraryInt, kFixedUnsigned16, kFixedUnsigned32}) {
     const Expression kExpr =
         ExpressionWithType(type, R"(integer_constant: "42")");
-    EXPECT_THAT(EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(kExpr)),
-                StatusIs(StatusCode::kInvalidArgument));
+    EXPECT_THAT(
+        ReasonEntryViolatesConstraint(kTableEntry, MakeConstraintInfo(kExpr)),
+        StatusIs(StatusCode::kInvalidArgument));
   }
 
   // Expressions evaluating to non-scalar values should also be rejected.
   for (std::string key : {"exact32", "ternary32", "lpm32", "range32"}) {
-    EXPECT_THAT(
-        EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(KeyExpr(key))),
-        StatusIs(StatusCode::kInvalidArgument));
+    EXPECT_THAT(ReasonEntryViolatesConstraint(kTableEntry,
+                                              MakeConstraintInfo(KeyExpr(key))),
+                StatusIs(StatusCode::kInvalidArgument));
   }
 }
 
-TEST_F(EntryMeetsConstraintTest, EntriesWithLeadingZeroesWork) {
+TEST_F(ReasonEntryViolatesConstraintTest, EntriesWithLeadingZeroesWork) {
   const Expression exact_equals_num = ExpressionWithType(kBool, R"pb(
     binary_expression {
       binop: EQ
@@ -241,21 +252,24 @@ TEST_F(EntryMeetsConstraintTest, EntriesWithLeadingZeroesWork) {
     }
   )pb");
   // Sanity check that it holds with original entry.
-  ASSERT_THAT(
-      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(exact_equals_num)),
-      IsOkAndHolds(true));
+  ASSERT_THAT(ReasonEntryViolatesConstraint(
+                  kTableEntry, MakeConstraintInfo(exact_equals_num)),
+              IsOkAndHolds(Eq("")));
 
   // Modify entry to have leading zeroes.
   p4::v1::TableEntry modified_entry = kTableEntry;
   modified_entry.mutable_match(0)->mutable_exact()->set_value(
       absl::StrCat(std::string{'\0'}, kTableEntry.match(0).exact().value()));
-  EXPECT_THAT(EntryMeetsConstraint(modified_entry,
-                                   MakeConstraintInfo(exact_equals_num)),
-              IsOkAndHolds(true));
+  EXPECT_THAT(ReasonEntryViolatesConstraint(
+                  modified_entry, MakeConstraintInfo(exact_equals_num)),
+              IsOkAndHolds(Eq("")));
 }
 
-TEST_F(EntryMeetsConstraintTest, EntriesWithOnlyZeroesWork) {
-  const Expression exact_equals_num = ExpressionWithType(kBool, R"pb(
+TEST_F(ReasonEntryViolatesConstraintTest, EntriesWithOnlyZeroesWork) {
+  Expression exact_equals_num = ParseTextProtoOrDie<Expression>(R"pb(
+    start_location { table_name: "table" }
+    end_location { table_name: "table" }
+    type { boolean {} }
     binary_expression {
       binop: EQ
       left {
@@ -274,22 +288,26 @@ TEST_F(EntryMeetsConstraintTest, EntriesWithOnlyZeroesWork) {
       }
     }
   )pb");
+
   // Unmodified entry should not meet constraint since exact32 != 0.
-  ASSERT_THAT(
-      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(exact_equals_num)),
-      IsOkAndHolds(false));
+  ASSERT_THAT(ReasonEntryViolatesConstraint(
+                  kTableEntry, MakeConstraintInfo(exact_equals_num)),
+              IsOkAndHolds(Not(Eq(""))));
 
   // Modify entry to be zero.
   p4::v1::TableEntry modified_entry = kTableEntry;
   modified_entry.mutable_match(0)->mutable_exact()->set_value(
       std::string{'\0'});
-  ASSERT_THAT(EntryMeetsConstraint(modified_entry,
-                                   MakeConstraintInfo(exact_equals_num)),
-              IsOkAndHolds(true));
+  ASSERT_THAT(ReasonEntryViolatesConstraint(
+                  modified_entry, MakeConstraintInfo(exact_equals_num)),
+              IsOkAndHolds(Eq("")));
 }
 
-TEST_F(EntryMeetsConstraintTest, EntriesWithZeroAsciiValueWorks) {
-  const Expression exact_equals_num = ExpressionWithType(kBool, R"pb(
+TEST_F(ReasonEntryViolatesConstraintTest, EntriesWithZeroAsciiValueWorks) {
+  Expression exact_equals_num = ParseTextProtoOrDie<Expression>(R"pb(
+    start_location { table_name: "table" }
+    end_location { table_name: "table" }
+    type { boolean {} }
     binary_expression {
       binop: EQ
       left {
@@ -308,17 +326,18 @@ TEST_F(EntryMeetsConstraintTest, EntriesWithZeroAsciiValueWorks) {
       }
     }
   )pb");
+
   // Unmodified entry should not meet constraint since exact32 != 48.
-  ASSERT_THAT(
-      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(exact_equals_num)),
-      IsOkAndHolds(false));
+  ASSERT_THAT(ReasonEntryViolatesConstraint(
+                  kTableEntry, MakeConstraintInfo(exact_equals_num)),
+              IsOkAndHolds(Not(Eq(""))));
 
   // Modify entry to be zero character.
   p4::v1::TableEntry modified_entry = kTableEntry;
   modified_entry.mutable_match(0)->mutable_exact()->set_value("0");
-  ASSERT_THAT(EntryMeetsConstraint(modified_entry,
-                                   MakeConstraintInfo(exact_equals_num)),
-              IsOkAndHolds(true));
+  ASSERT_THAT(ReasonEntryViolatesConstraint(
+                  modified_entry, MakeConstraintInfo(exact_equals_num)),
+              IsOkAndHolds(Eq("")));
 }
 
 Expression GetPriorityEqualityConstraint(const int32_t priority) {
@@ -341,14 +360,15 @@ Expression GetPriorityEqualityConstraint(const int32_t priority) {
       absl::Substitute(kPriorityEqualityConstraint, priority));
 }
 
-TEST_F(EntryMeetsConstraintTest, PriorityConstraintWorksWithDefaultPriority) {
+TEST_F(ReasonEntryViolatesConstraintTest,
+       PriorityConstraintWorksWithDefaultPriority) {
   const Expression kExpr = GetPriorityEqualityConstraint(0);
   const auto constraint_check_result =
-      EntryMeetsConstraint(kTableEntry, MakeConstraintInfo(kExpr));
-  ASSERT_THAT(constraint_check_result, IsOkAndHolds(Eq(true)));
+      ReasonEntryViolatesConstraint(kTableEntry, MakeConstraintInfo(kExpr));
+  ASSERT_THAT(constraint_check_result, IsOkAndHolds(Eq("")));
 }
 
-TEST_F(EntryMeetsConstraintTest,
+TEST_F(ReasonEntryViolatesConstraintTest,
        PriorityConstraintWorksWithNonDefaultPriority) {
   constexpr absl::string_view kTableEntryWithPriority = R"pb(
     table_id: 1
@@ -367,18 +387,21 @@ TEST_F(EntryMeetsConstraintTest,
 
   // Equality to a different priority.
   {
-    const Expression kExpr = GetPriorityEqualityConstraint(0);
-    const auto constraint_check_result = EntryMeetsConstraint(
-        table_entry_with_priority, MakeConstraintInfo(kExpr));
-    ASSERT_THAT(constraint_check_result, IsOkAndHolds(Eq(false)));
+    Expression expr = GetPriorityEqualityConstraint(0);
+    expr.mutable_start_location()->set_table_name(kTableInfo.name);
+    expr.mutable_end_location()->set_table_name(kTableInfo.name);
+
+    const auto constraint_check_result = ReasonEntryViolatesConstraint(
+        table_entry_with_priority, MakeConstraintInfo(expr));
+    ASSERT_THAT(constraint_check_result, IsOkAndHolds(Not(Eq(""))));
   }
 
   // Equality to the same priority.
   {
     const Expression kExpr = GetPriorityEqualityConstraint(priority);
-    const auto constraint_check_result = EntryMeetsConstraint(
+    const auto constraint_check_result = ReasonEntryViolatesConstraint(
         table_entry_with_priority, MakeConstraintInfo(kExpr));
-    ASSERT_THAT(constraint_check_result, IsOkAndHolds(Eq(true)));
+    ASSERT_THAT(constraint_check_result, IsOkAndHolds(Eq("")));
   }
 }
 
@@ -778,7 +801,7 @@ TEST_F(EvalToBoolCacheTest, CacheIsUsed) {
 }
 
 class MinimalSubexpressionLeadingToEvalResultTest
-    : public EntryMeetsConstraintTest {
+    : public ReasonEntryViolatesConstraintTest {
  public:
   absl::StatusOr<const Expression*>
   MinimalSubexpressionLeadingToEvalResultHelper(const Expression& kConstraint) {
