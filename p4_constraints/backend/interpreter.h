@@ -207,6 +207,11 @@ absl::StatusOr<bool> EvalToBool(const ast::Expression& expr,
                                 const EvaluationContext& context,
                                 EvaluationCache* eval_cache);
 
+// Converts a P4 integer in binary string format to Integer format. For details
+// on the conversion, see
+// https://p4.org/p4-spec/docs/p4runtime-spec-working-draft-html-version.html#sec-bytestrings.
+Integer ParseP4RTInteger(std::string int_str);
+
 }  // namespace internal_interpreter
 }  // namespace p4_constraints
 

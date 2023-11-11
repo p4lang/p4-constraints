@@ -101,9 +101,7 @@ std::string EvalResultToString(const EvalResult& result) {
 
 // -- Parsing P4RT table entries -----------------------------------------------
 
-// See
-// https://p4.org/p4-spec/docs/p4runtime-spec-working-draft-html-version.html#sec-bytestrings.
-static absl::StatusOr<Integer> ParseP4RTInteger(std::string int_str) {
+Integer ParseP4RTInteger(std::string int_str) {
   // Remove leading zero-bits, to properly convert to a c_str in next step,
   // allowing for non-canonical bytestrings.
   int_str.erase(0, int_str.find_first_not_of('\0'));
@@ -139,27 +137,22 @@ absl::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
     case p4::v1::FieldMatch::kExact: {
       RET_CHECK_EQ(key.type.type_case(), Type::kExact)
           << "P4RT table entry inconsistent with P4 program";
-      ASSIGN_OR_RETURN(Integer value, ParseP4RTInteger(p4field.exact().value()),
-                       _ << " while parsing exact key " << key.name);
+      Integer value = ParseP4RTInteger(p4field.exact().value());
       return {std::make_pair(key.name, Exact{.value = value})};
     }
 
     case p4::v1::FieldMatch::kTernary: {
       RET_CHECK_EQ(key.type.type_case(), Type::kTernary)
           << "P4RT table entry inconsistent with P4 program";
-      ASSIGN_OR_RETURN(Integer value,
-                       ParseP4RTInteger(p4field.ternary().value()),
-                       _ << " while parsing value of ternary key " << key.name);
-      ASSIGN_OR_RETURN(Integer mask, ParseP4RTInteger(p4field.ternary().mask()),
-                       _ << " while parsing mask of ternary key " << key.name);
+      Integer value = ParseP4RTInteger(p4field.ternary().value());
+      Integer mask = ParseP4RTInteger(p4field.ternary().mask());
       return {std::make_pair(key.name, Ternary{.value = value, .mask = mask})};
     }
 
     case p4::v1::FieldMatch::kLpm: {
       RET_CHECK_EQ(key.type.type_case(), Type::kLpm)
           << "P4RT table entry inconsistent with P4 program";
-      ASSIGN_OR_RETURN(Integer value, ParseP4RTInteger(p4field.lpm().value()),
-                       _ << " while parsing value of LPM key " << key.name);
+      Integer value = ParseP4RTInteger(p4field.lpm().value());
       Integer prefix_len = mpz_class(p4field.lpm().prefix_len());
       return {std::make_pair(key.name,
                              Lpm{.value = value, .prefix_length = prefix_len})};
@@ -168,21 +161,16 @@ absl::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
     case p4::v1::FieldMatch::kRange: {
       RET_CHECK_EQ(key.type.type_case(), Type::kRange)
           << "P4RT table entry inconsistent with P4 program";
-      ASSIGN_OR_RETURN(
-          Integer low, ParseP4RTInteger(p4field.range().low()),
-          _ << " while parsing field 'low' of range key " << key.name);
-      ASSIGN_OR_RETURN(
-          Integer high, ParseP4RTInteger(p4field.range().high()),
-          _ << " while parsing field 'high' of range key " << key.name);
+
+      Integer low = ParseP4RTInteger(p4field.range().low());
+      Integer high = ParseP4RTInteger(p4field.range().high());
       return {std::make_pair(key.name, Range{.low = low, .high = high})};
     }
 
     case p4::v1::FieldMatch::kOptional: {
       RET_CHECK_EQ(key.type.type_case(), Type::kOptionalMatch)
           << "P4RT table entry inconsistent with P4 program";
-      ASSIGN_OR_RETURN(
-          Integer value, ParseP4RTInteger(p4field.optional().value()),
-          _ << " while parsing field 'value' of optional key " << key.name);
+      Integer value = ParseP4RTInteger(p4field.optional().value());
       return {std::make_pair(
           key.name, Ternary{.value = value,
                             .mask = MaxValueForBitwidth(

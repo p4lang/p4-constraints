@@ -929,6 +929,13 @@ TEST_F(MinimalSubexpressionLeadingToEvalResultTest,
   EXPECT_THAT(MinimalSubexpressionLeadingToEvalResultHelper(kConstraint),
               IsOkAndHolds(Eq(&kConstraint)));
 }
+
+TEST(ParseP4RTInteger, ParsesZeroCorrectly) {
+  auto zero_string = std::string(1, '\0');
+  ASSERT_EQ(zero_string.size(), 1);
+  ASSERT_EQ(zero_string.at(0), '\0');
+  EXPECT_THAT(ParseP4RTInteger(zero_string), Eq(0));
+}
 }  // namespace
 }  // namespace internal_interpreter
 }  // namespace p4_constraints
