@@ -65,6 +65,7 @@ cc_library(
         ":constraint_source",
         "//gutils:proto",
         "//gutils:status",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
