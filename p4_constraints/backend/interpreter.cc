@@ -200,7 +200,7 @@ absl::StatusOr<TableEntry> ParseEntry(const p4::v1::TableEntry& entry,
   }
 
   // Use default value for omitted keys.
-  // See Section 9.1.1. of the P4runtime specification.
+  // See Section 9.1.1. of the P4Runtime specification.
   for (const auto& [name, key_info] : table_info.keys_by_name) {
     if (keys.contains(name)) continue;
     switch (key_info.type.type_case()) {
@@ -523,7 +523,7 @@ absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
                 *candidate_subexpressions[0], context, eval_cache, size_cache);
           }
           // Returns the `MinimalSubexpressionLeadingToEvalResult` from the
-          // candidate who has the smallest such subexpresson.
+          // candidate who has the smallest such subexpression.
           ASSIGN_OR_RETURN(auto* subexpression_0,
                            MinimalSubexpressionLeadingToEvalResult(
                                *candidate_subexpressions[0], context,
@@ -616,10 +616,10 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
     case Expression::kKey: {
       auto it = context.entry.keys.find(expr.key());
       if (it == context.entry.keys.end()) {
-        RuntimeTypeError(context.source, expr.start_location(),
-                         expr.end_location())
-            << "unknown key " << expr.key() << " in table "
-            << context.entry.table_name;
+        return RuntimeTypeError(context.source, expr.start_location(),
+                                expr.end_location())
+               << "unknown key " << expr.key() << " in table "
+               << context.entry.table_name;
       }
       return it->second;
     }

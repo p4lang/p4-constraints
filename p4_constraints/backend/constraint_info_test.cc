@@ -30,7 +30,11 @@ TEST(P4ToConstraintInfoTest, ValidActionRestrictionSucceeds) {
         alias: "act_1"
         annotations: "@action_restriction(\"multicast_group_id != 0\")"
       }
-      params { id: 1 name: "multicast_group_id" bitwidth: 16 }
+      params {
+        id: 1
+        name: "multicast_group_id"
+        bitwidth: 16,
+      }
     }
       )pb";
 
@@ -104,6 +108,46 @@ Syntax error: @action_restriction must be enclosed in '("' and '")'
       constraints.status().message());
 
   ASSERT_TRUE(!constraints.status().ok());
+}
+
+TEST(GetTableInfoOrNullTest, ShouldGetNonNullptrToTableInfo) {
+  P4Info p4_info;
+
+  ASSERT_OK(gutils::ReadProtoFromString(R"pb(
+                                          tables {
+                                            preamble {
+                                              id: 1
+                                              name: "table",
+                                            }
+                                          }
+                                        )pb",
+                                        &p4_info));
+
+  ASSERT_OK_AND_ASSIGN(ConstraintInfo constraints,
+                       p4_constraints::P4ToConstraintInfo(p4_info));
+
+  ASSERT_NE(GetTableInfoOrNull(constraints, 1), nullptr);
+}
+
+TEST(GetActionInfoOrNullTest, ShouldGetNonNullptrToActionInfo) {
+  P4Info p4_info;
+
+  ASSERT_OK(gutils::ReadProtoFromString(
+      R"pb(
+        actions {
+          preamble {
+            id: 123
+            name: "MyIngress.act_1"
+            alias: "act_1",
+          }
+        }
+      )pb",
+      &p4_info));
+
+  ASSERT_OK_AND_ASSIGN(ConstraintInfo constraints,
+                       p4_constraints::P4ToConstraintInfo(p4_info));
+
+  ASSERT_NE(GetActionInfoOrNull(constraints, 123), nullptr);
 }
 
 }  // namespace p4_constraints

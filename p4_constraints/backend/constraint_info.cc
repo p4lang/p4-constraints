@@ -304,6 +304,13 @@ const TableInfo* GetTableInfoOrNull(const ConstraintInfo& constraint_info,
   return &it->second;
 }
 
+const ActionInfo* GetActionInfoOrNull(const ConstraintInfo& constraint_info,
+                                      uint32_t action_id) {
+  auto it = constraint_info.action_info_by_id.find(action_id);
+  if (it == constraint_info.action_info_by_id.end()) return nullptr;
+  return &it->second;
+}
+
 absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info) {
   // Allocate output.
