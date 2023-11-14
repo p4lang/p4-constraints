@@ -17,6 +17,7 @@
 #include <sstream>
 #include <string>
 
+#include "absl/log/log.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -152,9 +153,13 @@ std::string GetSourceName(const ast::SourceLocation& source) {
       return source.table_name();
     case ast::SourceLocation::kFilePath:
       return source.file_path();
-    default:
-      return "Unknown Source Type";
+    case ast::SourceLocation::kActionName:
+      return source.action_name();
+    case ast::SourceLocation::SOURCE_NOT_SET:
+      break;
   }
+  LOG(ERROR) << "Invalid ast::SourceLocation type: " << source.DebugString();
+  return "Unknown Source Type";
 }
 
 absl::StatusOr<std::string> QuoteSubConstraint(
