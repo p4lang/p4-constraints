@@ -88,7 +88,7 @@ absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
 // Returns an InvalidArgument Status if the entry belongs to a table
 // not present in ConstraintInfo, or if it is inconsistent with the table
 // definition in ConstraintInfo.
-gutils::StatusOr<bool> ReasonEntryViolatesConstraint(const p4::v1::TableEntry& entry,
+gutils::StatusOr<std::string> ReasonEntryViolatesConstraint(const p4::v1::TableEntry& entry,
                                           const ConstraintInfo& context);
 ```
 For those who seek more fine-grained control, the API also offers more
