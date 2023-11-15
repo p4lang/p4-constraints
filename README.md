@@ -83,11 +83,12 @@ absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
 /* p4_constraints/backend/interpreter.h */
 
 // Checks if a given table entry satisfies the entry constraint attached to its
-// associated table. Returns true if this is the case or if no constraint
-// exists. Returns an InvalidArgument Status if the entry belongs to a table not
-// present in ConstraintInfo, or if it is inconsistent with the table definition
-// in ConstraintInfo.
-gutils::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
+// associated table. Returns the empty string if this is the case, or a
+// human-readable nonempty string explaining why it is not the case otherwise.
+// Returns an InvalidArgument Status if the entry belongs to a table
+// not present in ConstraintInfo, or if it is inconsistent with the table
+// definition in ConstraintInfo.
+gutils::StatusOr<bool> ReasonEntryViolatesConstraint(const p4::v1::TableEntry& entry,
                                           const ConstraintInfo& context);
 ```
 For those who seek more fine-grained control, the API also offers more
