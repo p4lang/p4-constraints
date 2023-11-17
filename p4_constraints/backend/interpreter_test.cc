@@ -73,18 +73,18 @@ class ReasonEntryViolatesConstraintTest : public ::testing::Test {
       ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
 
   // Used to avoid quoting errors. Not important for unit testing.
-  const ConstraintSource kDummySource{
+  const ConstraintSource kDummySource = {
       .constraint_string = "source",
       .constraint_location = ast::SourceLocation(),
   };
 
-  const TableInfo kTableInfo{
+  const TableInfo kTableInfo = {
       .id = 1,
       .name = "table",
       .constraint = {},  // To be filled in later.
       .keys_by_id =
           {
-              {1, {1, "exact32", kExact32}},
+              {1, {1, "exact32", kExact32}}
               // For testing purposes, fine to omit the other keys here.
           },
       .keys_by_name = {
@@ -95,7 +95,7 @@ class ReasonEntryViolatesConstraintTest : public ::testing::Test {
           {"optional32", {5, "optional32", kOptional32}},
       }};
 
-  const TableEntry kParsedEntry{
+  const TableEntry kParsedEntry = {
       .table_name = "table",
       .keys = {
           {"exact32", {Exact{.value = mpz_class(42)}}},
@@ -109,7 +109,7 @@ class ReasonEntryViolatesConstraintTest : public ::testing::Test {
                     .mask = (mpz_class(1) << 32) - mpz_class(1)}}},
       }};
 
-  const EvaluationContext kEvaluationContext{
+  const EvaluationContext kEvaluationContext = {
       .constraint_context = kParsedEntry,
       .constraint_source = kDummySource,
   };
@@ -130,10 +130,7 @@ class ReasonEntryViolatesConstraintTest : public ::testing::Test {
         table_info.name);
     return {
         .action_info_by_id = {},
-        .table_info_by_id = {{
-            table_info.id,
-            table_info,
-        }},
+        .table_info_by_id = {{table_info.id, table_info}},
     };
   }
 
@@ -219,29 +216,22 @@ class ReasonEntryViolatesConstraintTest : public ::testing::Test {
     }
   )pb");
 
-  const ActionInfo kMulticastGroupIdActionInfo{
+  const ActionInfo kMulticastGroupIdActionInfo = {
       .id = 123,
       .name = "multicast_group_id",
       .constraint = kMulticastGroupIdConstraint,
-      .params_by_id =
-          {
-              {1, {1, "multicast_group_id", kFixedUnsigned32}},
-          },
-      .params_by_name = {
-          {"multicast_group_id", {1, "multicast_group_id", kFixedUnsigned32}},
-      }};
+      .params_by_id = {{1, {1, "multicast_group_id", kFixedUnsigned32}}},
+      .params_by_name = {{"multicast_group_id",
+                          {1, "multicast_group_id", kFixedUnsigned32}}},
+  };
 
-  const ActionInfo kActionInfoVlanId{
+  const ActionInfo kActionInfoVlanId = {
       .id = 124,
       .name = "vlan_id",
       .constraint = kVlanIdConstraint,
-      .params_by_id =
-          {
-              {1, {1, "vlan_id", kFixedUnsigned32}},
-          },
-      .params_by_name = {
-          {"vlan_id", {1, "vlan_id", kFixedUnsigned32}},
-      }};
+      .params_by_id = {{1, {1, "vlan_id", kFixedUnsigned32}}},
+      .params_by_name = {{"vlan_id", {1, "vlan_id", kFixedUnsigned32}}},
+  };
 };
 
 class EvalTest : public ReasonEntryViolatesConstraintTest {};
@@ -280,7 +270,7 @@ TEST_F(ReasonEntryViolatesConstraintTest, MissingActionIdShouldFailForAction) {
   )pb");
 
   const ConstraintInfo constraint_info = {
-      .action_info_by_id = {{1, kMulticastGroupIdActionInfo}},
+      .action_info_by_id = {},
       .table_info_by_id = {{kTableInfo.id, kTableInfo}},
   };
   ASSERT_THAT(ReasonEntryViolatesConstraint(table_entry, constraint_info),
@@ -312,14 +302,10 @@ TEST_F(ReasonEntryViolatesConstraintTest,
   )pb");
 
   const ConstraintInfo constraint_info = {
-      .action_info_by_id = {{
-                                1,  // No action with action_id of 1.
-                                kMulticastGroupIdActionInfo,
-                            },
-                            {
-                                2,  // No action with action_id of 2.
-                                kActionInfoVlanId,
-                            }},
+      .action_info_by_id = {{1,  // No action with action_id of 1.
+                             kMulticastGroupIdActionInfo},
+                            {2,  // No action with action_id of 2.
+                             kActionInfoVlanId}},
       .table_info_by_id = {{kTableInfo.id, kTableInfo}},
   };
   ASSERT_THAT(ReasonEntryViolatesConstraint(table_entry, constraint_info),
@@ -429,14 +415,9 @@ TEST_F(ReasonEntryViolatesConstraintTest,
   )pb");
 
   const ConstraintInfo constraint_info = {
-      .action_info_by_id = {{
-                                kMulticastGroupIdActionInfo.id,
-                                kMulticastGroupIdActionInfo,
-                            },
-                            {
-                                kActionInfoVlanId.id,
-                                kActionInfoVlanId,
-                            }},
+      .action_info_by_id = {{kMulticastGroupIdActionInfo.id,
+                             kMulticastGroupIdActionInfo},
+                            {kActionInfoVlanId.id, kActionInfoVlanId}},
       .table_info_by_id = {{kTableInfo.id, kTableInfo}},
   };
 
@@ -523,14 +504,9 @@ TEST_F(ReasonEntryViolatesConstraintTest,
       "vlan_id");
 
   const ConstraintInfo constraint_info = {
-      .action_info_by_id = {{
-                                multicast_group_id_action_info.id,
-                                multicast_group_id_action_info,
-                            },
-                            {
-                                vlan_id_action_info.id,
-                                vlan_id_action_info,
-                            }},
+      .action_info_by_id = {{multicast_group_id_action_info.id,
+                             multicast_group_id_action_info},
+                            {vlan_id_action_info.id, vlan_id_action_info}},
       .table_info_by_id = {{kTableInfo.id, kTableInfo}},
   };
 
@@ -912,7 +888,7 @@ TEST_F(EvalTest, BinaryExpression_NumericArguments) {
     return ExpressionWithType(kArbitraryInt,
                               "integer_constant: \"" + n.get_str() + "\"");
   };
-  const std::vector<Integer> values{
+  const std::vector<Integer> values = {
       mpz_class(-1),
       mpz_class(0),
       mpz_class(42),
