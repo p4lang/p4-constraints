@@ -740,43 +740,6 @@ absl::StatusOr<EvalResult> Eval(const Expression& expr,
 
 // -- Public interface ---------------------------------------------------------
 
-absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
-                                          const ConstraintInfo& context) {
-  using ::p4_constraints::internal_interpreter::EvalToBool;
-  using ::p4_constraints::internal_interpreter::EvaluationContext;
-  using ::p4_constraints::internal_interpreter::P4IDToString;
-  using ::p4_constraints::internal_interpreter::ParseEntry;
-  using ::p4_constraints::internal_interpreter::TableEntry;
-
-  // Find table associated with entry.
-  auto* table_info = GetTableInfoOrNull(context, entry.table_id());
-  if (table_info == nullptr) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-           << "table entry with unknown table ID "
-           << P4IDToString(entry.table_id());
-  }
-
-  // Check if entry satisfies table constraint (if present).
-  if (!table_info->constraint.has_value()) return "";
-  const Expression& constraint = table_info->constraint.value();
-  if (constraint.type().type_case() != Type::kBoolean) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-           << "table " << table_info->name
-           << " has non-boolean constraint: " << constraint.DebugString();
-  }
-
-  // Parse entry and check constraint.
-  ASSIGN_OR_RETURN(TableEntry parsed_entry, ParseEntry(entry, *table_info),
-                   _ << " while parsing P4RT table entry for table '"
-                     << table_info->name << "':");
-  EvaluationContext eval_context{
-      .entry = parsed_entry,
-      .source = table_info->constraint_source,
-  };
-  // No explanation is returned so no cache is provided.
-  return EvalToBool(constraint, eval_context, /*eval_cache=*/nullptr);
-}
-
 absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
     const p4::v1::TableEntry& entry, const ConstraintInfo& context) {
   using ::p4_constraints::ast::SizeCache;
