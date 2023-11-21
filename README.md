@@ -85,10 +85,9 @@ absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
 // Checks if a given table entry satisfies the entry/action(s) constraint(s)
 // attached to its associated table/action(s). Returns the empty string if this
 // is the case or a human-readable nonempty string explaining why it is not the
-// case otherwise. If the entry meets the table constraint and no action is
-// present, an empty string is returned. Returns an InvalidArgument Status if
-// the entry/action(s) don't belong in ConstraintInfo or is inconsistent with
-// the table/action(s) definition in ConstraintInfo.
+// case otherwise. Returns an InvalidArgument Status if the entry/action(s)
+// don't belong in ConstraintInfo or is inconsistent with the table/action(s)
+// definition in ConstraintInfo.
 absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
     const p4::v1::TableEntry& entry, const ConstraintInfo& constraint_info);
 ```
