@@ -110,8 +110,8 @@ class ReasonEntryViolatesConstraintTest : public ::testing::Test {
       }};
 
   const EvaluationContext kEvaluationContext{
-      .entry = kParsedEntry,
-      .source = kDummySource,
+      .constraint_context = kParsedEntry,
+      .constraint_source = kDummySource,
   };
 
   const p4::v1::TableEntry kTableEntry =
@@ -178,14 +178,365 @@ class ReasonEntryViolatesConstraintTest : public ::testing::Test {
 
   EvaluationContext MakeEvaluationContext(const TableEntry& entry) {
     return EvaluationContext{
-        .entry = entry,
-        .source = kDummySource,
+        .constraint_context = entry,
+        .constraint_source = kDummySource,
     };
   }
+
+  // Constraint to check that multicast_group_id != 0.
+  const Expression kMulticastGroupIdConstraint = ExpressionWithType(kBool, R"pb(
+    binary_expression {
+      binop: NE
+      left {
+        type { fixed_unsigned { bitwidth: 32 } }
+        action_parameter: "multicast_group_id"
+      }
+      right {
+        type { fixed_unsigned { bitwidth: 32 } }
+        type_cast {
+          type { arbitrary_int {} }
+          integer_constant: "0"
+        }
+      }
+    }
+  )pb");
+
+  // Constraint to check that vlan_id != 0.
+  const Expression kVlanIdConstraint = ExpressionWithType(kBool, R"pb(
+    binary_expression {
+      binop: NE
+      left {
+        type { fixed_unsigned { bitwidth: 32 } }
+        action_parameter: "vlan_id"
+      }
+      right {
+        type { fixed_unsigned { bitwidth: 32 } }
+        type_cast {
+          type { arbitrary_int {} }
+          integer_constant: "0"
+        }
+      }
+    }
+  )pb");
+
+  const ActionInfo kMulticastGroupIdActionInfo{
+      .id = 123,
+      .name = "multicast_group_id",
+      .constraint = kMulticastGroupIdConstraint,
+      .params_by_id =
+          {
+              {1, {1, "multicast_group_id", kFixedUnsigned32}},
+          },
+      .params_by_name = {
+          {"multicast_group_id", {1, "multicast_group_id", kFixedUnsigned32}},
+      }};
+
+  const ActionInfo kActionInfoVlanId{
+      .id = 124,
+      .name = "vlan_id",
+      .constraint = kVlanIdConstraint,
+      .params_by_id =
+          {
+              {1, {1, "vlan_id", kFixedUnsigned32}},
+          },
+      .params_by_name = {
+          {"vlan_id", {1, "vlan_id", kFixedUnsigned32}},
+      }};
 };
 
 class EvalTest : public ReasonEntryViolatesConstraintTest {};
 class EvalToBoolCacheTest : public ReasonEntryViolatesConstraintTest {};
+
+TEST_F(ReasonEntryViolatesConstraintTest, EntryShouldMeetActionConstraint) {
+  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+    table_id: 1
+    action {
+      action {
+        action_id: 123
+        params { param_id: 1 value: "\x6" }
+      }
+    }
+  )pb");
+
+  const ConstraintInfo constraint_info = {
+      .action_info_by_id = {{kMulticastGroupIdActionInfo.id,
+                             kMulticastGroupIdActionInfo}},
+      .table_info_by_id = {{kTableInfo.id, kTableInfo}},
+  };
+
+  ASSERT_THAT(ReasonEntryViolatesConstraint(table_entry, constraint_info),
+              IsOkAndHolds(Eq("")));
+}
+
+TEST_F(ReasonEntryViolatesConstraintTest, MissingActionIdShouldFailForAction) {
+  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+    table_id: 1
+    action {
+      action {
+        action_id: 123
+        params { param_id: 1 value: "\x0" }
+      }
+    }
+  )pb");
+
+  const ConstraintInfo constraint_info = {
+      .action_info_by_id = {{1, kMulticastGroupIdActionInfo}},
+      .table_info_by_id = {{kTableInfo.id, kTableInfo}},
+  };
+  ASSERT_THAT(ReasonEntryViolatesConstraint(table_entry, constraint_info),
+              StatusIs(StatusCode::kInvalidArgument));
+}
+
+TEST_F(ReasonEntryViolatesConstraintTest,
+       MissingActionIdShouldFailForActionProfileActionSet) {
+  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+    table_id: 1
+    action {
+      action_profile_action_set {
+        action_profile_actions {
+          action {
+            action_id: 123
+            params { param_id: 1 value: "\x6" }
+          }
+          weight: 1
+        }
+        action_profile_actions {
+          action {
+            action_id: 124
+            params { param_id: 1 value: "\x6" }
+          }
+          weight: 2
+        }
+      }
+    }
+  )pb");
+
+  const ConstraintInfo constraint_info = {
+      .action_info_by_id = {{
+                                1,  // No action with action_id of 1.
+                                kMulticastGroupIdActionInfo,
+                            },
+                            {
+                                2,  // No action with action_id of 2.
+                                kActionInfoVlanId,
+                            }},
+      .table_info_by_id = {{kTableInfo.id, kTableInfo}},
+  };
+  ASSERT_THAT(ReasonEntryViolatesConstraint(table_entry, constraint_info),
+              StatusIs(StatusCode::kInvalidArgument));
+}
+
+TEST_F(ReasonEntryViolatesConstraintTest,
+       ActionProfileMemberIdReturnsUnimplementedError) {
+  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+    table_id: 1
+    action { action_profile_member_id: 1 }
+  )pb");
+
+  const ConstraintInfo constraint_info = {
+      .action_info_by_id = {{kMulticastGroupIdActionInfo.id,
+                             kMulticastGroupIdActionInfo}},
+      .table_info_by_id = {{kTableInfo.id, kTableInfo}},
+  };
+  ASSERT_THAT(ReasonEntryViolatesConstraint(table_entry, constraint_info),
+              StatusIs(StatusCode::kInvalidArgument));
+}
+
+TEST_F(ReasonEntryViolatesConstraintTest,
+       ActionProfileGroupIdReturnsUnimplementedError) {
+  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+    table_id: 1
+    action { action_profile_group_id: 1 }
+  )pb");
+
+  const ConstraintInfo constraint_info = {
+      .action_info_by_id = {{kMulticastGroupIdActionInfo.id,
+                             kMulticastGroupIdActionInfo}},
+      .table_info_by_id = {{kTableInfo.id, kTableInfo}},
+  };
+  ASSERT_THAT(ReasonEntryViolatesConstraint(table_entry, constraint_info),
+              StatusIs(StatusCode::kInvalidArgument));
+}
+
+TEST_F(ReasonEntryViolatesConstraintTest, EntryShouldViolateActionConstraint) {
+  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+    table_id: 1
+    action {
+      action {
+        action_id: 123
+        params { param_id: 1 value: "\x0" }
+      }
+    }
+  )pb");
+
+  // Constraint to check that multicast_group_id != 0.
+  Expression multicast_group_id_constraint =
+      ParseTextProtoOrDie<Expression>(R"pb(
+        start_location { action_name: "multicast_group_id" }
+        end_location { action_name: "multicast_group_id" }
+        type { boolean {} }
+        binary_expression {
+          binop: NE
+          left {
+            type { fixed_unsigned { bitwidth: 32 } }
+            action_parameter: "multicast_group_id"
+          }
+          right {
+            type { fixed_unsigned { bitwidth: 32 } }
+            type_cast {
+              type { arbitrary_int {} }
+              integer_constant: "0"
+            }
+          }
+        }
+      )pb");
+
+  ActionInfo action_info = kMulticastGroupIdActionInfo;
+  action_info.constraint = multicast_group_id_constraint;
+  action_info.constraint_source.constraint_location.set_action_name(
+      "multicast_group_id");
+
+  const ConstraintInfo constraint_info = {
+      .action_info_by_id = {{action_info.id, action_info}},
+      .table_info_by_id = {{kTableInfo.id, kTableInfo}},
+  };
+  ASSERT_THAT(ReasonEntryViolatesConstraint(table_entry, constraint_info),
+              IsOkAndHolds(Not(Eq(""))));
+}
+
+TEST_F(ReasonEntryViolatesConstraintTest,
+       EntryShouldMeetActionProfileActionSetConstraint) {
+  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+    table_id: 1
+    action {
+      action_profile_action_set {
+        action_profile_actions {
+          action {
+            action_id: 123
+            params { param_id: 1 value: "\x6" }
+          }
+          weight: 1
+        }
+        action_profile_actions {
+          action {
+            action_id: 124
+            params { param_id: 1 value: "\x6" }
+          }
+          weight: 2
+        }
+      }
+    }
+  )pb");
+
+  const ConstraintInfo constraint_info = {
+      .action_info_by_id = {{
+                                kMulticastGroupIdActionInfo.id,
+                                kMulticastGroupIdActionInfo,
+                            },
+                            {
+                                kActionInfoVlanId.id,
+                                kActionInfoVlanId,
+                            }},
+      .table_info_by_id = {{kTableInfo.id, kTableInfo}},
+  };
+
+  ASSERT_THAT(ReasonEntryViolatesConstraint(table_entry, constraint_info),
+              IsOkAndHolds(Eq("")));
+}
+
+TEST_F(ReasonEntryViolatesConstraintTest,
+       EntryShouldViolateActionProfileActionSetConstraint) {
+  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+    table_id: 1
+    action {
+      action_profile_action_set {
+        action_profile_actions {
+          action {
+            action_id: 123
+            params { param_id: 1 value: "\x6" }
+          }
+          weight: 1
+        }
+        action_profile_actions {
+          action {
+            action_id: 124
+            params { param_id: 1 value: "\x0" }
+          }
+          weight: 2
+        }
+      }
+    }
+  )pb");
+
+  // Constraint to check that multicast_group_id != 0.
+  Expression multicast_group_id_constraint =
+      ParseTextProtoOrDie<Expression>(R"pb(
+        start_location { action_name: "multicast_group_id" }
+        end_location { action_name: "multicast_group_id" }
+        type { boolean {} }
+        binary_expression {
+          binop: NE
+          left {
+            type { fixed_unsigned { bitwidth: 32 } }
+            action_parameter: "multicast_group_id"
+          }
+          right {
+            type { fixed_unsigned { bitwidth: 32 } }
+            type_cast {
+              type { arbitrary_int {} }
+              integer_constant: "0"
+            }
+          }
+        }
+      )pb");
+
+  // Constraint to check that vlan_id != 0.
+  Expression vlan_id_constraint = ParseTextProtoOrDie<Expression>(R"pb(
+    start_location { action_name: "vlan_id" }
+    end_location { action_name: "vlan_id" }
+    type { boolean {} }
+    binary_expression {
+      binop: NE
+      left {
+        type { fixed_unsigned { bitwidth: 32 } }
+        action_parameter: "vlan_id"
+      }
+      right {
+        type { fixed_unsigned { bitwidth: 32 } }
+        type_cast {
+          type { arbitrary_int {} }
+          integer_constant: "0"
+        }
+      }
+    }
+  )pb");
+
+  ActionInfo multicast_group_id_action_info = kMulticastGroupIdActionInfo;
+  ActionInfo vlan_id_action_info = kActionInfoVlanId;
+
+  multicast_group_id_action_info.constraint = multicast_group_id_constraint;
+  multicast_group_id_action_info.constraint_source.constraint_location
+      .set_action_name("multicast_group_id");
+
+  vlan_id_action_info.constraint = vlan_id_constraint;
+  vlan_id_action_info.constraint_source.constraint_location.set_action_name(
+      "vlan_id");
+
+  const ConstraintInfo constraint_info = {
+      .action_info_by_id = {{
+                                multicast_group_id_action_info.id,
+                                multicast_group_id_action_info,
+                            },
+                            {
+                                vlan_id_action_info.id,
+                                vlan_id_action_info,
+                            }},
+      .table_info_by_id = {{kTableInfo.id, kTableInfo}},
+  };
+
+  ASSERT_THAT(ReasonEntryViolatesConstraint(table_entry, constraint_info),
+              IsOkAndHolds(Not(Eq(""))));
+}
 
 TEST_F(ReasonEntryViolatesConstraintTest, EmptyExpressionErrors) {
   const Expression kExpr;
@@ -251,6 +602,7 @@ TEST_F(ReasonEntryViolatesConstraintTest, EntriesWithLeadingZeroesWork) {
       }
     }
   )pb");
+
   // Sanity check that it holds with original entry.
   ASSERT_THAT(ReasonEntryViolatesConstraint(
                   kTableEntry, MakeConstraintInfo(exact_equals_num)),

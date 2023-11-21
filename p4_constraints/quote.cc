@@ -22,6 +22,8 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "gutils/proto.h"
+#include "gutils/source_location.h"
+#include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
@@ -39,6 +41,31 @@ absl::StatusOr<std::string> Explain(const ast::SourceLocation& start,
                                     const ast::SourceLocation& end) {
   std::stringstream output;
   switch (start.source_case()) {
+    case ast::SourceLocation::kFilePath:
+      // Succinct mode: path/to/file:line:column.
+      output << start.file_path() << ":" << (start.line() + 1) << ":"
+             << (start.column() + 1);
+      if (end.line() > start.line())
+        output << "-" << (end.line() + 1) << ":" << end.column();
+      else if (end.column() > start.column() + 1)
+        output << "-" << end.column();
+      output << ":\n";
+      return output.str();
+
+    case ast::SourceLocation::kActionName:
+      output << "In @action_restriction of action '" << start.action_name()
+             << "'; at offset line " << (start.line() + 1);
+      if (end.line() > start.line())
+        output << ", column " << (start.column() + 1) << " to line "
+               << (end.line() + 1) << ", column" << end.column();
+      else if (end.column() > start.column() + 1)
+        output << ", columns " << (start.column() + 1) << " to "
+               << end.column();
+      else
+        output << ", column " << (start.column() + 1);
+      output << ":\n";
+      return output.str();
+
     case ast::SourceLocation::kTableName:
       // Verbose mode: At offset line 12, columns 17 to 20.
       output << "In @entry_restriction of table '" << start.table_name()
@@ -51,24 +78,14 @@ absl::StatusOr<std::string> Explain(const ast::SourceLocation& start,
                << end.column();
       else
         output << ", column " << (start.column() + 1);
-      break;
+      output << ":\n";
+      return output.str();
 
-    case ast::SourceLocation::kFilePath:
-      // Succinct mode: path/to/file:line:column.
-      output << start.file_path() << ":" << (start.line() + 1) << ":"
-             << (start.column() + 1);
-      if (end.line() > start.line())
-        output << "-" << (end.line() + 1) << ":" << end.column();
-      else if (end.column() > start.column() + 1)
-        output << "-" << end.column();
+    case ast::SourceLocation::SOURCE_NOT_SET:
       break;
-
-    default:
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-             << "unknown source case: " << start.source_case();
   }
-  output << ":\n";
-  return output.str();
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+         << "Invalid source case: " << start.DebugString();
 }
 
 // Returns a string that quotes and marks the given source location interval,
