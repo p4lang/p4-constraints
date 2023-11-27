@@ -73,8 +73,10 @@ Type TypeCaseToType(Type::TypeCase type_case);
 bool HaveSameSource(const SourceLocation& source_location_1,
                     const SourceLocation& source_location_2);
 
-// Returns a set containing the `fields` present in `expr`.
-absl::flat_hash_set<std::string> GetMatchFields(const ast::Expression& expr);
+// Returns a set containing all keys and action_parameters that appear in
+// `expr`. Example use case is to extract variables from a constraint to print
+// the reason why an entry violates a constraint.
+absl::flat_hash_set<std::string> GetVariables(const ast::Expression& expr);
 
 // Cache for results of `Size`.
 using SizeCache = absl::flat_hash_map<const Expression*, int>;

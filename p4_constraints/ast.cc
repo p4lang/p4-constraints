@@ -205,30 +205,31 @@ bool HaveSameSource(const SourceLocation& source_location_1,
   return gutils::ProtoEqual(source_location_1, source_location_2, differ);
 }
 
-// Populates `field_set` with the fields used in `expr`.
-void AddMatchFields(const ast::Expression& expr,
-                    absl::flat_hash_set<std::string>& field_set) {
+// Populates `variable_set` with the variables used in `expr`.
+void AddVariables(const ast::Expression& expr,
+                  absl::flat_hash_set<std::string>& variable_set) {
   switch (expr.expression_case()) {
     case ast::Expression::kKey:
-      field_set.insert(expr.key());
+      variable_set.insert(expr.key());
       return;
     case ast::Expression::kActionParameter:
+      variable_set.insert(expr.action_parameter());
       return;
     case ast::Expression::kBooleanNegation:
-      AddMatchFields(expr.boolean_negation(), field_set);
+      AddVariables(expr.boolean_negation(), variable_set);
       return;
     case ast::Expression::kArithmeticNegation:
-      AddMatchFields(expr.arithmetic_negation(), field_set);
+      AddVariables(expr.arithmetic_negation(), variable_set);
       return;
     case ast::Expression::kTypeCast:
-      AddMatchFields(expr.type_cast(), field_set);
+      AddVariables(expr.type_cast(), variable_set);
       return;
     case ast::Expression::kBinaryExpression:
-      AddMatchFields(expr.binary_expression().left(), field_set);
-      AddMatchFields(expr.binary_expression().right(), field_set);
+      AddVariables(expr.binary_expression().left(), variable_set);
+      AddVariables(expr.binary_expression().right(), variable_set);
       return;
     case ast::Expression::kFieldAccess:
-      AddMatchFields(expr.field_access().expr(), field_set);
+      AddVariables(expr.field_access().expr(), variable_set);
       return;
     // Currently priority is the only metadata and that is not a key.
     case ast::Expression::kAttributeAccess:
@@ -242,9 +243,9 @@ void AddMatchFields(const ast::Expression& expr,
   }
 }
 
-absl::flat_hash_set<std::string> GetMatchFields(const ast::Expression& expr) {
+absl::flat_hash_set<std::string> GetVariables(const ast::Expression& expr) {
   absl::flat_hash_set<std::string> field_set;
-  AddMatchFields(expr, field_set);
+  AddVariables(expr, field_set);
   return field_set;
 }
 
