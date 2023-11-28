@@ -294,7 +294,7 @@ TEST(SizeTest, NoCacheOkay) {
   EXPECT_THAT(Size(expr, nullptr), IsOkAndHolds(Eq(7)));
 }
 
-TEST(AddMatchFields, ReturnsEmptyForActionParameter) {
+TEST(AddVariables, ReturnsEmptyForActionParameter) {
   Expression expr = ParseRawAst(R"pb(
     binary_expression {
       binop: GE
@@ -302,7 +302,9 @@ TEST(AddMatchFields, ReturnsEmptyForActionParameter) {
       right { action_parameter: "2" }
     }
   )pb");
-  EXPECT_THAT(GetMatchFields(expr), testing::IsEmpty());
+
+  absl::flat_hash_set<std::string> expected = {"1", "2"};
+  EXPECT_EQ(GetVariables(expr), expected);
 }
 
 }  // namespace ast

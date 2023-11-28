@@ -604,7 +604,7 @@ absl::StatusOr<std::string> ExplainConstraintViolation(
                                       explanation->end_location()));
 
   const absl::flat_hash_set<std::string> relevant_fields =
-      ast::GetMatchFields(*explanation);
+      ast::GetVariables(*explanation);
   return std::visit(
       gutils::Overload{
           [&](const TableEntry& table_entry) -> std::string {
