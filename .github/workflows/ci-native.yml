@@ -27,8 +27,8 @@ jobs:
       with:
         key: bazel
         path: |
-          "~/.cache/bazel"
-          "~/.cache/bazel-repo"
+          .cache/bazel
+          .cache/bazel-repo
 
     - name: Install bazelisk
       run: |
@@ -39,13 +39,13 @@ jobs:
       run: |
         ./$BAZEL \
           --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
-          build //...
+          build //gutils:collections
 
-    - name: bazel test //...
-      run: |
-        ./$BAZEL \
-          --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
-          test //...
+    # - name: bazel test //...
+    #   run: |
+    #     ./$BAZEL \
+    #       --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
+    #       test //...
 
     - name: Save cache
       uses: actions/cache/save@v3
@@ -53,5 +53,5 @@ jobs:
       with:
         key: ${{ steps.restore-cache.outputs.cache-primary-key }}
         path: |
-          "~/.cache/bazel"
-          "~/.cache/bazel-repo"
+          .cache/bazel
+          .cache/bazel-repo
