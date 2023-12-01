@@ -10,63 +10,48 @@ on:
     - cron: "0 0 * * *"
 
 jobs:
-
   build:
-    # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       BAZEL: bazelisk-linux-amd64
+      XDG_CACHE_HOME: ~/.cache/bazel-repo
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Mount bazel cache
-      uses: actions/cache@v2
-      with:
-        # See https://docs.bazel.build/versions/master/output_directories.html
-        path: "~/.cache/bazel"
-        # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
-        key: new-${{ runner.os }}-build-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
-        restore-keys: |
-          new-${{ runner.os }}-build-
-          new-${{ runner.os }}-
+    - uses: actions/checkout@v4
 
     - name: Install p4c system dependencies (Flex, Bison, GMP)
       run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
+
+    - name: Mount bazel caches
+      uses: actions/cache/restore@v3
+      id: restore-cache
+      with:
+        key: bazel
+        path: |
+          "~/.cache/bazel"
+          "~/.cache/bazel-repo"
 
     - name: Install bazelisk
       run: |
         curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.4/$BAZEL"
         chmod +x $BAZEL
 
-    - name: Build
-      run: ./$BAZEL build //...
-
-  test:
-    # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
-    runs-on: ubuntu-20.04
-    env:
-      BAZEL: bazelisk-linux-amd64
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Mount bazel cache
-      uses: actions/cache@v2
-      with:
-        # See https://docs.bazel.build/versions/master/output_directories.html
-        path: "~/.cache/bazel"
-        # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
-        key: new-${{ runner.os }}-test-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
-        restore-keys: |
-          new-${{ runner.os }}-test-
-          new-${{ runner.os }}-
-
-    - name: Install p4c system dependencies (Flex, Bison, GMP)
-      run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
-
-    - name: Install bazelisk
+    - name: bazel build //...
       run: |
-        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.4/$BAZEL"
-        chmod +x $BAZEL
+        ./$BAZEL \
+          --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
+          build //...
 
-    - name: Test
-      run: ./$BAZEL test //... --test_output=errors
+    - name: bazel test //...
+      run: |
+        ./$BAZEL \
+          --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
+          test //...
+
+    - name: Save cache
+      uses: actions/cache/save@v3
+      if: always()
+      with:
+        key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+        path: |
+          "~/.cache/bazel"
+          "~/.cache/bazel-repo"
