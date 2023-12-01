@@ -32,7 +32,7 @@ jobs:
 
     - name: Install bazelisk
       run: |
-        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.4/$BAZEL"
+        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/$BAZEL"
         chmod +x $BAZEL
 
     - name: bazel build //...
