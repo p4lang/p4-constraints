@@ -13,7 +13,6 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     env:
-      BAZEL: bazelisk-linux-amd64
       XDG_CACHE_HOME: ~/.cache/bazel-repo
 
     steps:
@@ -32,11 +31,6 @@ jobs:
           bazel-${{ hashFiles('**/*_deps.bzl', '**/*.bazelrc') }}
           bazel
 
-    - name: Install bazelisk
-      run: |
-        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/$BAZEL"
-        chmod +x $BAZEL
-
     - name: Save start time
       uses: josStorer/get-current-time@v2
       id: start-time
@@ -46,13 +40,13 @@ jobs:
 
     - name: bazel build //...
       run: |
-        ./$BAZEL \
+        bazel \
           --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
           build //...
 
     - name: bazel test //...
       run: |
-        ./$BAZEL \
+        bazel \
           --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
           test //...
 
