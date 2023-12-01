@@ -15,10 +15,12 @@ jobs:
         submodules: recursive
         
     - name: Mount bazel cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: "~/.cache/bazel"  # See https://docs.bazel.build/versions/master/output_directories.html
-        key: bazel_format
+        key: format-${{ hashFiles('**/*_deps.bzl', '**/*.bazelrc') }}
+        restore-keys: |
+          format
         
     - name: Run format.sh
       run: ./format.sh
