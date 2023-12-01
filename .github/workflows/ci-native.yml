@@ -39,11 +39,11 @@ jobs:
           --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
           build //gutils:collections
 
-    # - name: bazel test //...
-    #   run: |
-    #     ./$BAZEL \
-    #       --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
-    #       test //...
+    - name: bazel test //...
+      run: |
+        ./$BAZEL \
+          --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
+          test //...
 
     - name: Save cache
       uses: actions/cache/save@v3
