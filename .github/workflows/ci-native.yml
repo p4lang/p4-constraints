@@ -37,6 +37,9 @@ jobs:
         curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/$BAZEL"
         chmod +x $BAZEL
 
+    - name: Set local.bazelrc (sourced by .bazelrc)
+      run: mv .github/workflows/ci.bazelrc local.bazelrc
+
     - name: Save start time
       uses: josStorer/get-current-time@v2
       id: start-time
@@ -45,16 +48,10 @@ jobs:
         format: X
 
     - name: bazel build //...
-      run: |
-        ./$BAZEL \
-          --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
-          build //...
+      run: ./$BAZEL build //...
 
     - name: bazel test //...
-      run: |
-        ./$BAZEL \
-          --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
-          test //...
+      run: ./$BAZEL test //...
 
     - name: Save end time
       uses: josStorer/get-current-time@v2
