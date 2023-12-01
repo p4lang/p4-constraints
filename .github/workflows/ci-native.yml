@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       BAZEL: bazelisk-linux-amd64
+      XDG_CACHE_HOME: ~/.cache/bazel-repo
 
     steps:
     - uses: actions/checkout@v4

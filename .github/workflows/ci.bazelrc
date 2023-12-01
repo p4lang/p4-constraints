@@ -10,5 +10,8 @@
 common --disk_cache=~/.cache/bazel
 common --repository_cache=~/.cache/bazel-repo
 
+# Allows tests to run bazelisk-in-bazel, since this is the cache folder used.
+test --test_env=XDG_CACHE_HOME
+
 # Show test errors.
-common --test_output=errors
+test --test_output=errors
