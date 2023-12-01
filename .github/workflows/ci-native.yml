@@ -15,6 +15,10 @@ jobs:
     env:
       BAZEL: bazelisk-linux-amd64
       XDG_CACHE_HOME: ~/.cache/bazel-repo
+    permissions:
+      # https://github.com/actions/stale/issues/1090
+      actions: write
+
     steps:
     - uses: actions/checkout@v4
 
