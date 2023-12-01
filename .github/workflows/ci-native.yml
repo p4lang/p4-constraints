@@ -27,9 +27,9 @@ jobs:
       id: restore-cache
       with:
         path: "~/.cache/bazel"
-        key: bazel-${{ hashFiles('**/*_deps.bzl', '.bazelrc') }}-${{ github.ref_name }}
+        key: bazel-${{ hashFiles('**/*_deps.bzl', '**/*.bazelrc') }}-${{ github.ref_name }}
         restore-keys: |
-          bazel-${{ hashFiles('**/*_deps.bzl', '.bazelrc') }}
+          bazel-${{ hashFiles('**/*_deps.bzl', '**/*.bazelrc') }}
           bazel
 
     - name: Install bazelisk
