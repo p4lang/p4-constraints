@@ -26,9 +26,7 @@ jobs:
       id: restore-cache
       with:
         key: bazel
-        path: |
-          .cache/bazel
-          .cache/bazel-repo
+        path: "~/.cache/bazel"
 
     - name: Install bazelisk
       run: |
@@ -52,6 +50,4 @@ jobs:
       if: always()
       with:
         key: ${{ steps.restore-cache.outputs.cache-primary-key }}
-        path: |
-          .cache/bazel
-          .cache/bazel-repo
+        path: "~/.cache/bazel"
