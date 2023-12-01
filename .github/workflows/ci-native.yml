@@ -15,9 +15,6 @@ jobs:
     env:
       BAZEL: bazelisk-linux-amd64
       XDG_CACHE_HOME: ~/.cache/bazel-repo
-    permissions:
-      # https://github.com/actions/stale/issues/1090
-      actions: write
 
     steps:
     - uses: actions/checkout@v4
@@ -29,13 +26,23 @@ jobs:
       uses: actions/cache/restore@v3
       id: restore-cache
       with:
-        key: bazel
         path: "~/.cache/bazel"
+        key: bazel-${{ hashFiles('**/*_deps.bzl', '.bazelrc') }}-${{ github.ref_name }}
+        restore-keys: |
+          bazel-${{ hashFiles('**/*_deps.bzl', '.bazelrc') }}
+          bazel
 
     - name: Install bazelisk
       run: |
         curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/$BAZEL"
         chmod +x $BAZEL
+
+    - name: Save start time
+      uses: josStorer/get-current-time@v2
+      id: start-time
+      with:
+        # Unix timestamp -- seconds since 1970.
+        format: X
 
     - name: bazel build //...
       run: |
@@ -49,9 +56,26 @@ jobs:
           --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
           test //...
 
+    - name: Save end time
+      uses: josStorer/get-current-time@v2
+      id: end-time
+      with:
+        # Unix timestamp -- seconds since 1970.
+        format: X
+
+    - name: Calculate build duration
+      run: |
+        START=${{ steps.start-time.outputs.formattedTime }}
+        END=${{ steps.end-time.outputs.formattedTime }}
+        DURATION=$(( $END - $START ))
+        echo "duration=$DURATION" | tee "$GITHUB_ENV"
+
     - name: Save cache
       uses: actions/cache/save@v3
-      if: always()
+      # We create a new cache entry if either of the following is true:
+      # - We are on the master branch.
+      # - It took more than 5 minutes to build and test.
+      if: github.ref_name == 'master' || env.duration > 300
       with:
-        key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+        key: ${{ steps.restore-cache.outputs.cache-primary-key }}-${{ github.run_id }}
         path: "~/.cache/bazel"
