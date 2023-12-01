@@ -37,7 +37,7 @@ jobs:
       run: |
         ./$BAZEL \
           --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
-          build //gutils:collections
+          build //...
 
     - name: bazel test //...
       run: |
