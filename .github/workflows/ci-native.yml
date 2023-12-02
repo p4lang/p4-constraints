@@ -68,7 +68,7 @@ jobs:
     # that haven't been accessed in 30+ days manually.
     # github.com/bazelbuild/bazel/issues/5139 tracks fixing this in Bazel.
     - name: Compress disk cache
-      run: find .cache/bazel -type f -atime +30 -delete
+      run: find $HOME/.cache/bazel -type f -atime +30 -delete
 
     - name: Save cache
       uses: actions/cache/save@v3
