@@ -1,0 +1,22 @@
+# This file contains Bazel settings to apply on CI only.
+# It is referenced with a --bazelrc option in the call to bazel in
+# ci-native.yml
+# 
+# Adopted from
+# https://github.com/aspect-build/bazel-examples/blob/main/.github/workflows/ci.bazelrc
+# https://github.com/sfc-gh-ptabor/rules_oci/blob/main/.github/workflows/ci.bazelrc
+
+# Show test errors.
+common --test_output=errors
+
+# These directories are configured in GitHub actions to be persisted between
+# runs.
+common --disk_cache=~/.cache/bazel
+common --repository_cache=~/.cache/bazel-repo
+
+# Adopted from the sources listed at the top of the file. Empirically shown to
+# be needed, though not clear why.
+# 
+# Original comment from the source:
+# Allows tests to run bazelisk-in-bazel, since this is the cache folder used.
+test --test_env=XDG_CACHE_HOME

@@ -10,63 +10,72 @@ on:
     - cron: "0 0 * * *"
 
 jobs:
-
   build:
-    # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
-      BAZEL: bazelisk-linux-amd64
-    steps:
-    - uses: actions/checkout@v2
+      XDG_CACHE_HOME: ~/.cache/bazel-repo
 
-    - name: Mount bazel cache
-      uses: actions/cache@v2
-      with:
-        # See https://docs.bazel.build/versions/master/output_directories.html
-        path: "~/.cache/bazel"
-        # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
-        key: new-${{ runner.os }}-build-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
-        restore-keys: |
-          new-${{ runner.os }}-build-
-          new-${{ runner.os }}-
+    steps:
+    - uses: actions/checkout@v4
 
     - name: Install p4c system dependencies (Flex, Bison, GMP)
       run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
 
-    - name: Install bazelisk
-      run: |
-        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.4/$BAZEL"
-        chmod +x $BAZEL
-
-    - name: Build
-      run: ./$BAZEL build //...
-
-  test:
-    # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
-    runs-on: ubuntu-20.04
-    env:
-      BAZEL: bazelisk-linux-amd64
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Mount bazel cache
-      uses: actions/cache@v2
+    - name: Mount bazel caches
+      uses: actions/cache/restore@v3
+      id: restore-cache
       with:
-        # See https://docs.bazel.build/versions/master/output_directories.html
         path: "~/.cache/bazel"
-        # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
-        key: new-${{ runner.os }}-test-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
+        key: bazel-${{ hashFiles('**/*_deps.bzl', '**/*.bazelrc') }}-${{ github.ref_name }}
         restore-keys: |
-          new-${{ runner.os }}-test-
-          new-${{ runner.os }}-
+          bazel-${{ hashFiles('**/*_deps.bzl', '**/*.bazelrc') }}
+          bazel
 
-    - name: Install p4c system dependencies (Flex, Bison, GMP)
-      run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
+    - name: Save start time
+      uses: josStorer/get-current-time@v2
+      id: start-time
+      with:
+        # Unix timestamp -- seconds since 1970.
+        format: X
 
-    - name: Install bazelisk
+    - name: bazel build //...
       run: |
-        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.4/$BAZEL"
-        chmod +x $BAZEL
+        bazel \
+          --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
+          build //...
 
-    - name: Test
-      run: ./$BAZEL test //... --test_output=errors
+    - name: bazel test //...
+      run: |
+        bazel \
+          --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc \
+          test //...
+
+    - name: Save end time
+      uses: josStorer/get-current-time@v2
+      id: end-time
+      with:
+        # Unix timestamp -- seconds since 1970.
+        format: X
+
+    - name: Calculate build duration
+      run: |
+        START=${{ steps.start-time.outputs.formattedTime }}
+        END=${{ steps.end-time.outputs.formattedTime }}
+        DURATION=$(( $END - $START ))
+        echo "duration=$DURATION" | tee "$GITHUB_ENV"
+
+    # Bazel's `--disk-cache` currently grows without bounds, so we remove files
+    # that haven't been accessed in 30+ days manually.
+    # github.com/bazelbuild/bazel/issues/5139 tracks fixing this in Bazel.
+    - name: Compress disk cache
+      run: find $HOME/.cache/bazel -type f -atime +30 -delete
+
+    - name: Save cache
+      uses: actions/cache/save@v3
+      # We create a new cache entry if either of the following is true:
+      # - We are on the master branch.
+      # - It took more than 5 minutes to build and test.
+      if: github.ref_name == 'master' || env.duration > 300
+      with:
+        key: ${{ steps.restore-cache.outputs.cache-primary-key }}-${{ github.run_id }}
+        path: "~/.cache/bazel"
