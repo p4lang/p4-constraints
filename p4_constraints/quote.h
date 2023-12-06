@@ -21,22 +21,19 @@
 
 #include <string>
 
+#include "absl/status/statusor.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
 
 namespace p4_constraints {
 
-// Returns string that describes and -- if possible -- quotes the given source
-// interval. E.g., for
-//   start = { line: 7, column: 2, source: { file_path: "my/input/file" } }
-//   end = { line: 7, column: 13, source: { file_path: "my/input/file" } }
-// QuoteSourceLocation(start, end) may produce the following output:
-//
-// my/input/file:8:3-13:
-//   | hdr.ethernet.eth_type == 0x08 ->
-// 8 |   1+2 == true
-//   |   ^^^^^^^^^^^
-std::string QuoteSourceLocation(const ast::SourceLocation& start,
-                                const ast::SourceLocation& end);
+// Returns a string that quotes a sub-constraint within `constraint` and
+// describes its source location, delimited by `from` and `to`. If delimiters
+// fall out of range or args are malformed, returns an invalid argument error.
+absl::StatusOr<std::string> QuoteSubConstraint(
+    const ConstraintSource& constraint, const ast::SourceLocation& from,
+    const ast::SourceLocation& to);
+
 }  // namespace p4_constraints
 
 #endif  // P4_CONSTRAINTS_QUOTE_H_

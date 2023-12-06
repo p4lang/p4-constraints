@@ -28,6 +28,7 @@
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/constraint_source.h"
 
 namespace p4_constraints {
 
@@ -42,7 +43,7 @@ class InferAndCheckTypesTest : public ::testing::Test {
  public:
   const Type kUnknown = ParseTextProtoOrDie<Type>("unknown {}");
   const Type kUnsupported =
-      ParseTextProtoOrDie<Type>(R"(unsupported { name: "optional" })");
+      ParseTextProtoOrDie<Type>(R"pb(unsupported { name: "optional" })pb");
   const Type kBool = ParseTextProtoOrDie<Type>("boolean {}");
   const Type kArbitraryInt = ParseTextProtoOrDie<Type>("arbitrary_int {}");
   const Type kFixedUnsigned16 =
@@ -56,10 +57,18 @@ class InferAndCheckTypesTest : public ::testing::Test {
   const Type kOptional32 =
       ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
 
+  const ast::SourceLocation kMockLocation =
+      ParseTextProtoOrDie<ast::SourceLocation>(R"pb(file_path: "Mock")pb");
+
   const TableInfo kTableInfo{
       0,
       "table",
       {},
+      // For the purpose of testing, quoting is not important.
+      ConstraintSource{
+          .constraint_string = " ",
+          .constraint_location = kMockLocation,
+      },
       {},
       {
           {"unknown", {0, "unknown", kUnknown}},
@@ -73,22 +82,72 @@ class InferAndCheckTypesTest : public ::testing::Test {
           {"lpm32", {0, "lpm32", kLpm32}},
           {"range32", {0, "range32", kRange32}},
       }};
+
+  const ActionInfo kActionInfo{.id = 0,
+                               .name = "action",
+                               .constraint = {},
+                               .constraint_source =
+                                   ConstraintSource{
+                                       .constraint_string = " ",
+                                       .constraint_location = kMockLocation,
+                                   },
+                               .params_by_id = {},
+                               .params_by_name = {
+                                   {"bit16", {0, "bit16", kFixedUnsigned16}},
+                                   {"bit32", {0, "bit32", kFixedUnsigned32}},
+                               }};
+
+  // Required by negative tests to avoid internal quoting errors.
+  void AddMockSourceLocations(Expression& expr) {
+    *expr.mutable_start_location() = kMockLocation;
+    *expr.mutable_end_location() = kMockLocation;
+    switch (expr.expression_case()) {
+      case ast::Expression::kBooleanConstant:
+      case ast::Expression::kIntegerConstant:
+      case ast::Expression::kKey:
+      case ast::Expression::kActionParameter:
+      case ast::Expression::kAttributeAccess:
+      case ast::Expression::EXPRESSION_NOT_SET:
+        return;
+      case ast::Expression::kBinaryExpression:
+        AddMockSourceLocations(
+            *expr.mutable_binary_expression()->mutable_left());
+        AddMockSourceLocations(
+            *expr.mutable_binary_expression()->mutable_right());
+        return;
+      case ast::Expression::kBooleanNegation:
+        AddMockSourceLocations(*expr.mutable_boolean_negation());
+        return;
+      case ast::Expression::kTypeCast:
+        AddMockSourceLocations(*expr.mutable_type_cast());
+        return;
+      case ast::Expression::kArithmeticNegation:
+        AddMockSourceLocations(*expr.mutable_arithmetic_negation());
+        return;
+      case ast::Expression::kFieldAccess:
+        AddMockSourceLocations(*expr.mutable_field_access()->mutable_expr());
+    }
+  }
 };
 
 TEST_F(InferAndCheckTypesTest, InvalidExpressions) {
   Expression expr = ParseTextProtoOrDie<Expression>("");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>("boolean_negation {}");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>("type_cast {}");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
   expr = ParseTextProtoOrDie<Expression>("binary_expression {}");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 }
@@ -105,7 +164,7 @@ TEST_F(InferAndCheckTypesTest, BooleanConstant) {
 
 TEST_F(InferAndCheckTypesTest, IntegerConstant) {
   Expression expr =
-      ParseTextProtoOrDie<Expression>(R"(integer_constant: "123")");
+      ParseTextProtoOrDie<Expression>(R"pb(integer_constant: "123")pb");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
   EXPECT_TRUE(expr.type().has_arbitrary_int());
 }
@@ -128,44 +187,67 @@ TEST_F(InferAndCheckTypesTest, KnownVariablesTypeCheck) {
   }
 }
 
-TEST_F(InferAndCheckTypesTest, UnknownVariablesDontTypeCheck) {
-  std::string keys[] = {"unknown", "unsupported", "not even a key"};
-  for (auto& key : keys) {
+TEST_F(InferAndCheckTypesTest, KnownVariablesTypeForActionsCheck) {
+  std::pair<std::string, Type> param_type_pairs[] = {
+      {"bit16", kFixedUnsigned16},
+      {"bit32", kFixedUnsigned32},
+  };
+  for (auto& [param_name, param_type] : param_type_pairs) {
     Expression expr = ParseTextProtoOrDie<Expression>(
-        absl::Substitute(R"( key: "$0" )", key));
-    EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
+        absl::Substitute(R"( action_parameter: "$0" )", param_name));
+    ASSERT_THAT(InferAndCheckTypes(&expr, kActionInfo), IsOk());
+    EXPECT_TRUE(expr.type() == param_type);
+  }
+}
+
+TEST_F(InferAndCheckTypesTest, UnknownVariablesDontTypeCheck) {
+  std::string variables[] = {"unknown", "unsupported", "not even valid"};
+  for (auto& variable : variables) {
+    Expression table_expr = ParseTextProtoOrDie<Expression>(
+        absl::Substitute(R"( key: "$0" )", variable));
+    AddMockSourceLocations(table_expr);
+    EXPECT_THAT(InferAndCheckTypes(&table_expr, kTableInfo),
+                StatusIs(StatusCode::kInvalidArgument));
+
+    Expression action_expr = ParseTextProtoOrDie<Expression>(
+        absl::Substitute(R"( action_parameter: "$0" )", variable));
+    AddMockSourceLocations(action_expr);
+    EXPECT_THAT(InferAndCheckTypes(&action_expr, kActionInfo),
                 StatusIs(StatusCode::kInvalidArgument));
   }
 }
 
 TEST_F(InferAndCheckTypesTest, BooleanNegationOfBooleansTypeChecks) {
-  Expression expr = ParseTextProtoOrDie<Expression>(R"PROTO(
+  Expression expr = ParseTextProtoOrDie<Expression>(R"pb(
     boolean_negation { boolean_constant: true }
-  )PROTO");
+  )pb");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
   EXPECT_TRUE(expr.type().has_boolean());
 
   // Double negation.
-  expr = ParseTextProtoOrDie<Expression>(R"PROTO(
+  expr = ParseTextProtoOrDie<Expression>(R"pb(
     boolean_negation { boolean_negation { boolean_constant: false } }
-  )PROTO");
+  )pb");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
   EXPECT_TRUE(expr.type().has_boolean());
 
   // Boolean key.
-  expr = ParseTextProtoOrDie<Expression>(R"(boolean_negation { key: "bool" })");
+  expr = ParseTextProtoOrDie<Expression>(
+      R"pb(boolean_negation { key: "bool" })pb");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
   EXPECT_TRUE(expr.type().has_boolean());
 }
 
 TEST_F(InferAndCheckTypesTest, BooleanNegationOfNonBooleansDoesNotTypeCheck) {
   Expression expr = ParseTextProtoOrDie<Expression>("boolean_negation {}");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
-  expr = ParseTextProtoOrDie<Expression>(R"PROTO(
+  expr = ParseTextProtoOrDie<Expression>(R"pb(
     boolean_negation { integer_constant: "0" }
-  )PROTO");
+  )pb");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
@@ -173,41 +255,52 @@ TEST_F(InferAndCheckTypesTest, BooleanNegationOfNonBooleansDoesNotTypeCheck) {
                           "ternary32", "lpm32", "range32"}) {
     Expression expr = ParseTextProtoOrDie<Expression>(
         absl::Substitute(R"(boolean_negation { key: "$0" })", key));
+    AddMockSourceLocations(expr);
     ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                 StatusIs(StatusCode::kInvalidArgument))
         << "cannot negate key " << key;
   }
+  for (std::string param : {"bit16", "bit32"}) {
+    expr = ParseTextProtoOrDie<Expression>(absl::Substitute(
+        R"(boolean_negation { action_parameter: "$0" })", param));
+    AddMockSourceLocations(expr);
+    ASSERT_THAT(InferAndCheckTypes(&expr, kActionInfo),
+                StatusIs(StatusCode::kInvalidArgument))
+        << "cannot negate action parameter";
+  }
 }
 
 TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfIntTypeChecks) {
-  Expression expr = ParseTextProtoOrDie<Expression>(R"(
+  Expression expr = ParseTextProtoOrDie<Expression>(R"pb(
     arithmetic_negation { integer_constant: "0" }
-  )");
+  )pb");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
   EXPECT_TRUE(expr.type().has_arbitrary_int());
 
   // Double negation.
-  expr = ParseTextProtoOrDie<Expression>(R"PROTO(
+  expr = ParseTextProtoOrDie<Expression>(R"pb(
     arithmetic_negation { arithmetic_negation { integer_constant: "1" } }
-  )PROTO");
+  )pb");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
   EXPECT_TRUE(expr.type().has_arbitrary_int());
 
   // Arithmetic negation of int key.
-  expr =
-      ParseTextProtoOrDie<Expression>(R"(arithmetic_negation { key: "int" })");
+  expr = ParseTextProtoOrDie<Expression>(
+      R"pb(arithmetic_negation { key: "int" })pb");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
   EXPECT_TRUE(expr.type().has_arbitrary_int());
 }
 
 TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfNonIntDoesNotTypeChecks) {
   Expression expr = ParseTextProtoOrDie<Expression>("arithmetic_negation {}");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
-  expr = ParseTextProtoOrDie<Expression>(R"(
+  expr = ParseTextProtoOrDie<Expression>(R"pb(
     arithmetic_negation { boolean_constant: true }
-  )");
+  )pb");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 
@@ -215,17 +308,27 @@ TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfNonIntDoesNotTypeChecks) {
                           "ternary32", "lpm32", "range32"}) {
     expr = ParseTextProtoOrDie<Expression>(
         absl::Substitute(R"(arithmetic_negation { key: "$0" })", key));
+    AddMockSourceLocations(expr);
     ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                 StatusIs(StatusCode::kInvalidArgument))
         << "cannot negate key " << key;
+  }
+  for (std::string param : {"bit32", "bit16"}) {
+    expr = ParseTextProtoOrDie<Expression>(absl::Substitute(
+        R"(arithmetic_negation { action_parameter: "$0" })", param));
+    AddMockSourceLocations(expr);
+    ASSERT_THAT(InferAndCheckTypes(&expr, kActionInfo),
+                StatusIs(StatusCode::kInvalidArgument))
+        << "cannot negate " << param;
   }
 }
 
 TEST_F(InferAndCheckTypesTest, TypeCastNeverTypeChecks) {
   // TypeCasts should only be inserted by the type checker, so preexisting
   // TypeCasts should be rejected.
-  Expression expr =
-      ParseTextProtoOrDie<Expression>(R"(type_cast { integer_constant: "0" })");
+  Expression expr = ParseTextProtoOrDie<Expression>(
+      R"pb(type_cast { integer_constant: "0" })pb");
+  AddMockSourceLocations(expr);
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
               StatusIs(StatusCode::kInvalidArgument));
 }
@@ -239,12 +342,12 @@ TEST_F(InferAndCheckTypesTest, LegalTypeCastEqualityComparisonTypeChecks) {
     // expr.mutable_binary_expression()->set_binop(op);
     for (std::pair<std::string, std::string> left_right : castable_pairs) {
       Expression expr = ParseTextProtoOrDie<Expression>(
-          absl::Substitute(R"PROTO(
+          absl::Substitute(R"pb(
                              binary_expression {
                                binop: $0
                                left { key: "$1" }
                                right { key: "$2" }
-                             })PROTO",
+                             })pb",
                            op, left_right.first, left_right.second));
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk())
           << expr.DebugString();
@@ -270,13 +373,14 @@ TEST_F(InferAndCheckTypesTest, IllegalTypeCastEqualityComparisonFails) {
   for (ast::BinaryOperator op : {ast::EQ, ast::NE}) {
     for (std::pair<std::string, std::string> left_right : uncastable_pairs) {
       Expression expr = ParseTextProtoOrDie<Expression>(
-          absl::Substitute(R"PROTO(
+          absl::Substitute(R"pb(
                              binary_expression {
                                binop: $0
                                left { key: "$1" }
                                right { key: "$2" }
-                             })PROTO",
+                             })pb",
                            op, left_right.first, left_right.second));
+      AddMockSourceLocations(expr);
       EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
           << expr.DebugString();
@@ -288,23 +392,23 @@ TEST_F(InferAndCheckTypesTest, BinaryBooleanOperators) {
   for (ast::BinaryOperator op : {ast::AND, ast::OR, ast::IMPLIES}) {
     // Positive tests.
     Expression expr = ParseTextProtoOrDie<Expression>(
-        absl::Substitute(R"PROTO(
+        absl::Substitute(R"pb(
                            binary_expression {
                              binop: $0
                              left { key: "bool" }
                              right { boolean_constant: false }
-                           })PROTO",
+                           })pb",
                          op));
     ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
     EXPECT_TRUE(expr.type().has_boolean());
 
     Expression nested = ParseTextProtoOrDie<Expression>(
-        absl::Substitute(R"PROTO(
+        absl::Substitute(R"pb(
                            binary_expression {
                              binop: $0
                              left { $1 }
                              right { $1 }
-                           })PROTO",
+                           })pb",
                          op, expr.DebugString()));
     Expression* right = expr.mutable_binary_expression()->mutable_right();
     std::swap(*right->mutable_binary_expression()->mutable_left(),
@@ -320,10 +424,12 @@ TEST_F(InferAndCheckTypesTest, BinaryBooleanOperators) {
     for (std::string key :
          {"int", "bit32", "exact32", "ternary32", "lpm32", "range32"}) {
       *expr.mutable_binary_expression()->mutable_right()->mutable_key() = key;
+      AddMockSourceLocations(expr);
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument));
 
       *nested.mutable_binary_expression()->mutable_right() = expr;
+      AddMockSourceLocations(nested);
       ASSERT_THAT(InferAndCheckTypes(&nested, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument));
     }
@@ -334,13 +440,14 @@ TEST_F(InferAndCheckTypesTest, OrderedComparisonOperatorsFails) {
   for (ast::BinaryOperator op : {ast::GT, ast::GE, ast::LT, ast::LE}) {
     for (std::string key : {"bool", "ternary32", "lpm32", "range32"}) {
       Expression expr = ParseTextProtoOrDie<Expression>(
-          absl::Substitute(R"PROTO(
+          absl::Substitute(R"pb(
                              binary_expression {
                                binop: $0
                                left { key: "$1" }
                                right { key: "$1" }
-                             })PROTO",
+                             })pb",
                            op, key));
+      AddMockSourceLocations(expr);
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
           << expr.DebugString();
@@ -352,12 +459,12 @@ TEST_F(InferAndCheckTypesTest, OrderedComparisonOperatorsTypeChecks) {
   for (ast::BinaryOperator op : {ast::GT, ast::GE, ast::LT, ast::LE}) {
     for (std::string key : {"int", "bit16", "exact32"}) {
       Expression expr = ParseTextProtoOrDie<Expression>(
-          absl::Substitute(R"PROTO(
+          absl::Substitute(R"pb(
                              binary_expression {
                                binop: $0
                                left { key: "$1" }
                                right { key: "$1" }
-                             })PROTO",
+                             })pb",
                            op, key));
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk())
           << expr.DebugString();
@@ -382,11 +489,11 @@ TEST_F(InferAndCheckTypesTest, FieldAccessTypeChecks) {
       auto& field = field_and_type.first;
       auto& field_type = field_and_type.second;
       Expression expr = ParseTextProtoOrDie<Expression>(
-          absl::Substitute(R"PROTO(
+          absl::Substitute(R"pb(
                              field_access {
                                field: "$0"
                                expr { key: "$1" }
-                             })PROTO",
+                             })pb",
                            field, key));
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk())
           << expr.DebugString();
@@ -408,12 +515,13 @@ TEST_F(InferAndCheckTypesTest, FieldAccess_AccessNonExistingField) {
     auto& illegal_fields = test_case.second;
     for (auto& field : illegal_fields) {
       Expression expr = ParseTextProtoOrDie<Expression>(
-          absl::Substitute(R"PROTO(
+          absl::Substitute(R"pb(
                              field_access {
                                field: "$0"
                                expr { key: "$1" }
-                             })PROTO",
+                             })pb",
                            field, key));
+      AddMockSourceLocations(expr);
       EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
           << expr.DebugString();
@@ -429,17 +537,26 @@ TEST_F(InferAndCheckTypesTest, FieldAccess_AccessFieldOfScalarExpression) {
   for (auto& key : keys_with_scalar_types) {
     for (auto& field : fields) {
       Expression expr = ParseTextProtoOrDie<Expression>(
-          absl::Substitute(R"PROTO(
+          absl::Substitute(R"pb(
                              field_access {
                                field: "$0"
                                expr { key: "$1" }
-                             })PROTO",
+                             })pb",
                            field, key));
+      AddMockSourceLocations(expr);
       EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
           << expr.DebugString();
     }
   }
+}
+
+TEST_F(InferAndCheckTypesTest, AttributeAccessTypeChecks) {
+  Expression expr = ParseTextProtoOrDie<Expression>(R"pb(
+    attribute_access { attribute_name: "priority" }
+  )pb");
+  ASSERT_OK(InferAndCheckTypes(&expr, kTableInfo)) << expr.DebugString();
+  EXPECT_EQ(expr.type(), kArbitraryInt) << expr.DebugString();
 }
 
 }  // namespace p4_constraints

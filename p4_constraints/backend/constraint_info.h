@@ -23,16 +23,20 @@
 #ifndef P4_CONSTRAINTS_BACKEND_CONSTRAINT_INFO_H_
 #define P4_CONSTRAINTS_BACKEND_CONSTRAINT_INFO_H_
 
+#include <stdint.h>
+
+#include <ostream>
 #include <string>
-#include <utility>
-#include <vector>
 
 #include "absl/container/flat_hash_map.h"
-#include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/types/variant.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
 
 namespace p4_constraints {
 
@@ -45,12 +49,30 @@ struct KeyInfo {
   ast::Type type;
 };
 
+struct ParamInfo {
+  uint32_t id;       // Same as Action.Param.id in p4info.proto.
+  std::string name;  // Same as Action.Param.name in p4info.proto.
+
+  // Param type specified by a combination of Action.Param.bitwidth and
+  // Action.Param.P4NamedType in p4info.proto.
+  ast::Type type;
+};
+
+template <typename Sink>
+void AbslStringify(Sink& sink, const KeyInfo& info) {
+  absl::Format(&sink, "KeyInfo{ id: %d; name: \"%s\"; type: { %s }; }", info.id,
+               info.name, info.type.ShortDebugString());
+}
+
 struct TableInfo {
   uint32_t id;       // Same as Table.preamble.id in p4info.proto.
   std::string name;  // Same as Table.preamble.name in p4info.proto.
 
   // An optional constraint (aka entry_restriction) on table entries.
   absl::optional<ast::Expression> constraint;
+  // If member `constraint` is present, this captures its source. Arbitrary
+  // otherwise.
+  ConstraintSource constraint_source;
 
   // Maps from key IDs/names to KeyInfo.
   // Derives from Table.match_fields in p4info.proto.
@@ -58,9 +80,29 @@ struct TableInfo {
   absl::flat_hash_map<std::string, KeyInfo> keys_by_name;
 };
 
+struct ActionInfo {
+  uint32_t id;       // Same as Action.preamble.id in p4info.proto.
+  std::string name;  // Same as Action.preamble.name in p4info.proto.
+
+  // An optional constraint (aka action_restriction) on actions.
+  absl::optional<ast::Expression> constraint;
+  // If member `constraint` is present, this captures its source. Arbitrary
+  // otherwise.
+  ConstraintSource constraint_source;
+
+  // Maps from param IDs to ParamInfo.
+  absl::flat_hash_map<uint32_t, ParamInfo> params_by_id;
+  // Maps from param names to ParamInfo.
+  absl::flat_hash_map<std::string, ParamInfo> params_by_name;
+};
+
 // Contains all information required for constraint checking.
-// Technically, a map from table IDs to TableInfo.
-using ConstraintInfo = absl::flat_hash_map<uint32_t, TableInfo>;
+struct ConstraintInfo {
+  // Maps from action IDs to ActionInfo.
+  absl::flat_hash_map<uint32_t, ActionInfo> action_info_by_id;
+  // Maps from table IDs to TableInfo.
+  absl::flat_hash_map<uint32_t, TableInfo> table_info_by_id;
+};
 
 // Translates P4Info to ConstraintInfo.
 //
@@ -69,6 +111,32 @@ using ConstraintInfo = absl::flat_hash_map<uint32_t, TableInfo>;
 // representation, or an error statuses if parsing fails.
 absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info);
+
+// Returns a pointer to the TableInfo associated with a given table_id
+// or std::nullptr if the table_id cannot be found.
+const TableInfo* GetTableInfoOrNull(const ConstraintInfo& constraint_info,
+                                    uint32_t table_id);
+
+// Returns a pointer to the ActionInfo associated with a given action_id
+// or std::nullptr if the action_id cannot be found.
+const ActionInfo* GetActionInfoOrNull(const ConstraintInfo& constraint_info,
+                                      uint32_t action_id);
+
+// Table entry attribute accessible in the constraint language, e.g. priority.
+struct AttributeInfo {
+  std::string name;
+  ast::Type type;
+};
+
+// Returns information for a given attribute name, std::nullopt for unknown
+// attribute.
+std::optional<AttributeInfo> GetAttributeInfo(absl::string_view attribute_name);
+
+// -- Pretty Printers ----------------------------------------------------------
+
+inline std::ostream& operator<<(std::ostream& os, const KeyInfo& info) {
+  return os << absl::StrCat(info);
+}
 
 }  // namespace p4_constraints
 

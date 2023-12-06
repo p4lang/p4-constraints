@@ -15,13 +15,17 @@
 #include "p4_constraints/frontend/lexer.h"
 
 #include <map>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "absl/strings/string_view.h"
-#include "glog/logging.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/token.h"
 #include "re2/re2.h"
 
@@ -54,8 +58,7 @@ void SwallowMultiLineComment(absl::string_view* input,
       location->set_line(location->line() + 1);
       location->set_column(0);
     } else {
-      LOG(DFATAL) << "impossible: no capture group matched in string: "
-                  << input;
+      LOG(ERROR) << "impossible: no capture group matched in string: " << input;
     }
   }
   DCHECK(input->empty());
@@ -100,19 +103,20 @@ absl::string_view CaptureByName(
   if (iter != kTokenPattern->NamedCapturingGroups().end()) {
     return captures[iter->second];
   } else {
-    LOG(DFATAL) << "non-existent capture group: " << group_name;
+    LOG(ERROR) << "non-existent capture group: " << group_name;
     return "";
   }
 }
 
 }  // namespace
 
-std::vector<Token> Tokenize(absl::string_view input,
-                            ast::SourceLocation start_location) {
+std::vector<Token> Tokenize(const ConstraintSource& constraint) {
   // Output.
   std::vector<Token> tokens;
-
+  // Input
+  absl::string_view input = constraint.constraint_string;
   // Location tracking.
+  ast::SourceLocation start_location = constraint.constraint_location;
   ast::SourceLocation current_location = start_location;
 
   // +1 because there is an implicit capturing group at index 0 corresponding to
@@ -152,7 +156,7 @@ std::vector<Token> Tokenize(absl::string_view input,
     } else if (!CaptureByName("keyword", captures).empty()) {
       kind = Token::KeywordToKind(lexeme).value_or(Token::UNEXPECTED_CHAR);
       if (kind == Token::UNEXPECTED_CHAR)
-        LOG(DFATAL)
+        LOG(ERROR)
             << "keyword " << lexeme
             << " recognized by lexer, but unknown to Token::KeywordToKind";
     } else if (!CaptureByName("id", captures).empty()) {
@@ -175,8 +179,8 @@ std::vector<Token> Tokenize(absl::string_view input,
       lexeme = std::string(CaptureByName("hexadec", captures));
       kind = Token::HEXADEC;
     } else {
-      LOG(DFATAL) << "impossible: no capture group matched in string: "
-                  << lexeme;
+      LOG(ERROR) << "impossible: no capture group matched in string: "
+                 << lexeme;
       kind = Token::UNEXPECTED_CHAR;
     }
     tokens.push_back(Token(kind, lexeme, start_location, current_location));
@@ -185,12 +189,12 @@ std::vector<Token> Tokenize(absl::string_view input,
   }
 
   // No match - input does no longer begin with a token.
-  // Advance location by one column to make the location interval non-empty.
-  current_location.set_column(current_location.column() + 1);
   if (input.empty()) {
     tokens.push_back(
         Token(Token::END_OF_INPUT, "", start_location, current_location));
   } else {
+    // Advance location by one column to make the location interval non-empty.
+    current_location.set_column(current_location.column() + 1);
     // TODO(smolkaj): We could do a better job reporting the precise location of
     // the first unexpected character here, see "Known limitation" in lexer.h.
     tokens.push_back(Token(Token::UNEXPECTED_CHAR, {input[0]}, start_location,

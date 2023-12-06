@@ -1,3 +1,5 @@
+load("//e2e_tests:p4check.bzl", "cmd_diff_test")
+
 package(
     default_visibility = ["//visibility:public"],
     licenses = ["notice"],  # Apache 2.0
@@ -13,18 +15,26 @@ cc_library(
     ],
     deps = [
         ":constraint_info",
+        ":errors",
+        "//gutils:ordered_map",
+        "//gutils:overload",
         "//gutils:ret_check",
         "//gutils:status",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
         "//p4_constraints:quote",
-        "@com_github_google_glog//:glog",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:variant",
     ],
 )
 
@@ -41,12 +51,14 @@ cc_test(
         ":interpreter",
         "//gutils:parse_text_proto",
         "//gutils:status_matchers",
+        "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -62,22 +74,59 @@ cc_library(
         "type_checker.h",
     ],
     deps = [
-        "//gutils:ret_check",
+        "//gutils:source_location",
         "//gutils:status",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
         "//p4_constraints:quote",
-        "//p4_constraints/frontend:lexer",
+        "//p4_constraints/frontend:constraint_kind",
         "//p4_constraints/frontend:parser",
-        "@com_github_google_glog//:glog",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_github_p4lang_p4runtime//:p4types_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:variant",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:optional",
         "@com_googlesource_code_re2//:re2",
     ],
+)
+
+# go/golden-test-with-coverage
+cc_test(
+    name = "interpreter_golden_test_runner",
+    srcs = ["interpreter_golden_test_runner.cc"],
+    linkstatic = True,
+    deps = [
+        ":constraint_info",
+        ":interpreter",
+        "//gutils:ordered_map",
+        "//gutils:parse_text_proto",
+        "//gutils:source_location",
+        "//gutils:status",
+        "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
+        "//p4_constraints/frontend:constraint_kind",
+        "//p4_constraints/frontend:parser",
+        "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log:check",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cmd_diff_test(
+    name = "interpreter_golden_test",
+    actual_cmd = "$(execpath :interpreter_golden_test_runner)",
+    expected = ":interpreter_golden_test_runner.expected",
+    tools = [":interpreter_golden_test_runner"],
 )
 
 cc_test(
@@ -90,8 +139,92 @@ cc_test(
         "//gutils:status_matchers",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "symbolic_interpreter",
+    srcs = [
+        "symbolic_interpreter.cc",
+    ],
+    hdrs = [
+        "symbolic_interpreter.h",
+    ],
+    deps = [
+        ":constraint_info",
+        ":errors",
+        "//gutils:collections",
+        "//gutils:overload",
+        "//gutils:source_location",
+        "//gutils:status",
+        "//p4_constraints:ast",
+        "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_github_z3prover_z3//:api",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_library(
+    name = "errors",
+    srcs = ["errors.cc"],
+    hdrs = ["errors.h"],
+    deps = [
+        "//gutils:source_location",
+        "//gutils:status",
+        "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
+        "//p4_constraints:quote",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_test(
+    name = "symbolic_interpreter_test",
+    srcs = ["symbolic_interpreter_test.cc"],
+    deps = [
+        ":constraint_info",
+        ":interpreter",
+        ":symbolic_interpreter",
+        "//gutils:parse_text_proto",
+        "//gutils:protocol_buffer_matchers",
+        "//gutils:status_matchers",
+        "//gutils:testing",
+        "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
+        "//p4_constraints/frontend:constraint_kind",
+        "//p4_constraints/frontend:parser",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_github_z3prover_z3//:api",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log:check",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "constraint_info_test",
+    srcs = ["constraint_info_test.cc"],
+    deps = [
+        ":constraint_info",
+        "//gutils:proto",
+        "//gutils:status_matchers",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log:check",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
     ],
 )

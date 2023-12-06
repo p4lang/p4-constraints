@@ -21,10 +21,11 @@
 // This CLI is not intended for use in production; it is intended for testing
 // and showcasing the p4_constraints library.
 
+#include <stdint.h>
+
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "absl/flags/flag.h"
@@ -32,9 +33,10 @@
 #include "absl/flags/usage.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "absl/types/variant.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/text_format.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -43,8 +45,8 @@
 #include "p4_constraints/backend/interpreter.h"
 
 using ::p4_constraints::ConstraintInfo;
-using ::p4_constraints::EntryMeetsConstraint;
 using ::p4_constraints::P4ToConstraintInfo;
+using ::p4_constraints::ReasonEntryViolatesConstraint;
 
 ABSL_FLAG(std::string, p4info, "", "p4info file (required)");
 constexpr char kUsage[] =
@@ -56,6 +58,11 @@ constexpr char kUsage[] =
 // See P4Runtime specification, "6.3 ID Allocation for P4Info Objects".
 uint32_t CoerceToTableId(uint32_t table_id) {
   return (table_id & 0x00FFFFFF) | (p4::config::v1::P4Ids::TABLE << 24);
+}
+
+std::string ToString(const absl::Status& status) {
+  return absl::StrCat(absl::StatusCodeToString(status.code()), ": ",
+                      status.message());
 }
 
 int main(int argc, char** argv) {
@@ -103,7 +110,10 @@ int main(int argc, char** argv) {
   // Check table entries, if any where given.
   for (const char* entry_filename :
        absl::MakeSpan(positional_args).subspan(1)) {
-    std::cout << entry_filename << ": ";
+    std::cout << "### P4Constraints Table Entry Test #######################\n";
+    std::cout << "=== Input Table Entry File ===\n";
+    std::cout << entry_filename << "\n";
+    std::cout << "=== Output ===\n";
 
     // Open entry file.
     std::ifstream entry_file(entry_filename);
@@ -128,13 +138,14 @@ int main(int argc, char** argv) {
     entry.set_table_id(CoerceToTableId(entry.table_id()));
 
     // Check entry.
-    absl::StatusOr<bool> result = EntryMeetsConstraint(entry, *constraint_info);
+    absl::StatusOr<std::string> result =
+        ReasonEntryViolatesConstraint(entry, *constraint_info);
     if (!result.ok()) {
-      std::cout << "Error: " << result.status() << "\n\n";
+      std::cout << "Error: " << ToString(result.status()) << "\n\n";
       continue;
     }
-    std::cout << "constraint " << (result.value() ? "satisfied" : "violated")
-              << "\n\n";
+    std::cout << (result->empty() ? "Constraint satisfied\n" : result.value())
+              << "\n";
   }
 
   return 0;

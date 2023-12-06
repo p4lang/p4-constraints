@@ -20,25 +20,30 @@
 #define P4_CONSTRAINTS_BACKEND_INTERPRETER_H_
 
 #include <gmpxx.h>
+#include <stdint.h>
 
+#include <ostream>
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
+#include "absl/types/variant.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 
 namespace p4_constraints {
 
-// Checks if a given table entry satisfies the entry constraint attached to its
-// associated table. Returns true if this is the case or if no constraint
-// exists. Returns an InvalidArgument Status if the entry belongs to a table not
-// present in ConstraintInfo, or if it is inconsistent with the table definition
-// in ConstraintInfo.
-absl::StatusOr<bool> EntryMeetsConstraint(const p4::v1::TableEntry& entry,
-                                          const ConstraintInfo& context);
+// Checks if a given table entry satisfies the entry/action(s) constraint(s)
+// attached to its associated table/action(s). Returns the empty string if this
+// is the case or a human-readable nonempty string explaining why it is not the
+// case otherwise. Returns an InvalidArgument Status if the entry/action(s)
+// don't belong in ConstraintInfo or is inconsistent with the table/action(s)
+// definition in ConstraintInfo.
+absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
+    const p4::v1::TableEntry& entry, const ConstraintInfo& constraint_info);
 
 // -- END OF PUBLIC INTERFACE --------------------------------------------------
 
@@ -117,6 +122,9 @@ inline std::ostream& operator<<(std::ostream& os, const Range& range) {
                                range.low.get_str(), range.high.get_str());
 }
 
+// Converts EvalResult to readable string.
+std::string EvalResultToString(const EvalResult& result);
+
 // TODO(smolkaj): The code below does not compile with C++11. Find workaround.
 // inline std::ostream& operator<<(std::ostream& os, const EvalResult& result) {
 //   absl::visit([&](const auto& result) { os << result; }, result);
@@ -126,18 +134,96 @@ inline std::ostream& operator<<(std::ostream& os, const Range& range) {
 // Parsed representation of p4::v1::TableEntry.
 struct TableEntry {
   std::string table_name;
+  int32_t priority;
   // All table keys, by name.
   // In contrast to p4::v1::TableEntry, all keys must be present, i.e. this must
   // be a total map from key names to values.
   absl::flat_hash_map<std::string, EvalResult> keys;
-  // TODO(smolkaj): once we support actions, they will be added here.
 };
 
+// Parsed representation of p4::v1::Action.
+struct ActionInvocation {
+  uint32_t action_id;
+  std::string action_name;
+  // Map of param names to param values.
+  absl::flat_hash_map<std::string, Integer> action_parameters;
+};
+
+// Context under which an `Expression` is evaluated. An `EvaluationContext` is
+// "valid" for a given `Expression` iff the following holds:
+// - If the `Expression` being evaluated is a Table constraint, then
+// `constraint_context` is a TableEntry type. If the `Expression` being
+// evaluated is an Action constraint, then `constraint_context` is an
+// ActionInvocation type. `constraint_context` must contain all fields in the
+// expression, with correct type. If not, an Error Status is returned.
+//   -`source` must be the source from which the expression was parsed. If not,
+//     behaviour is undefined (depending on the source, either an InternalError
+//     will be given or a non-sense quote will be returned)
+//
+// ***WARNING***: This struct's members are references in order to avoid
+// expensive copies. This leads to the possibility of dangling references, use
+// with caution.
+struct EvaluationContext {
+  std::variant<ActionInvocation, TableEntry> constraint_context;
+  const ConstraintSource& constraint_source;
+};
+
+// Parses p4::v1::TableEntry into an EvaluationContext using keys, table name,
+// and constraint source from table_info. Returns InvalidArgument if it is not
+// possible to parse entry fields into keys or if an exact match key is not
+// present in the entry.
+absl::StatusOr<EvaluationContext> ParseTableEntry(
+    const p4::v1::TableEntry& entry, const TableInfo& table_info);
+
+// Parses p4::v1::Action into an EvaluationContext using action parameters,
+// action name, and constraint source from action_info. Returns InvalidArgument
+// if an Action parameter cannot be found in action_info or if there are
+// duplicate action parameters.
+absl::StatusOr<EvaluationContext> ParseAction(const p4::v1::Action& action,
+                                              const ActionInfo& action_info);
+
+// Used to memoize evaluation results to avoid re-computation.
+using EvaluationCache = absl::flat_hash_map<const ast::Expression*, bool>;
+
+// Evaluates `expr` over `context.entry` to an `EvalResult`. Returns error
+// status if AST is malformed and uses `context.constraint_source` to quote
+// constraint. `eval_cache` holds boolean results, useful for avoiding
+// recomputation when an explanation is desired. Passing a nullptr for
+// `eval-cache` disables caching.
 absl::StatusOr<EvalResult> Eval(const ast::Expression& expr,
-                                const TableEntry& entry);
+                                const EvaluationContext& context,
+                                EvaluationCache* eval_cache);
+
+// Provides a minimal explanation for why `expression` resolved to true/false
+// under `context.entry` as a pointer to a subexpression that implies the
+// result. In the formal sense, finds the smallest subexpression `s` of `e` s.t.
+//
+//  eval(s, entry1) == eval(s, entry2)  =>  eval(e, entry1) == eval(e, entry2)
+//
+// In the special case where eval(e, entry1) == false, this is equivalent to
+//
+//           eval(e, entry2)  =>  eval(s, entry2) != eval(s, entry1)
+//
+// Uses `eval_cache` and `size_cache` to avoid recomputation, allowing it to run
+// in linear time. Given current language specification, search only requires
+// traversal of nodes with type boolean. Traversal of non-boolean nodes or an
+// invalid AST will return InternalError Status. Uses
+// `context.constraint_source` to quote constraint on error.
+absl::StatusOr<const ast::Expression*> MinimalSubexpressionLeadingToEvalResult(
+    const ast::Expression& expression, const EvaluationContext& context,
+    EvaluationCache& eval_cache, ast::SizeCache& size_cache);
+
+// Same as `Eval` except forces boolean result.
+absl::StatusOr<bool> EvalToBool(const ast::Expression& expr,
+                                const EvaluationContext& context,
+                                EvaluationCache* eval_cache);
+
+// Converts a P4 integer in binary string format to Integer format. For details
+// on the conversion, see
+// https://p4.org/p4-spec/docs/p4runtime-spec-working-draft-html-version.html#sec-bytestrings.
+Integer ParseP4RTInteger(std::string int_str);
 
 }  // namespace internal_interpreter
-
 }  // namespace p4_constraints
 
 #endif  // P4_CONSTRAINTS_BACKEND_INTERPRETER_H_

@@ -16,10 +16,18 @@
 
 #include <string>
 
+#include "absl/container/flat_hash_set.h"
+#include "absl/log/log.h"
+#include "absl/meta/type_traits.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
-#include "glog/logging.h"
+#include "absl/types/optional.h"
+#include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/message_differencer.h"
+#include "gutils/proto.h"
+#include "gutils/status_builder.h"
+#include "gutils/status_macros.h"
 #include "p4_constraints/ast.pb.h"
 
 namespace p4_constraints {
@@ -69,7 +77,7 @@ std::string TypeName(const Type& type) {
     case Type::TYPE_NOT_SET:
       break;
   }
-  LOG(DFATAL) << "invalid type: " << type.DebugString();
+  LOG(ERROR) << "invalid type: " << type.DebugString();
   return "???";
 }
 
@@ -105,6 +113,16 @@ absl::optional<int> TypeBitwidth(const Type& type) {
       return type.optional_match().bitwidth();
     default:
       return absl::nullopt;
+  }
+}
+
+absl::StatusOr<int> TypeBitwidthOrStatus(const Type& type) {
+  std::optional<int> bitwidth = TypeBitwidth(type);
+  if (bitwidth.has_value()) {
+    return *bitwidth;
+  } else {
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+           << "expected a type with bitwidth, but got: " << type;
   }
 }
 
@@ -169,8 +187,110 @@ Type TypeCaseToType(Type::TypeCase type_case) {
     case Type::TYPE_NOT_SET:
       break;
   }
-  LOG(DFATAL) << "invalid type case: " << type_case;
+  LOG(ERROR) << "invalid type case: " << type_case;
   return type;
+}
+
+// -- Utility ------------------------------------------------------------------
+
+bool HaveSameSource(const SourceLocation& source_location_1,
+                    const SourceLocation& source_location_2) {
+  // Message Differencer ignores all fields except `source` oneof. This makes
+  // proto equivalence = source equivalence.
+  google::protobuf::util::MessageDifferencer differ;
+  differ.IgnoreField(
+      source_location_1.GetDescriptor()->FindFieldByName("line"));
+  differ.IgnoreField(
+      source_location_1.GetDescriptor()->FindFieldByName("column"));
+  return gutils::ProtoEqual(source_location_1, source_location_2, differ);
+}
+
+// Populates `variable_set` with the variables used in `expr`.
+void AddVariables(const ast::Expression& expr,
+                  absl::flat_hash_set<std::string>& variable_set) {
+  switch (expr.expression_case()) {
+    case ast::Expression::kKey:
+      variable_set.insert(expr.key());
+      return;
+    case ast::Expression::kActionParameter:
+      variable_set.insert(expr.action_parameter());
+      return;
+    case ast::Expression::kBooleanNegation:
+      AddVariables(expr.boolean_negation(), variable_set);
+      return;
+    case ast::Expression::kArithmeticNegation:
+      AddVariables(expr.arithmetic_negation(), variable_set);
+      return;
+    case ast::Expression::kTypeCast:
+      AddVariables(expr.type_cast(), variable_set);
+      return;
+    case ast::Expression::kBinaryExpression:
+      AddVariables(expr.binary_expression().left(), variable_set);
+      AddVariables(expr.binary_expression().right(), variable_set);
+      return;
+    case ast::Expression::kFieldAccess:
+      AddVariables(expr.field_access().expr(), variable_set);
+      return;
+    // Currently priority is the only metadata and that is not a key.
+    case ast::Expression::kAttributeAccess:
+      return;
+    case ast::Expression::kIntegerConstant:
+      return;
+    case ast::Expression::kBooleanConstant:
+      return;
+    case ast::Expression::EXPRESSION_NOT_SET:
+      return;
+  }
+}
+
+absl::flat_hash_set<std::string> GetVariables(const ast::Expression& expr) {
+  absl::flat_hash_set<std::string> field_set;
+  AddVariables(expr, field_set);
+  return field_set;
+}
+
+// Computes AST Size. If provided, `size_cache` stores results from expressions
+// to avoid recomputation later.
+absl::StatusOr<int> Size(const ast::Expression& ast, SizeCache* size_cache) {
+  if (size_cache != nullptr) {
+    auto cache_result = size_cache->find(&ast);
+    if (cache_result != size_cache->end()) return cache_result->second;
+  }
+
+  int result = 0;
+  switch (ast.expression_case()) {
+    case Expression::kBooleanConstant:
+    case Expression::kIntegerConstant:
+    case Expression::kKey:
+    case Expression::kArithmeticNegation:
+    case Expression::kTypeCast:
+    case Expression::kFieldAccess:
+    case Expression::kAttributeAccess:
+      // Uses an early return for these cases because they all resolve to a
+      // single value (not an expression) and are therefore treated as having
+      // size 1. Result is not cached because it provides no benefit beyond
+      // early return.
+      return 1;
+    case Expression::kBinaryExpression: {
+      ASSIGN_OR_RETURN(int left_size,
+                       Size(ast.binary_expression().left(), size_cache));
+      ASSIGN_OR_RETURN(int right_size,
+                       Size(ast.binary_expression().right(), size_cache));
+      result = 1 + left_size + right_size;
+      break;
+    }
+    case Expression::kBooleanNegation: {
+      ASSIGN_OR_RETURN(int size, Size(ast.boolean_negation(), size_cache));
+      result = 1 + size;
+      break;
+    }
+    default:
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+             << "invalid expression: " << ast.DebugString();
+  }
+
+  if (size_cache != nullptr) size_cache->insert({&ast, result});
+  return result;
 }
 
 }  // namespace ast

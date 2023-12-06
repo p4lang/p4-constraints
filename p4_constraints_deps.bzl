@@ -6,70 +6,67 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 def p4_constraints_deps():
     """Sets up 3rd party workspaces needed to compile p4_constraints."""
     if not native.existing_rule("com_google_absl"):
-        http_archive(
+        git_repository(
             name = "com_google_absl",
-            url = "https://github.com/abseil/abseil-cpp/archive/20200923.tar.gz",
-            strip_prefix = "abseil-cpp-20200923",
-            sha256 = "b3744a4f7a249d5eaf2309daad597631ce77ea62e0fc6abffbab4b4c3dc0fc08",
-        )
-    if not native.existing_rule("com_github_google_glog"):
-        http_archive(
-            name = "com_github_google_glog",
-            urls = ["https://github.com/google/glog/archive/v0.4.0.tar.gz"],
-            strip_prefix = "glog-0.4.0",
-            sha256 = "f28359aeba12f30d73d9e4711ef356dc842886968112162bc73002645139c39c",
-            build_file_content = glog_build_file(),
+            remote = "https://github.com/abseil/abseil-cpp",
+            commit = "78be63686ba732b25052be15f8d6dee891c05749",  # Abseil LTS 20230125
         )
     if not native.existing_rule("com_google_googletest"):
         http_archive(
             name = "com_google_googletest",
-            urls = ["https://github.com/google/googletest/archive/release-1.10.0.tar.gz"],
-            strip_prefix = "googletest-release-1.10.0",
-            sha256 = "9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb",
+            urls = ["https://github.com/google/googletest/archive/refs/tags/v1.13.0.tar.gz"],
+            strip_prefix = "googletest-1.13.0",
         )
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            url = "https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/protobuf-all-3.14.0.tar.gz",
-            strip_prefix = "protobuf-3.14.0",
-            sha256 = "6dd0f6b20094910fbb7f1f7908688df01af2d4f6c5c21331b9f636048674aebf",
+            url = "https://github.com/protocolbuffers/protobuf/releases/download/v22.2/protobuf-22.2.tar.gz",
+            strip_prefix = "protobuf-22.2",
+            sha256 = "1ff680568f8e537bb4be9813bac0c1d87848d5be9d000ebe30f0bc2d7aabe045",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
-        git_repository(
+        http_archive(
             name = "com_googlesource_code_re2",
-            # Newest commit on `abseil` branch on 2021-03-05.
-            commit = "72f110e82ccf3a9ae1c9418bfb447c3ba1cf95c2",
-            remote = "https://github.com/google/re2",
+            url = "https://github.com/google/re2/archive/refs/tags/2023-06-01.tar.gz",
+            strip_prefix = "re2-2023-06-01",
+            sha256 = "8b4a8175da7205df2ad02e405a950a02eaa3e3e0840947cd598e92dca453199b",
         )
     if not native.existing_rule("rules_proto"):
         http_archive(
             name = "rules_proto",
+            sha256 = "dc3fb206a2cb3441b485eb1e423165b231235a1ea9b031b4433cf7bc1fa460dd",
+            strip_prefix = "rules_proto-5.3.0-21.7",
             urls = [
-                "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
-                "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+                "https://github.com/bazelbuild/rules_proto/archive/refs/tags/5.3.0-21.7.tar.gz",
             ],
-            strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
-            sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
         )
     if not native.existing_rule("com_github_p4lang_p4runtime"):
         http_archive(
             name = "com_github_p4lang_p4runtime",
-            urls = ["https://github.com/p4lang/p4runtime/archive/v1.2.0.tar.gz"],
-            strip_prefix = "p4runtime-1.2.0/proto",
-            sha256 = "92582fd514193bc40c841aa2b1fa80e4f1f8b618def974877de7b0f2de3e4be4",
+            urls = ["https://github.com/p4lang/p4runtime/archive/refs/tags/v1.3.0.tar.gz"],
+            strip_prefix = "p4runtime-1.3.0/proto",
+            sha256 = "09d826e868b1c18e47ff1b5c3d9c6afc5fa7b7a3f856f9d2d9273f38f4fc87e2",
         )
     if not native.existing_rule("com_github_p4lang_p4c"):
-        git_repository(
+        http_archive(
             name = "com_github_p4lang_p4c",
-            # Newest commit on master on 2020-07-08.
-            commit = "17d1d55c8fa647eb6dd15141048c70d96def34a9",
-            remote = "https://github.com/p4lang/p4c",
-            shallow_since = "1594055738 -0700",
+            # Newest commit on main on 2021-12-07.
+            url = "https://github.com/p4lang/p4c/archive/a9aa5ff46affe8fd5dde78c2411d1bc58a715b33.zip",
+            strip_prefix = "p4c-a9aa5ff46affe8fd5dde78c2411d1bc58a715b33",
+            sha256 = "fa22c3d2b3105a39a73fc3938cbc6cd5d7895113a3e6ed6c5a48fbbd958a28af",
         )
-
-def glog_build_file():
-    """We use a custom BUILD files since we do not need gflags support."""
-    return "\n".join([
-        "load(':bazel/glog.bzl', 'glog_library')",
-        "glog_library(with_gflags = False)",
-    ])
+    if not native.existing_rule("com_github_z3prover_z3"):
+        http_archive(
+            name = "com_github_z3prover_z3",
+            url = "https://github.com/Z3Prover/z3/archive/z3-4.8.12.tar.gz",
+            strip_prefix = "z3-z3-4.8.12",
+            sha256 = "e3aaefde68b839299cbc988178529535e66048398f7d083b40c69fe0da55f8b7",
+            build_file = "@//:bazel/BUILD.z3.bazel",
+        )
+    if not native.existing_rule("rules_foreign_cc"):  # Required for Z3.
+        http_archive(
+            name = "rules_foreign_cc",
+            sha256 = "d54742ffbdc6924f222d2179f0e10e911c5c659c4ae74158e9fe827aad862ac6",
+            strip_prefix = "rules_foreign_cc-0.2.0",
+            url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.2.0.tar.gz",
+        )

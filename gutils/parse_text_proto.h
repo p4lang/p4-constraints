@@ -15,13 +15,14 @@
 #ifndef MEDIAPIPE_PORT_PARSE_TEXT_PROTO_H_
 #define MEDIAPIPE_PORT_PARSE_TEXT_PROTO_H_
 
-#include "glog/logging.h"
+#include "absl/log/check.h"
+#include "absl/strings/string_view.h"
 #include "google/protobuf/text_format.h"
 
 namespace gutils {
 
 template <typename T>
-T ParseTextProtoOrDie(const std::string& input) {
+T ParseTextProtoOrDie(absl::string_view input) {
   T result;
   CHECK(google::protobuf::TextFormat::ParseFromString(input, &result));
   return result;

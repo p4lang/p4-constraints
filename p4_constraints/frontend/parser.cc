@@ -17,12 +17,18 @@
 #include <string>
 #include <vector>
 
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "glog/logging.h"
+#include "gutils/status.h"
+#include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/ast_constructors.h"
+#include "p4_constraints/frontend/constraint_kind.h"
+#include "p4_constraints/frontend/lexer.h"
 #include "p4_constraints/frontend/token.h"
 #include "p4_constraints/quote.h"
 
@@ -39,14 +45,19 @@ using ::p4_constraints::ast::SourceLocation;
 // infinite stream of tokens (ending in infinitely many END_OF_INPUT tokens).
 class TokenStream {
  public:
-  explicit TokenStream(const std::vector<Token>& tokens) : tokens_{tokens} {};
+  explicit TokenStream(const std::vector<Token>& tokens,
+                       const ConstraintSource& source)
+      : tokens_{tokens}, source_(source) {}
   // Returns next token in stream.
   Token Peek() const;
   // Consumes and returns next token in stream, advancing the stream by 1.
   Token Next();
 
+  const ConstraintSource& source() const { return source_; }
+
  private:
   const std::vector<Token>& tokens_;
+  const ConstraintSource& source_;
   int index_ = 0;
 };
 
@@ -119,28 +130,36 @@ int TokenPrecedence(Token::Kind kind) {
     case Token::SEMICOLON:
       return 1;
     default:
-      LOG(DFATAL) << "Precedence for token " << kind
-                  << "undeclared. Assuming 0.";
+      LOG(ERROR) << "Precedence for token " << kind
+                 << "undeclared. Assuming 0.";
       return 0;
   }
 }
 
 // -- Error handling -----------------------------------------------------------
 
-gutils::StatusBuilder ParseError(const SourceLocation& start,
+gutils::StatusBuilder ParseError(const ConstraintSource& source,
+                                 const SourceLocation& start,
                                  const SourceLocation& end) {
+  absl::StatusOr<std::string> quote = QuoteSubConstraint(source, start, end);
+  if (!quote.ok()) {
+    return gutils::InternalErrorBuilder(GUTILS_LOC)
+           << "Failed to quote sub-constraint: "
+           << gutils::StableStatusToString(quote.status());
+  }
   return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-         << QuoteSourceLocation(start, end) << "Parse error: ";
+         << *quote << "Parse error: ";
 }
 
-gutils::StatusBuilder ParseError(Token token) {
-  return ParseError(token.start_location, token.end_location);
+gutils::StatusBuilder ParseError(Token token, const ConstraintSource& source) {
+  return ParseError(source, token.start_location, token.end_location);
 }
 
 // Returns an error status indicating that the given token came as a surprise,
 // since one of the given other tokens was expected.
-absl::Status Unexpected(Token token, const std::vector<Token::Kind>& expected) {
-  gutils::StatusBuilder error = ParseError(token);
+absl::Status Unexpected(Token token, const std::vector<Token::Kind>& expected,
+                        const ConstraintSource& source) {
+  gutils::StatusBuilder error = ParseError(token, source);
   if (token.kind == Token::UNEXPECTED_CHAR) {
     // Slightly awkward phrasing because the unexpected character may actually
     // be further back in the input, see "known limitation" in lexer.h.
@@ -166,7 +185,7 @@ absl::Status Unexpected(Token token, const std::vector<Token::Kind>& expected) {
 // Tries to parse a token of the given kind and fails if it sees anything else.
 absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
   Token token = tokens->Next();
-  if (token.kind != kind) return Unexpected(token, {kind});
+  if (token.kind != kind) return Unexpected(token, {kind}, tokens->source());
   return {token};
 }
 
@@ -177,7 +196,7 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //
 //   constraint ::=
 //     | 'true' | 'false'
-//     |  <numeral> | <key>
+//     |  <numeral> | <key> | <attribute_access>
 //     | '!' constraint
 //     | '-' constraint
 //     | '(' constraint ')'
@@ -186,6 +205,7 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //     | constraint ('==' | '!=' | '>' | '>=' | '<' | '<=') constraint
 //
 //   <key> ::= <id> ('.' <id>)*
+//   <attribute_access> ::= '::' <id>
 //
 // As usual (see https://en.wikipedia.org/wiki/Left_recursion), we accomplish
 // this by removing left recursion from the grammar by rewriting it as follows:
@@ -194,7 +214,7 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //
 //   initial ::=
 //     | 'true' | 'false'
-//     | <numeral> | <key>
+//     | <numeral> | <key> | <attribute_access>
 //     | '!' constraint
 //     | '-' constraint
 //     | '(' constraint ')'
@@ -205,8 +225,9 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //     | ('==' | '!=' | '>' | '>=' | '<' | '<=') constraint
 //
 // extension is then right-recursive and can be implemented using a while loop.
-absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
-                                                TokenStream* tokens) {
+absl::StatusOr<Expression> ParseConstraintAbove(ConstraintKind constraint_kind,
+                                                TokenStream* tokens,
+                                                int context_precedence) {
   // Try to parse an 'initial' AST.
   Expression ast;
   const Token token = tokens->Next();
@@ -224,38 +245,46 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
       break;
     }
     case Token::ID: {
-      // Parse key: ID (DOT ID)*
-      std::vector<Token> key_fragments = {token};
+      // Parse variable: ID (DOT ID)*
+      std::vector<Token> id_tokens = {token};
       while (tokens->Peek().kind == Token::DOT) {
         tokens->Next();  // discard Token::DOT
         ASSIGN_OR_RETURN(Token token, ExpectTokenKind(Token::ID, tokens));
-        key_fragments.push_back(token);
+        id_tokens.push_back(token);
       }
-      ASSIGN_OR_RETURN(ast, ast::MakeKey(key_fragments));
+      ASSIGN_OR_RETURN(ast, ast::MakeVariable(id_tokens, constraint_kind));
+      break;
+    }
+    case Token::DOUBLE_COLON: {
+      ASSIGN_OR_RETURN(const Token attribute_name,
+                       ExpectTokenKind(Token::ID, tokens));
+      ASSIGN_OR_RETURN(ast, ast::MakeAttributeAccess(token, attribute_name));
       break;
     }
     case Token::BANG: {
-      ASSIGN_OR_RETURN(
-          ast, ParseConstraintAbove(TokenPrecedence(token.kind), tokens));
+      ASSIGN_OR_RETURN(ast, ParseConstraintAbove(constraint_kind, tokens,
+                                                 TokenPrecedence(token.kind)));
       ASSIGN_OR_RETURN(ast, ast::MakeBooleanNegation(token, ast));
       break;
     }
     case Token::MINUS: {
-      ASSIGN_OR_RETURN(
-          ast, ParseConstraintAbove(TokenPrecedence(token.kind), tokens));
+      ASSIGN_OR_RETURN(ast, ParseConstraintAbove(constraint_kind, tokens,
+                                                 TokenPrecedence(token.kind)));
       ASSIGN_OR_RETURN(ast, ast::MakeArithmeticNegation(token, ast));
       break;
     }
     case Token::LPAR: {
-      ASSIGN_OR_RETURN(ast, ParseConstraintAbove(0, tokens));
+      ASSIGN_OR_RETURN(ast, ParseConstraintAbove(constraint_kind, tokens, 0));
       RETURN_IF_ERROR(ExpectTokenKind(Token::RPAR, tokens).status());
       break;
     }
     default:
       return Unexpected(
-          token, {Token::TRUE, Token::FALSE, Token::BINARY, Token::OCTARY,
-                  Token::DECIMAL, Token::HEXADEC, Token::ID, Token::BANG,
-                  Token::MINUS, Token::LPAR});
+          token,
+          {Token::TRUE, Token::FALSE, Token::BINARY, Token::OCTARY,
+           Token::DECIMAL, Token::HEXADEC, Token::ID, Token::DOUBLE_COLON,
+           Token::BANG, Token::MINUS, Token::LPAR},
+          tokens->source());
   }
 
   // Try to extend the AST, i.e. parse an 'extension'.
@@ -278,7 +307,7 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
       case Token::LE:
         if (context_precedence == TokenPrecedence(token.kind) &&
             TokenAssociativity(token.kind) == Associativity::NONE) {
-          return ParseError(token)
+          return ParseError(token, tokens->source())
                  << "operator " << token.kind
                  << " is non-associative; enclose expression to the left of "
                     "the operator in '(' and ')' to disambiguate?";
@@ -298,7 +327,8 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
             token,
             {Token::END_OF_INPUT, Token::RPAR, Token::DOUBLE_COLON, Token::AND,
              Token::SEMICOLON, Token::OR, Token::IMPLIES, Token::EQ, Token::NE,
-             Token::GT, Token::GE, Token::LT, Token::LE});
+             Token::GT, Token::GE, Token::LT, Token::LE},
+            tokens->source());
     }
     // If we get here, we should parse an 'extension'.
     DCHECK(context_precedence < TokenPrecedence(token.kind) ||
@@ -315,9 +345,9 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
       ASSIGN_OR_RETURN(ast, ast::MakeFieldAccess(ast, field));
     } else {
       // token.kind is one of &&, ;, ||, ->, ==, !=, >, >=, <, <=.
-      ASSIGN_OR_RETURN(
-          Expression another_ast,
-          ParseConstraintAbove(TokenPrecedence(token.kind), tokens));
+      ASSIGN_OR_RETURN(Expression another_ast,
+                       ParseConstraintAbove(constraint_kind, tokens,
+                                            TokenPrecedence(token.kind)));
       ASSIGN_OR_RETURN(ast, ast::MakeBinaryExpression(token, ast, another_ast));
     }
   }
@@ -325,13 +355,28 @@ absl::StatusOr<Expression> ParseConstraintAbove(int context_precedence,
 
 }  // namespace
 
-// -- Public interface ---------------------------------------------------------
-
-absl::StatusOr<Expression> ParseConstraint(const std::vector<Token>& tokens) {
-  TokenStream token_stream(tokens);
-  ASSIGN_OR_RETURN(Expression ast, ParseConstraintAbove(0, &token_stream));
+// Parses `tokens` as expression, assuming that the `tokens` were lexed from the
+// given `source`. The behavior of this function is undefined if this assumption
+// is violated. Due to this tricky contract, we don't expose this function
+// publicly.
+absl::StatusOr<Expression> internal_parser::ParseConstraint(
+    ConstraintKind constraint_kind, const std::vector<Token>& tokens,
+    const ConstraintSource& source) {
+  TokenStream token_stream(tokens, source);
+  ASSIGN_OR_RETURN(Expression ast,
+                   ParseConstraintAbove(constraint_kind, &token_stream, 0));
   RETURN_IF_ERROR(ExpectTokenKind(Token::END_OF_INPUT, &token_stream).status());
   return ast;
+}
+
+// -- Public interface ---------------------------------------------------------
+
+// Public-facing version of `internal_parser::ParseConstraint` that provides a
+// fool-proof & more-convenient API that combines lexing and parsing.
+absl::StatusOr<Expression> ParseConstraint(ConstraintKind constraint_kind,
+                                           const ConstraintSource& source) {
+  const std::vector<Token> tokens = Tokenize(source);
+  return internal_parser::ParseConstraint(constraint_kind, tokens, source);
 }
 
 }  // namespace p4_constraints

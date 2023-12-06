@@ -90,6 +90,28 @@ When `k` is of type `bool`, everything behaves precisely as if `k` was of type
 `bit<1>`, with the boolean constant `true` and `false` being mapped to `1` and
 `0`, respectively.
 
+### Attribute access
+
+A table entry might include data other than the values for the keys.
+We refer to this information as "attribute", and it can be accessed in the
+constraint by `::<attribute>` syntax:
+```
+// Accessing priority attribute of the table entry.
+::priority < 0x7ffffff
+```
+
+The operator `::` here should not be confused with the projection operator for
+accessing fields of a key. If positioned at the beginining of a constraint, the
+operator indicates attribute access. If positioned after a filed access, it
+indicates projection.
+
+Here are the list of attribute that are currently supported:
+
+| attribute    | type  | description                      |
+|--------------|-------|----------------------------------|
+| ::priority   | int   | The priority of the table entry. |
+
+
 ### Implicit conversions
 TODO
 
@@ -149,12 +171,15 @@ expression ::=
   | 'true' | 'false'                                               // Boolean constants.
   | numeral                                                        // Numeric constants.
   | key                                                            // Table keys.
+  | attribute_access                                               // Accessing table entry attribute.
   | '!' expression                                                 // Boolean negation.
   | '-' expression                                                 // Arithmetic negation.
   | '(' expression ')'                                             // Parentheses.
   | expression '::' id                                             // Field access (projection).
   | expression ('&&' | '||' | '->' | ';') expression               // Binary boolean operators.
   | expression ('==' | '!=' | '>' | '>=' | '<' | '<=') expression  // Comparisons.
+
+attribute_access ::= '::' id                                       // Entry attribute access (e.g. "::priority").
 
 numeral ::=
   | (0[dD])? [0-9]+                                                // Decimal numerals.
@@ -175,7 +200,8 @@ higher in the table means "binds stronger".
 
 | Syntax               | Semantics           | Associativity | Examples                                            |
 |----------------------|---------------------|---------------|-----------------------------------------------------|
-| ::                   | Field access        | N/A           | ipv4.dst::prefix_length                             |
+| :: (after key)       | Field access        | N/A           | ipv4.dst::prefix_length                             |
+| :: (otherwise)       | Attribute access    | N/A           | ::priority                                          |
 | !                    | Boolean negation    | N/A           | !true, !(key == 2), !!false                         |
 | -                    | Arithmetic negation | N/A           | -1, -ipv4.dst::prefix_length, --2                   |
 | ==, !=, >, >=, <, <= | Comparison          | none          | 2 == 4, 1 > -12, true != false                      |
@@ -184,7 +210,7 @@ higher in the table means "binds stronger".
 | ->                   | Boolean implication | none          | ipv4.dst::mask != 0 -> ethernet.ether_type == 0x800 |
 | ;                    | Boolean conjunction | left          | ipv4.valid == 1 -> ipv6.valid == 0;<br>ipv6.valid == 1 -> ipv4.valid == 0|
 
-The first three operators are unary operators in the sense that they act on a
+The first four operators are unary operators in the sense that they act on a
 single expression; as such they can always be parsed unambiguously without
 imposing an [associativity](https://en.wikipedia.org/wiki/Operator_associativity).
 

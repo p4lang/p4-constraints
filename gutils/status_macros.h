@@ -15,8 +15,10 @@
 #ifndef IREE_BASE_INTERNAL_STATUS_MACROS_H_
 #define IREE_BASE_INTERNAL_STATUS_MACROS_H_
 
+#include <utility>
+
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
-#include "absl/status/statusor.h"
 #include "gutils/source_location.h"
 #include "gutils/status_builder.h"
 

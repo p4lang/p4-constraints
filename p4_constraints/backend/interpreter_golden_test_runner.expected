@@ -1,0 +1,339 @@
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Constraint ---
+true;
+--- Table Entry Info ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+Action Name: "multicast_group_id"
+-- Action Parameter:"multicast_group_id" -> Value: 0
+
+--- Action Constraint for Action: multicast_group_id ---
+multicast_group_id != 0
+=== OUTPUT ===
+All actions must satisfy:
+
+golden_test.p4:1:1-23:
+1 | multicast_group_id != 0
+  | ^^^^^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Relevant Action Info<<<
+Action Name: "multicast_group_id"
+Param name: "multicast_group_id" -> Value: 0
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Entry Info ---
+Action Name: "multicast_group_id"
+-- Action Parameter:"multicast_group_id" -> Value: 0
+
+--- Action Constraint for Action: multicast_group_id ---
+multicast_group_id != 0
+=== OUTPUT ===
+All actions must satisfy:
+
+In @action_restriction of action 'golden_action'; at offset line 1, columns 1 to 23:
+1 | multicast_group_id != 0
+  | ^^^^^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Relevant Action Info<<<
+Action Name: "multicast_group_id"
+Param name: "multicast_group_id" -> Value: 0
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Entry Info ---
+Action Name: "multicast_group_id"
+-- Action Parameter:"multicast_group_id" -> Value: 6
+
+--- Action Constraint for Action: multicast_group_id ---
+multicast_group_id != 0
+=== OUTPUT ===
+<empty>
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Entry Info ---
+Action Name: "multicast_group_id"
+-- Action Parameter:"dummy_var" -> Value: 0
+-- Action Parameter:"multicast_group_id" -> Value: 6
+
+--- Action Constraint for Action: multicast_group_id ---
+multicast_group_id != dummy_var
+=== OUTPUT ===
+<empty>
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Entry Info ---
+Action Name: "multicast_group_id"
+-- Action Parameter:"multicast_group_id" -> Value: 6
+Action Name: "vlan_id"
+-- Action Parameter:"vlan_id" -> Value: 6
+
+--- Action Constraint for Action: multicast_group_id ---
+multicast_group_id != 0
+--- Action Constraint for Action: vlan_id ---
+vlan_id != 0
+=== OUTPUT ===
+<empty>
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Entry Info ---
+Action Name: "multicast_group_id"
+-- Action Parameter:"multicast_group_id" -> Value: 6
+Action Name: "vlan_id"
+-- Action Parameter:"vlan_id" -> Value: 0
+
+--- Action Constraint for Action: multicast_group_id ---
+multicast_group_id != 0
+--- Action Constraint for Action: vlan_id ---
+vlan_id != 0
+=== OUTPUT ===
+All actions must satisfy:
+
+In @action_restriction of action 'golden_action'; at offset line 1, columns 1 to 12:
+1 | vlan_id != 0
+  | ^^^^^^^^^^^^
+
+But your entry does not.
+>>>Relevant Action Info<<<
+Action Name: "vlan_id"
+Param name: "vlan_id" -> Value: 0
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Constraint ---
+true;
+--- Table Entry Info ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== OUTPUT ===
+<empty>
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Constraint ---
+exact32::value != 10 || exact32::value == 10;
+--- Table Entry Info ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== OUTPUT ===
+<empty>
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Constraint ---
+exact32::value > 6 && exact32::value < 5;
+--- Table Entry Info ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 10, .mask = 64}
+
+=== OUTPUT ===
+All entries must satisfy:
+
+In @entry_restriction of table 'golden_table'; at offset line 1, columns 23 to 40:
+1 | exact32::value > 6 && exact32::value < 5;
+  |                       ^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Relevant Entry Info<<<
+Table Name: "golden_table"
+Priority:0
+Field: "exact32" -> Value: Exact{.value = 10}
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Constraint ---
+exact32::value > 5;
+exact32::value < 20;
+exact32::value == 14;
+--- Table Entry Info ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== OUTPUT ===
+All entries must satisfy:
+
+In @entry_restriction of table 'golden_table'; at offset line 3, columns 1 to 20:
+  | exact32::value < 20;
+3 | exact32::value == 14;
+  | ^^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Relevant Entry Info<<<
+Table Name: "golden_table"
+Priority:0
+Field: "exact32" -> Value: Exact{.value = 10}
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Constraint ---
+exact32::value > 0;
+exact32::value > 7 || exact32::value == 5;
+exact32::value == 9;
+--- Table Entry Info ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== OUTPUT ===
+All entries must satisfy:
+
+golden_test.p4:3:1-19:
+  | exact32::value > 7 || exact32::value == 5;
+3 | exact32::value == 9;
+  | ^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Relevant Entry Info<<<
+Table Name: "golden_table"
+Priority:0
+Field: "exact32" -> Value: Exact{.value = 10}
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Constraint ---
+exact32::value > 0;
+exact32::value < 42;
+exact32::value < 20 -> exact32::value == 14;
+--- Table Entry Info ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== OUTPUT ===
+All entries must satisfy:
+
+golden_test.p4:3:1-43:
+  | exact32::value < 42;
+3 | exact32::value < 20 -> exact32::value == 14;
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Relevant Entry Info<<<
+Table Name: "golden_table"
+Priority:0
+Field: "exact32" -> Value: Exact{.value = 10}
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Constraint ---
+exact32::value == 1 || exact32::value == 2;
+!(exact32::value == 10 -> exact32::value == 10);
+exact32::value == 3 || exact32::value == 4;
+--- Table Entry Info ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== OUTPUT ===
+All entries must not satisfy:
+
+golden_test.p4:2:27-46:
+  | exact32::value == 1 || exact32::value == 2;
+2 | !(exact32::value == 10 -> exact32::value == 10);
+  |                           ^^^^^^^^^^^^^^^^^^^^
+
+But your entry does.
+>>>Relevant Entry Info<<<
+Table Name: "golden_table"
+Priority:0
+Field: "exact32" -> Value: Exact{.value = 10}
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Constraint ---
+exact32::value == 80 || ternary32::value == 3096;
+ternary32::mask == 255 && exact32::value == 3;
+--- Table Entry Info ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 42, .mask = 64}
+
+=== OUTPUT ===
+All entries must satisfy:
+
+In @entry_restriction of table 'golden_table'; at offset line 2, columns 1 to 22:
+  | exact32::value == 80 || ternary32::value == 3096;
+2 | ternary32::mask == 255 && exact32::value == 3;
+  | ^^^^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Relevant Entry Info<<<
+Table Name: "golden_table"
+Priority:0
+Field: "ternary32" -> Value: Ternary{.value = 42, .mask = 64}
+
+### ReasonEntryViolatestConstraint Test ###################
+=== INPUT ===
+--- Table Constraint ---
+(false || false) && (!(true -> true) && (false || false));
+--- Table Entry Info ---
+Table Name: "golden_table"
+Priority:0
+Key:"exact32" -> Value: Exact{.value = 10}
+Key:"lpm32" -> Value: Lpm{.value = 0, .prefix_length = 0}
+Key:"optional32" -> Value: Ternary{.value = 0, .mask = 0}
+Key:"range32" -> Value: Range{.low = 0, .high = 4294967295}
+Key:"ternary32" -> Value: Ternary{.value = 0, .mask = 0}
+
+=== OUTPUT ===
+All entries must not satisfy:
+
+golden_test.p4:1:32-35:
+1 | (false || false) && (!(true -> true) && (false || false));
+  |                                ^^^^
+
+But your entry does.
+>>>Relevant Entry Info<<<
+Table Name: "golden_table"
+Priority:0
+

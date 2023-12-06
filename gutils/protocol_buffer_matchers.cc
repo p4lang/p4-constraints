@@ -18,22 +18,26 @@
 
 #include "gutils/protocol_buffer_matchers.h"
 
-#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
-#include <algorithm>
+#include <cstring>
+#include <ostream>
 #include <string>
+#include <vector>
 
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/io/tokenizer.h"
 #include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
+#include "google/protobuf/util/field_comparator.h"
 #include "google/protobuf/util/message_differencer.h"
+#include "re2/re2.h"
 
 // #include "tensorflow/core/platform/test.h"
-
-#include "re2/re2.h"
 
 namespace gutils {
 namespace testing {
@@ -271,7 +275,7 @@ void SetIgnoredFieldPathsOrDie(
     const std::vector<std::string>& field_paths,
     google::protobuf::util::MessageDifferencer* differencer) {
   for (const std::string& field_path : field_paths) {
-    differencer->AddIgnoreCriteria(new IgnoreFieldPathCriteria(
+    differencer->AddIgnoreCriteria(std::make_unique<IgnoreFieldPathCriteria>(
         ParseFieldPathOrDie(field_path, root_descriptor)));
   }
 }

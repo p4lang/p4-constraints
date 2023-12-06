@@ -25,6 +25,7 @@
 #include "gutils/ret_check.h"
 #include "gutils/status_macros.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/frontend/constraint_kind.h"
 #include "p4_constraints/frontend/token.h"
 
 namespace p4_constraints {
@@ -62,7 +63,7 @@ absl::StatusOr<ast::BinaryOperator> ConvertBinaryOperator(Token::Kind binop) {
   }
 }
 
-absl::StatusOr<std::string> ConvertNumeral(Token numeral_token) {
+absl::StatusOr<std::string> ConvertNumeral(const Token& numeral_token) {
   mpz_class numeral;
   switch (numeral_token.kind) {
     case Token::BINARY:
@@ -101,7 +102,7 @@ ast::Expression LocatedExpression(const ast::SourceLocation& start_location,
 
 // -- Public AST constructors --------------------------------------------------
 
-absl::StatusOr<ast::Expression> MakeBooleanConstant(Token boolean) {
+absl::StatusOr<ast::Expression> MakeBooleanConstant(const Token& boolean) {
   RET_CHECK(boolean.kind == Token::TRUE || boolean.kind == Token::FALSE)
       << "expected boolean, got " << boolean.kind;
   ast::Expression ast =
@@ -110,7 +111,7 @@ absl::StatusOr<ast::Expression> MakeBooleanConstant(Token boolean) {
   return ast;
 }
 
-absl::StatusOr<ast::Expression> MakeIntegerConstant(Token numeral) {
+absl::StatusOr<ast::Expression> MakeIntegerConstant(const Token& numeral) {
   ASSIGN_OR_RETURN(std::string numeral_str, ConvertNumeral(numeral));
   ast::Expression ast =
       LocatedExpression(numeral.start_location, numeral.end_location);
@@ -118,7 +119,7 @@ absl::StatusOr<ast::Expression> MakeIntegerConstant(Token numeral) {
   return ast;
 }
 
-absl::StatusOr<ast::Expression> MakeBooleanNegation(Token bang_token,
+absl::StatusOr<ast::Expression> MakeBooleanNegation(const Token& bang_token,
                                                     ast::Expression operand) {
   RET_CHECK_EQ(bang_token.kind, Token::BANG);
   ast::Expression ast =
@@ -128,7 +129,7 @@ absl::StatusOr<ast::Expression> MakeBooleanNegation(Token bang_token,
 }
 
 absl::StatusOr<ast::Expression> MakeArithmeticNegation(
-    Token minus_token, ast::Expression operand) {
+    const Token& minus_token, ast::Expression operand) {
   RET_CHECK_EQ(minus_token.kind, Token::MINUS);
   ast::Expression ast =
       LocatedExpression(minus_token.start_location, operand.end_location());
@@ -136,21 +137,50 @@ absl::StatusOr<ast::Expression> MakeArithmeticNegation(
   return ast;
 }
 
-absl::StatusOr<ast::Expression> MakeKey(absl::Span<const Token> key_fragments) {
-  RET_CHECK_GT(key_fragments.size(), 0);
-  ast::Expression ast = LocatedExpression(key_fragments.front().start_location,
-                                          key_fragments.back().end_location);
-  std::stringstream key{};
-  for (int i = 0; i < key_fragments.size(); i++) {
-    const Token& id = key_fragments[i];
+absl::StatusOr<ast::Expression> MakeVariable(absl::Span<const Token> tokens,
+                                             ConstraintKind constraint_kind) {
+  RET_CHECK_GT(tokens.size(), 0);
+  ast::Expression ast = LocatedExpression(tokens.front().start_location,
+                                          tokens.back().end_location);
+  std::stringstream key_or_param{};
+  for (int i = 0; i < tokens.size(); i++) {
+    const Token& id = tokens[i];
     RET_CHECK_EQ(id.kind, Token::ID);
-    key << (i == 0 ? "" : ".") << id.text;
+    switch (constraint_kind) {
+      case ConstraintKind::kTableConstraint: {
+        key_or_param << (i == 0 ? "" : ".") << id.text;
+        break;
+      }
+      case ConstraintKind::kActionConstraint: {
+        key_or_param << id.text;
+        break;
+      }
+    }
   }
-  ast.set_key(key.str());
+  switch (constraint_kind) {
+    case ConstraintKind::kTableConstraint: {
+      ast.set_key(key_or_param.str());
+      return ast;
+    }
+    case ConstraintKind::kActionConstraint: {
+      ast.set_action_parameter(key_or_param.str());
+      return ast;
+    }
+  }
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+         << "Unexpected value for ConstraintKind: "
+         << static_cast<int>(constraint_kind);
+}
+
+absl::StatusOr<ast::Expression> MakeAttributeAccess(
+    const Token& double_colon, const Token& attribute_name) {
+  ast::Expression ast = LocatedExpression(double_colon.start_location,
+                                          attribute_name.end_location);
+  ast.mutable_attribute_access()->set_attribute_name(attribute_name.text);
   return ast;
 }
 
-absl::StatusOr<ast::Expression> MakeBinaryExpression(Token binop_token,
+absl::StatusOr<ast::Expression> MakeBinaryExpression(const Token& binop_token,
                                                      ast::Expression left,
                                                      ast::Expression right) {
   ast::Expression ast =
@@ -166,7 +196,7 @@ absl::StatusOr<ast::Expression> MakeBinaryExpression(Token binop_token,
 }
 
 absl::StatusOr<ast::Expression> MakeFieldAccess(ast::Expression expr,
-                                                Token field) {
+                                                const Token& field) {
   RET_CHECK_EQ(field.kind, Token::ID);
   ast::Expression ast =
       LocatedExpression(expr.start_location(), field.end_location);

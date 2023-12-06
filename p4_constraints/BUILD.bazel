@@ -12,9 +12,36 @@ cc_library(
     hdrs = ["ast.h"],
     deps = [
         ":ast_cc_proto",
-        "@com_github_google_glog//:glog",
+        "//gutils:proto",
+        "//gutils:status",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/meta:type_traits",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "constraint_source",
+    hdrs = ["constraint_source.h"],
+    deps = [":ast_cc_proto"],
+)
+
+cc_test(
+    name = "ast_test",
+    size = "small",
+    srcs = ["ast_test.cc"],
+    deps = [
+        ":ast",
+        "//gutils:parse_text_proto",
+        "//gutils:status_matchers",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -33,8 +60,15 @@ cc_library(
     srcs = ["quote.cc"],
     hdrs = ["quote.h"],
     deps = [
+        ":ast",
         ":ast_cc_proto",
-        "@com_github_google_glog//:glog",
+        ":constraint_source",
+        "//gutils:proto",
+        "//gutils:source_location",
+        "//gutils:status",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )

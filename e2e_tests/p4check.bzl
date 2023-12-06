@@ -153,3 +153,20 @@ To auto-generate or update, run `bazel run <target> -- --update`.
         ),
     },
 )
+
+def cmd_diff_test(name, actual_cmd, expected, tools = [], data = [], visibility = None):
+    """Runs a command to get the actual output, to compare against `expected`."""
+    native.genrule(
+        name = name + "_output",
+        visibility = visibility,
+        srcs = data,
+        outs = [name + ".actual"],
+        tools = tools,
+        cmd = actual_cmd + " > '$@'",
+        testonly = True,
+    )
+    diff_test(
+        name = name,
+        actual = name + ".actual",
+        expected = expected,
+    )

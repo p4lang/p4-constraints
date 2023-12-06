@@ -36,6 +36,8 @@ message Expression {
     string integer_constant = 5;
     // A table key (aka "match field"), e.g. `header.ethernet.ether_type`.
     string key = 6;
+    // An action parameter name.
+    string action_parameter = 13;
     Expression boolean_negation = 7;
     Expression arithmetic_negation = 8;
     // Type casts are not exposed in the surface language, but may be inserted
@@ -53,7 +55,16 @@ message Expression {
     Expression type_cast = 9;
     BinaryExpression binary_expression = 10;
     FieldAccess field_access = 11;
+    // Table entry attribute acess, e.g. priority.
+    AttributeAccess attribute_access = 12;
   }
+}
+
+// Used to access table entry attribute, such as its priority, as in
+// `::priority`, not to be confused with projection (field access).
+message AttributeAccess {
+  // The name of the attribute being accessed (e.g. priority).
+  string attribute_name = 1;
 }
 
 // Used to access a field of a composite value, as in `ip_dst::prefix_length`
@@ -173,5 +184,10 @@ message SourceLocation {
     // If present, `line` and `column` are relative to an @entry_restriction
     // annotation attached to a table of the given name.
     string table_name = 4;
+
+    // P4 action name. Prefer `file_path` whenever possible.
+    // If present, `line` and `column` are relative to an @action_restriction
+    // annotation attached to an action of the given name.
+    string action_name = 5;
   }
 }

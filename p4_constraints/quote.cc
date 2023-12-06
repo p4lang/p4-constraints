@@ -14,13 +14,20 @@
 
 #include "p4_constraints/quote.h"
 
-#include <fstream>
 #include <sstream>
 #include <string>
 
+#include "absl/log/log.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "glog/logging.h"
+#include "absl/strings/str_format.h"
+#include "gutils/proto.h"
+#include "gutils/source_location.h"
+#include "gutils/status_builder.h"
+#include "gutils/status_macros.h"
+#include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
 
 namespace p4_constraints {
 
@@ -30,24 +37,10 @@ namespace {
 //    - succinct (when file is given): "path/to/file:12:20-25:"
 //    - verbose (when table name is given):
 //        "In constraint of table foo:\nAt offset line 12, columns 20 to 25:"
-std::string Explain(const ast::SourceLocation& start,
-                    const ast::SourceLocation& end) {
+absl::StatusOr<std::string> Explain(const ast::SourceLocation& start,
+                                    const ast::SourceLocation& end) {
   std::stringstream output;
   switch (start.source_case()) {
-    case ast::SourceLocation::kTableName:
-      // Verbose mode: At offset line 12, columns 17 to 20.
-      output << "In @entry_restriction of table " << start.table_name()
-             << "; at offset line " << (start.line() + 1);
-      if (end.line() > start.line())
-        output << ", column " << (start.column() + 1) << " to line "
-               << (end.line() + 1) << ", column" << end.column();
-      else if (end.column() > start.column() + 1)
-        output << ", columns " << (start.column() + 1) << " to "
-               << end.column();
-      else
-        output << ", column " << (start.column() + 1);
-      break;
-
     case ast::SourceLocation::kFilePath:
       // Succinct mode: path/to/file:line:column.
       output << start.file_path() << ":" << (start.line() + 1) << ":"
@@ -56,14 +49,43 @@ std::string Explain(const ast::SourceLocation& start,
         output << "-" << (end.line() + 1) << ":" << end.column();
       else if (end.column() > start.column() + 1)
         output << "-" << end.column();
-      break;
+      output << ":\n";
+      return output.str();
 
-    default:
-      LOG(ERROR) << "unknown source case: " << start.source_case();
-      return "";
+    case ast::SourceLocation::kActionName:
+      output << "In @action_restriction of action '" << start.action_name()
+             << "'; at offset line " << (start.line() + 1);
+      if (end.line() > start.line())
+        output << ", column " << (start.column() + 1) << " to line "
+               << (end.line() + 1) << ", column" << end.column();
+      else if (end.column() > start.column() + 1)
+        output << ", columns " << (start.column() + 1) << " to "
+               << end.column();
+      else
+        output << ", column " << (start.column() + 1);
+      output << ":\n";
+      return output.str();
+
+    case ast::SourceLocation::kTableName:
+      // Verbose mode: At offset line 12, columns 17 to 20.
+      output << "In @entry_restriction of table '" << start.table_name()
+             << "'; at offset line " << (start.line() + 1);
+      if (end.line() > start.line())
+        output << ", column " << (start.column() + 1) << " to line "
+               << (end.line() + 1) << ", column" << end.column();
+      else if (end.column() > start.column() + 1)
+        output << ", columns " << (start.column() + 1) << " to "
+               << end.column();
+      else
+        output << ", column " << (start.column() + 1);
+      output << ":\n";
+      return output.str();
+
+    case ast::SourceLocation::SOURCE_NOT_SET:
+      break;
   }
-  output << ":\n";
-  return output.str();
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+         << "Invalid source case: " << start.DebugString();
 }
 
 // Returns a string that quotes and marks the given source location interval,
@@ -72,42 +94,63 @@ std::string Explain(const ast::SourceLocation& start,
 //  | hdr.ethernet.eth_type == 0x08 ->
 // 8|   1+2 == true
 //  |   ^^^^^^^^^^^
-std::string Quote(const ast::SourceLocation& start,
-                  const ast::SourceLocation& end) {
-  if (start.source_case() != ast::SourceLocation::kFilePath) return "";
-  if (start.file_path() != end.file_path()) return "";
-  std::ifstream file(start.file_path());
-  if (!file.is_open()) return "";
+// TODO(b/243082448): Add multiline quoting. Not urgent as current uses only
+// quote single lines.
+absl::StatusOr<std::string> Quote(const ConstraintSource& constraint,
+                                  const ast::SourceLocation& start,
+                                  const ast::SourceLocation& end) {
+  if (gutils::ProtoEqual(start, end)) return "";
+
+  std::stringstream constraint_string(constraint.constraint_string);
 
   // Index of the line we want to quote.
-  const int key_line = start.line();
+  const int kKeyLine = start.line();
+  // Start and end are located relative to a source file/table. Offset is the
+  // relative location of constraint to that same source.
+  const int kOffset = constraint.constraint_location.line();
   // Number of lines to show before the key line, for context.
-  static const int kBefore = 1;
+  const int kBefore = (start.line() == kOffset) ? 0 : 1;
 
   // Discard unneeded lines before the lines we're interested in.
-  int i = 0;
-  for (std::string line; i < key_line - kBefore; i++) {
-    if (!std::getline(file, line)) return "";
+  int i = kOffset;
+  for (std::string line; i < kKeyLine - kBefore; i++) {
+    if (!std::getline(constraint_string, line)) {
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC) << absl::StrFormat(
+                 "Interval [`start`, `end`] to quote must lie within given "
+                 "`constraint`, but `start.line()` = %d while the final line "
+                 "of `constraint` is %d",
+                 kKeyLine, i - 1);
+    }
   }
 
-  const std::string key_line_margin = std::to_string(key_line + 1);
+  const std::string key_line_margin = std::to_string(kKeyLine + 1);
   const std::string context_line_margin(key_line_margin.size(), ' ');
   const std::string separator = " | ";
   std::stringstream output;
 
   // Output lines before key line for context.
-  for (std::string line; i < key_line; i++) {
-    if (std::getline(file, line))
+  for (std::string line; i < kKeyLine; i++) {
+    if (std::getline(constraint_string, line)) {
       output << context_line_margin << separator << line << "\n";
-    else
-      return "";
+    } else {
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC) << absl::StrFormat(
+                 "Interval [`start`, `end`] to quote must lie within given "
+                 "`constraint`, but `start.line()` = %d while the final line "
+                 "of `constraint` is %d",
+                 kKeyLine, i - 1);
+    }
   }
   // Output key line.
   std::string line;
-  if (std::getline(file, line))
+  if (std::getline(constraint_string, line)) {
     output << key_line_margin << separator << line << "\n";
-  else
-    return "";
+  } else {
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC) << absl::StrFormat(
+               "Interval [`start`, `end`] to quote must lie within given "
+               "`constraint`, but `start.line()` = %d while the final line "
+               "of `constraint` is %d",
+               kKeyLine, i - 1);
+  }
 
   // Mark key columns using '^'.
   const std::string margin = absl::StrCat(context_line_margin, separator,
@@ -119,18 +162,38 @@ std::string Quote(const ast::SourceLocation& start,
   output << margin << marker << "\n";
   return output.str();
 }
-
 }  // namespace
 
-std::string QuoteSourceLocation(const ast::SourceLocation& start,
-                                const ast::SourceLocation& end) {
-  if (start.file_path() != end.file_path() ||
-      start.table_name() != end.table_name()) {
-    LOG(ERROR) << "Quoting of multi-source locations not implemented. "
-               << "Omitting source location.";
-    return "";
+std::string GetSourceName(const ast::SourceLocation& source) {
+  switch (source.source_case()) {
+    case ast::SourceLocation::kTableName:
+      return source.table_name();
+    case ast::SourceLocation::kFilePath:
+      return source.file_path();
+    case ast::SourceLocation::kActionName:
+      return source.action_name();
+    case ast::SourceLocation::SOURCE_NOT_SET:
+      break;
   }
-  return absl::StrCat(Explain(start, end), Quote(start, end));
+  LOG(ERROR) << "Invalid ast::SourceLocation type: " << source.DebugString();
+  return "Unknown Source Type";
+}
+
+absl::StatusOr<std::string> QuoteSubConstraint(
+    const ConstraintSource& constraint, const ast::SourceLocation& from,
+    const ast::SourceLocation& to) {
+  if (!ast::HaveSameSource(constraint.constraint_location, from) ||
+      !ast::HaveSameSource(constraint.constraint_location, to) ||
+      !ast::HaveSameSource(from, to)) {
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC) << absl::StrFormat(
+               "Quoting of multi-source locations not allowed. Constraint-"
+               "Source: %s From-Source: %s To-Source: %s",
+               GetSourceName(constraint.constraint_location),
+               GetSourceName(from), GetSourceName(to));
+  }
+  ASSIGN_OR_RETURN(std::string explanation, Explain(from, to));
+  ASSIGN_OR_RETURN(std::string quote, Quote(constraint, from, to));
+  return absl::StrCat(explanation, quote);
 }
 
 }  // namespace p4_constraints

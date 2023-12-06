@@ -21,12 +21,30 @@
 
 #include "absl/status/statusor.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/constraint_source.h"
+#include "p4_constraints/frontend/constraint_kind.h"
 #include "p4_constraints/frontend/token.h"
 
 namespace p4_constraints {
 
+// Generates AST from `source`. Returns Error Status if constraint is rejected
+// by grammar, providing contextual quote pulled from `source`.
+absl::StatusOr<ast::Expression> ParseConstraint(ConstraintKind constraint_kind,
+                                                const ConstraintSource& source);
+
+// -- END OF PUBLIC INTERFACE --------------------------------------------------
+
+// Exposed for testing only.
+namespace internal_parser {
+
+// Generates AST from `tokens`. Returns Error Status if constraint is rejected
+// by grammar. Allows testing parser independently from lexer.
 absl::StatusOr<ast::Expression> ParseConstraint(
-    const std::vector<Token>& tokens);
-}
+    ConstraintKind constraint_kind, const std::vector<Token>& tokens,
+    const ConstraintSource& source);
+
+}  // namespace internal_parser
+
+}  // namespace p4_constraints
 
 #endif  // P4_CONSTRAINTS_FRONTEND_PARSER_H_

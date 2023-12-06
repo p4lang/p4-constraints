@@ -23,41 +23,49 @@
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/frontend/constraint_kind.h"
 #include "p4_constraints/frontend/token.h"
 
 namespace p4_constraints {
 namespace ast {
 
 // Returns an AST given a TRUE or FALSE token, or an error Status otherwise.
-absl::StatusOr<ast::Expression> MakeBooleanConstant(Token boolean);
+absl::StatusOr<ast::Expression> MakeBooleanConstant(const Token& boolean);
 
 // Returns an AST given a BINARY/OCTARY/DECIMAL/HEXADEC token, or an error
 // Status otherwise.
-absl::StatusOr<ast::Expression> MakeIntegerConstant(Token numeral);
+absl::StatusOr<ast::Expression> MakeIntegerConstant(const Token& numeral);
 
-// Returns an AST `a` such that `a.key() == "id1.id2...idn"` if given ID tokens
-// `{t1, ..., tn}` such that `idi == ti.text`, or an error Status otherwise.
-absl::StatusOr<ast::Expression> MakeKey(absl::Span<const Token> key_fragments);
+// Returns an AST for table entry attribute access (such as ::priority).
+absl::StatusOr<ast::Expression> MakeAttributeAccess(
+    const Token& double_colon, const Token& attribute_name);
+
+// Returns an AST `a` such that `a.param() == "id1id2...idn"` (if parsing action
+// parameters) and `a.key() == "id1.id2...idn"` (if parsing keys) given ID
+// tokens `{t1, ..., tn}` such that `idi == ti.text`, or an error Status
+// otherwise.
+absl::StatusOr<ast::Expression> MakeVariable(absl::Span<const Token> tokens,
+                                             ConstraintKind constraint_kind);
 
 // Returns an AST (with the given operand) when given a BANG ('!') token,
 // or an error Status otherwise.
-absl::StatusOr<ast::Expression> MakeBooleanNegation(Token bang_token,
+absl::StatusOr<ast::Expression> MakeBooleanNegation(const Token& bang_token,
                                                     ast::Expression operand);
 
 // Returns an AST (with the given operand) when given a MINUS ('-') token,
 // or an error Status otherwise.
-absl::StatusOr<ast::Expression> MakeArithmeticNegation(Token minus_token,
+absl::StatusOr<ast::Expression> MakeArithmeticNegation(const Token& minus_token,
                                                        ast::Expression operand);
 
 // Returns an AST (with the given operands) when given  a AND, OR, or IMPLIES
 // token, or an error Status otherwise.
-absl::StatusOr<ast::Expression> MakeBinaryExpression(Token binop_token,
+absl::StatusOr<ast::Expression> MakeBinaryExpression(const Token& binop_token,
                                                      ast::Expression left,
                                                      ast::Expression right);
 
 // Returns an AST when given an ID token `field`, or an error Status otherwise.
 absl::StatusOr<ast::Expression> MakeFieldAccess(ast::Expression expr,
-                                                Token field);
+                                                const Token& field);
 
 }  // namespace ast
 }  // namespace p4_constraints

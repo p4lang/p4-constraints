@@ -9,11 +9,15 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":ast_constructors",
+        ":constraint_kind",
+        ":lexer",
         ":token",
         "//gutils:status",
         "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
         "//p4_constraints:quote",
-        "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
     ],
@@ -24,12 +28,13 @@ cc_test(
     size = "small",
     srcs = ["parser_test.cc"],
     deps = [
+        ":constraint_kind",
         ":parser",
         ":token",
         "//gutils:protocol_buffer_matchers",
         "//gutils:status_matchers",
         "//p4_constraints:ast_cc_proto",
-        "@com_google_absl//absl/status:statusor",
+        "//p4_constraints:constraint_source",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -43,7 +48,9 @@ cc_library(
         ":token",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
-        "@com_github_google_glog//:glog",
+        "//p4_constraints:constraint_source",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/strings",
         "@com_googlesource_code_re2//:re2",
     ],
@@ -57,6 +64,7 @@ cc_test(
         ":lexer",
         ":token",
         "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:constraint_source",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -67,8 +75,9 @@ cc_library(
     hdrs = ["token.h"],
     deps = [
         "//p4_constraints:ast_cc_proto",
-        "@com_github_google_glog//:glog",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/types:optional",
     ],
 )
@@ -91,7 +100,9 @@ cc_library(
         "-lgmp",
         "-lgmpxx",
     ],
+    visibility = ["//p4_constraints/backend:__pkg__"],
     deps = [
+        ":constraint_kind",
         ":token",
         "//gutils:ret_check",
         "//gutils:status",
@@ -99,4 +110,10 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/types:span",
     ],
+)
+
+cc_library(
+    name = "constraint_kind",
+    hdrs = ["constraint_kind.h"],
+    visibility = ["//p4_constraints/backend:__pkg__"],
 )
