@@ -1,5 +1,4 @@
 ![native build & test](https://github.com/p4lang/p4-constraints/workflows/native%20build%20&%20test/badge.svg)
-![docker build & test](https://github.com/p4lang/p4-constraints/workflows/docker%20build%20&%20test/badge.svg)
 # p4-constraints
 
 **Work in progress. Feedback and contributions are welcome.**
