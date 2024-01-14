@@ -514,7 +514,7 @@ absl::Status main() {
           return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
                  << "action restrictions not supported for entries with the "
                     "given kind of action: "
-                 << test_case.table_entry.DebugString();
+                 << absl::StrCat(test_case.table_entry);
         case p4::v1::TableAction::kActionProfileActionSet: {
           ASSIGN_OR_RETURN(
               std::string action_string,
@@ -527,7 +527,7 @@ absl::Status main() {
         case p4::v1::TableAction::TYPE_NOT_SET:
           return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
                  << "unknown action type "
-                 << test_case.table_entry.DebugString();
+                 << absl::StrCat(test_case.table_entry);
       }
     }
 

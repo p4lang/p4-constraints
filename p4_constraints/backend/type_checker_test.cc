@@ -349,16 +349,14 @@ TEST_F(InferAndCheckTypesTest, LegalTypeCastEqualityComparisonTypeChecks) {
                                right { key: "$2" }
                              })pb",
                            op, left_right.first, left_right.second));
-      ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk())
-          << expr.DebugString();
-      EXPECT_TRUE(expr.binary_expression().left().has_type_cast())
-          << expr.DebugString();
+      ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk()) << expr;
+      EXPECT_TRUE(expr.binary_expression().left().has_type_cast()) << expr;
       ASSERT_EQ(expr.binary_expression().left().type().type_case(),
                 expr.binary_expression().right().type().type_case())
-          << expr.DebugString();
+          << expr;
       EXPECT_TRUE(expr.binary_expression().left().type() ==
                   expr.binary_expression().right().type())
-          << expr.DebugString();
+          << expr;
     }
   }
 }
@@ -383,7 +381,7 @@ TEST_F(InferAndCheckTypesTest, IllegalTypeCastEqualityComparisonFails) {
       AddMockSourceLocations(expr);
       EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
-          << expr.DebugString();
+          << expr;
     }
   }
 }
@@ -450,7 +448,7 @@ TEST_F(InferAndCheckTypesTest, OrderedComparisonOperatorsFails) {
       AddMockSourceLocations(expr);
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
-          << expr.DebugString();
+          << expr;
     }
   }
 }
@@ -466,9 +464,8 @@ TEST_F(InferAndCheckTypesTest, OrderedComparisonOperatorsTypeChecks) {
                                right { key: "$1" }
                              })pb",
                            op, key));
-      ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk())
-          << expr.DebugString();
-      EXPECT_TRUE(expr.type().has_boolean()) << expr.DebugString();
+      ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk()) << expr;
+      EXPECT_TRUE(expr.type().has_boolean()) << expr;
     }
   }
 }
@@ -495,9 +492,8 @@ TEST_F(InferAndCheckTypesTest, FieldAccessTypeChecks) {
                                expr { key: "$1" }
                              })pb",
                            field, key));
-      ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk())
-          << expr.DebugString();
-      EXPECT_EQ(expr.type(), field_type) << expr.DebugString();
+      ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk()) << expr;
+      EXPECT_EQ(expr.type(), field_type) << expr;
     }
   }
 }
@@ -524,7 +520,7 @@ TEST_F(InferAndCheckTypesTest, FieldAccess_AccessNonExistingField) {
       AddMockSourceLocations(expr);
       EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
-          << expr.DebugString();
+          << expr;
     }
   }
 }
@@ -546,7 +542,7 @@ TEST_F(InferAndCheckTypesTest, FieldAccess_AccessFieldOfScalarExpression) {
       AddMockSourceLocations(expr);
       EXPECT_THAT(InferAndCheckTypes(&expr, kTableInfo),
                   StatusIs(StatusCode::kInvalidArgument))
-          << expr.DebugString();
+          << expr;
     }
   }
 }
@@ -555,8 +551,8 @@ TEST_F(InferAndCheckTypesTest, AttributeAccessTypeChecks) {
   Expression expr = ParseTextProtoOrDie<Expression>(R"pb(
     attribute_access { attribute_name: "priority" }
   )pb");
-  ASSERT_OK(InferAndCheckTypes(&expr, kTableInfo)) << expr.DebugString();
-  EXPECT_EQ(expr.type(), kArbitraryInt) << expr.DebugString();
+  ASSERT_OK(InferAndCheckTypes(&expr, kTableInfo)) << expr;
+  EXPECT_EQ(expr.type(), kArbitraryInt) << expr;
 }
 
 }  // namespace p4_constraints

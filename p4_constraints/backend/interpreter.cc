@@ -231,7 +231,7 @@ absl::StatusOr<EvaluationContext> ParseTableEntry(
     return gutils::InternalErrorBuilder(GUTILS_LOC)
            << "Key '" << key_info.name
            << "' of invalid match type detected at runtime: "
-           << key_info.type.DebugString();
+           << absl::StrCat(key_info.type);
   }
 
   TableEntry table_entry{
@@ -935,7 +935,7 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
       return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
              << "action restrictions not supported for entries with the given "
                 "kind of action: "
-             << entry.DebugString();
+             << absl::StrCat(entry);
     case p4::v1::TableAction::kActionProfileActionSet: {
       return internal_interpreter::ReasonEntryViolatesConstraint(
           entry.action().action_profile_action_set(), constraint_info);
