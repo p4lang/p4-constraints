@@ -1,28 +1,29 @@
 """Sets up 3rd party workspaces needed to compile p4_constraints."""
 
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def p4_constraints_deps():
     """Sets up 3rd party workspaces needed to compile p4_constraints."""
     if not native.existing_rule("com_google_absl"):
-        git_repository(
+        http_archive(
             name = "com_google_absl",
-            remote = "https://github.com/abseil/abseil-cpp",
-            commit = "78be63686ba732b25052be15f8d6dee891c05749",  # Abseil LTS 20230125
+            url = "https://github.com/abseil/abseil-cpp/releases/download/20240116.0/abseil-cpp-20240116.0.tar.gz",
+            strip_prefix = "abseil-cpp-20240116.0",
+            sha256 = "338420448b140f0dfd1a1ea3c3ce71b3bc172071f24f4d9a57d59b45037da440",
         )
     if not native.existing_rule("com_google_googletest"):
         http_archive(
             name = "com_google_googletest",
-            urls = ["https://github.com/google/googletest/archive/refs/tags/v1.13.0.tar.gz"],
+            url = "https://github.com/google/googletest/archive/refs/tags/v1.13.0.tar.gz",
             strip_prefix = "googletest-1.13.0",
+            sha256 = "ad7fdba11ea011c1d925b3289cf4af2c66a352e18d4c7264392fead75e919363",
         )
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            url = "https://github.com/protocolbuffers/protobuf/releases/download/v22.2/protobuf-22.2.tar.gz",
-            strip_prefix = "protobuf-22.2",
-            sha256 = "1ff680568f8e537bb4be9813bac0c1d87848d5be9d000ebe30f0bc2d7aabe045",
+            url = "https://github.com/protocolbuffers/protobuf/releases/download/v25.2/protobuf-25.2.tar.gz",
+            strip_prefix = "protobuf-25.2",
+            sha256 = "8ff511a64fc46ee792d3fe49a5a1bcad6f7dc50dfbba5a28b0e5b979c17f9871",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
         http_archive(

@@ -36,4 +36,7 @@ jobs:
         echo "${CHANGED_FILES}"
         echo ""
         echo "Please run format.sh to apply the changes."
+        echo "------------------------------------------"
+        echo "Diff below"
+        git diff HEAD --
         exit 1

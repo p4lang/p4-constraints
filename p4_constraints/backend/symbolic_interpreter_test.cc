@@ -639,9 +639,9 @@ TEST_P(ConstraintTest, ConcretizeEntryGivesEntrySatisfyingConstraints) {
   EXPECT_THAT(ReasonEntryViolatesConstraint(concretized_entry, context),
               IsOkAndHolds(""))
       << "\nFor entry:\n"
-      << concretized_entry.DebugString()
+      << concretized_entry
       << "\nConstraint string: " << GetParam().constraint_string
-      << "\nConstraint: " << table_info.constraint->DebugString()
+      << "\nConstraint: " << *table_info.constraint
       << "\nAnd solver state: " << solver.to_smt2();
 }
 
@@ -723,9 +723,9 @@ TEST_P(ConstraintTest, EncodeValidTableEntryInZ3AndConcretizeEntry) {
   EXPECT_THAT(ReasonEntryViolatesConstraint(concretized_entry, context),
               IsOkAndHolds(""))
       << "\nFor entry:\n"
-      << concretized_entry.DebugString()
+      << concretized_entry
       << "\nConstraint string: " << GetParam().constraint_string
-      << "\nConstraint: " << table_info.constraint->DebugString()
+      << "\nConstraint: " << *table_info.constraint
       << "\nAnd solver state: " << solver.to_smt2();
 }
 
@@ -865,9 +865,9 @@ TEST_P(FullySpecifiedConstraintTest, ConcretizeEntryGivesExactEntry) {
                     GetParam().expected_concretized_entry, context),
                 IsOkAndHolds(""))
         << "\nFor entry:\n"
-        << GetParam().expected_concretized_entry.DebugString()
+        << GetParam().expected_concretized_entry
         << "\nConstraint string: " << GetParam().constraint_string
-        << "\nConstraint: " << table_info.constraint->DebugString()
+        << "\nConstraint: " << *table_info.constraint
         << "\nAnd solver state: " << solver.to_smt2();
   }
 
@@ -924,9 +924,9 @@ TEST_P(FullySpecifiedConstraintTest,
                     GetParam().expected_concretized_entry, context),
                 IsOkAndHolds(""))
         << "\nFor entry:\n"
-        << GetParam().expected_concretized_entry.DebugString()
+        << GetParam().expected_concretized_entry
         << "\nConstraint string: " << GetParam().constraint_string
-        << "\nConstraint: " << table_info.constraint->DebugString()
+        << "\nConstraint: " << *table_info.constraint
         << "\nAnd solver state: " << solver.to_smt2();
   }
 
