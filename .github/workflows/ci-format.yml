@@ -10,17 +10,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v2
       with:
         submodules: recursive
         
     - name: Mount bazel cache
-      uses: actions/cache@v3
+      uses: actions/cache@v2
       with:
         path: "~/.cache/bazel"  # See https://docs.bazel.build/versions/master/output_directories.html
-        key: format-${{ hashFiles('**/*_deps.bzl', '**/*.bazelrc') }}
-        restore-keys: |
-          format
+        key: bazel_format
         
     - name: Run format.sh
       run: ./format.sh

@@ -2,5 +2,4 @@
 try-import user.bazelrc
 
 # Use C++17.
-common --cxxopt='-std=c++17'
-common --host_cxxopt='-std=c++17'
+build --cxxopt='-std=c++17' --host_cxxopt='-std=c++17'
