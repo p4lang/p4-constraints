@@ -106,15 +106,13 @@ Integer ParseP4RTInteger(std::string int_str) {
   // allowing for non-canonical bytestrings.
   int_str.erase(0, int_str.find_first_not_of('\0'));
   mpz_class integer;
-  const char* chars = int_str.c_str();
-  const size_t char_count = strlen(chars);
   constexpr int most_significant_first = 1;
   constexpr size_t char_size = sizeof(char);
   static_assert(char_size == 1, "expected sizeof(char) == 1");
   constexpr int endian = 0;    // system default
   constexpr size_t nails = 0;  // don't skip any bits
-  mpz_import(integer.get_mpz_t(), char_count, most_significant_first, char_size,
-             endian, nails, chars);
+  mpz_import(integer.get_mpz_t(), int_str.size(), most_significant_first,
+             char_size, endian, nails, int_str.data());
   return integer;
 }
 
