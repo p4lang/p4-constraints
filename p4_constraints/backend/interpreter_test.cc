@@ -1287,6 +1287,12 @@ TEST(ParseP4RTInteger, ParsesZeroCorrectly) {
   ASSERT_EQ(zero_string.at(0), '\0');
   EXPECT_THAT(ParseP4RTInteger(zero_string), Eq(0));
 }
+
+TEST(ParseP4RTInteger, ParsesTrailingZeroCorrectly) {
+  std::string hex_string = {'\xe0', '\x00', '\x00', '\x00'};
+  EXPECT_THAT(ParseP4RTInteger(hex_string), Eq(0xe0000000U));
+}
+
 }  // namespace
 }  // namespace internal_interpreter
 }  // namespace p4_constraints
