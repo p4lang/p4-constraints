@@ -21,6 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "gutils/protocol_buffer_matchers.h"
 #include "gutils/status_matchers.h"
 #include "p4_constraints/ast.pb.h"
@@ -54,6 +56,16 @@ Token Hexadec(std::string text) {
                ast::SourceLocation());
 }
 
+Token String(std::string text) {
+  return Token(Token::Kind::STRING, text, ast::SourceLocation(),
+               ast::SourceLocation());
+}
+
+Token Id(std::string text) {
+  return Token(Token::Kind::ID, text, ast::SourceLocation(),
+               ast::SourceLocation());
+}
+
 Token DummyToken(Token::Kind kind) {
   return Token(kind, "", ast::SourceLocation(), ast::SourceLocation());
 }
@@ -74,6 +86,7 @@ struct ParserTest : public ::testing::Test {
   const Token kLpar = DummyToken(Token::LPAR);
   const Token kRpar = DummyToken(Token::RPAR);
   const Token kId = DummyToken(Token::ID);
+  const Token kDot = DummyToken(Token::DOT);
   const Token kDoubleColon = DummyToken(Token::DOUBLE_COLON);
   const Token kEndOfFile = DummyToken(Token::END_OF_INPUT);
   const Token kUnexpectedChar = DummyToken(Token::UNEXPECTED_CHAR);
@@ -330,4 +343,46 @@ TEST_F(ParserTest, IdGetsParsedAsKeyInTableConstraintParsingMode) {
                                                 right { integer_constant: "1" }
                                               })pb"))));
 }
+
+TEST_F(ParserTest, ParseIpv4Address) {
+  std::vector<Token> ipv4_tokens = {Id("ipv4"), kLpar, String("0.0.0.13"),
+                                    kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       ipv4_tokens, kDummySource),
+      IsOkAndHolds(Partially(EqualsProto(R"pb(integer_constant: "13")pb"))));
+}
+
+TEST_F(ParserTest, ParseIpv4AddressExpression) {
+  std::vector<Token> ipv4_expression_tokens = {
+      kId, kLe, Id("ipv4"), kLpar, String("0.0.0.255"), kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       ipv4_expression_tokens, kDummySource),
+      IsOkAndHolds(
+          Partially(EqualsProto(R"pb(binary_expression: {
+                                       left: { key: "" },
+                                       binop: LE,
+                                       right: { integer_constant: "255" }
+                                     })pb"))));
+}
+
+TEST_F(ParserTest, FailsToParseInvalidIpv4Address) {
+  std::vector<Token> short_ipv4_expression_tokens = {
+      Id("ipv4"), kLpar, String("239.255.255"), kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       short_ipv4_expression_tokens,
+                                       kDummySource),
+      gutils::testing::status::StatusIs(absl::StatusCode::kInvalidArgument));
+
+  std::vector<Token> illegal_ipv4_expression_tokens = {
+      Id("ipv4"), kLpar, String("239.abc.255.1"), kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       illegal_ipv4_expression_tokens,
+                                       kDummySource),
+      gutils::testing::status::StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
 }  // namespace p4_constraints

@@ -21,6 +21,7 @@
 #define P4_CONSTRAINTS_FRONTEND_AST_CONSTRUCTORS_H_
 
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/constraint_kind.h"
@@ -35,6 +36,18 @@ absl::StatusOr<ast::Expression> MakeBooleanConstant(const Token& boolean);
 // Returns an AST given a BINARY/OCTARY/DECIMAL/HEXADEC token, or an error
 // Status otherwise.
 absl::StatusOr<ast::Expression> MakeIntegerConstant(const Token& numeral);
+
+// Returns an AST `a` such that `a.integer_constant() == net(address)`. Valid
+// values for address_type (`net`) are "ipv4", "ipv6", or "mac". Returns error
+// if address_type is invalid. The address_string (`address`) is the IPv4, IPv6
+// or MAC address string. The start_location of the AST is the ID token's start
+// location and the end location of the AST is the RPAR token's end location as
+// the Tokens (ID, LPAR, STRING, RPAR) are expressed as an integer constant.
+absl::StatusOr<ast::Expression> MakeNetworkAddressIntegerConstant(
+    const absl::string_view& address_type,
+    const absl::string_view& address_string,
+    const ast::SourceLocation& start_location,
+    const ast::SourceLocation& end_location);
 
 // Returns an AST for table entry attribute access (such as ::priority).
 absl::StatusOr<ast::Expression> MakeAttributeAccess(
