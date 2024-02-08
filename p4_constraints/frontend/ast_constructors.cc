@@ -26,6 +26,7 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
@@ -127,6 +128,31 @@ absl::StatusOr<uint8_t> Base10StringToByte(
   return byte;
 }
 
+absl::StatusOr<uint8_t> Base16StringToByte(absl::string_view& base16_string) {
+  uint8_t byte;
+  if (base16_string.empty() || base16_string.size() > 2) {
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+           << absl::StreamFormat(
+                  "Invalid base16 string length: '%d', expected 0 < string "
+                  "length <= 2.",
+                  base16_string.size());
+  }
+  int buffer = 0;
+  for (char c : base16_string) {
+    if (!absl::ascii_isxdigit(c)) {
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+             << absl::StreamFormat(
+                    "Invalid character in base16 string: '%c' in string '%s'",
+                    c, base16_string);
+    }
+    int value =
+        (c >= 'A') ? (c >= 'a') ? (c - 'a' + 10) : (c - 'A' + 10) : (c - '0');
+    buffer = buffer * 16 + value;
+  }
+  memcpy(&byte, &buffer, 1);
+  return byte;
+}
+
 absl::StatusOr<std::string> Ipv4StringToByteString(
     const absl::string_view& ipv4_address) {
   std::vector<std::string_view> bytes = absl::StrSplit(ipv4_address, '.');
@@ -141,6 +167,26 @@ absl::StatusOr<std::string> Ipv4StringToByteString(
   std::bitset<32> bits;
   for (absl::string_view& byte_string : bytes) {
     ASSIGN_OR_RETURN(uint8_t byte, Base10StringToByte(byte_string));
+    bits <<= 8;
+    bits |= byte;
+  }
+  return bits.to_string();
+}
+
+absl::StatusOr<std::string> MacStringToByteString(
+    const absl::string_view& mac_address) {
+  std::vector<std::string> bytes = absl::StrSplit(mac_address, ':');
+  if (bytes.size() != 6) {
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+           << absl::StreamFormat(
+                  "Invalid length for MAC address: '%s'. Expected MAC address"
+                  " to be 6 bytes.",
+                  mac_address);
+  }
+
+  std::bitset<48> bits;
+  for (absl::string_view byte_string : bytes) {
+    ASSIGN_OR_RETURN(uint8_t byte, Base16StringToByte(byte_string));
     bits <<= 8;
     bits |= byte;
   }
@@ -193,8 +239,11 @@ absl::StatusOr<ast::Expression> MakeNetworkAddressIntegerConstant(
     return absl::UnimplementedError(
         "IPv6 addresses are not currently supported");
   } else if (address_type == "mac") {
-    return absl::UnimplementedError(
-        "Mac addresses are not currently supported");
+    ASSIGN_OR_RETURN(std::string mac_bytes,
+                     MacStringToByteString(address_string));
+    ASSIGN_OR_RETURN(numeral_str,
+                     ConvertNumeral(Token(Token::BINARY, mac_bytes,
+                                          start_location, end_location)));
   } else {
     return absl::InvalidArgumentError("Invalid network identifier");
   }
