@@ -14,6 +14,7 @@
 
 #include "p4_constraints/frontend/ast_constructors.h"
 
+#include <arpa/inet.h>
 #include <gmpxx.h>
 
 #include <bitset>
@@ -173,6 +174,30 @@ absl::StatusOr<std::string> Ipv4StringToByteString(
   return bits.to_string();
 }
 
+template <std::size_t num_bits>
+std::bitset<num_bits> AnyByteStringToBitset(
+    const absl::string_view& byte_string) {
+  std::bitset<num_bits> bits;
+  for (char c : byte_string) {
+    uint8_t byte = 0;
+    memcpy(&byte, &c, 1);
+    bits <<= 8;
+    bits |= byte;
+  }
+  return bits;
+}
+
+absl::StatusOr<std::string> Ipv6StringToByteString(
+    const absl::string_view& ipv6_address) {
+  std::string bytes = std::string(128 / 8, '\x0');
+  if (inet_pton(10, ipv6_address.data(), bytes.data()) == 1) {
+    auto ip = AnyByteStringToBitset<128>(bytes);
+    return ip.to_string();
+  }
+  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+         << absl::StreamFormat("Invalid Ipv6 address: %s", ipv6_address);
+}
+
 absl::StatusOr<std::string> MacStringToByteString(
     const absl::string_view& mac_address) {
   std::vector<std::string> bytes = absl::StrSplit(mac_address, ':');
@@ -192,6 +217,7 @@ absl::StatusOr<std::string> MacStringToByteString(
   }
   return bits.to_string();
 }
+
 // -- Auxiliary base constructors ----------------------------------------------
 
 ast::Expression LocatedExpression(const ast::SourceLocation& start_location,
@@ -236,8 +262,11 @@ absl::StatusOr<ast::Expression> MakeNetworkAddressIntegerConstant(
                      ConvertNumeral(Token(Token::BINARY, ipv4_bits,
                                           start_location, end_location)));
   } else if (address_type == "ipv6") {
-    return absl::UnimplementedError(
-        "IPv6 addresses are not currently supported");
+    ASSIGN_OR_RETURN(std::string ipv6_bytes,
+                     Ipv6StringToByteString(address_string));
+    ASSIGN_OR_RETURN(numeral_str,
+                     ConvertNumeral(Token(Token::BINARY, ipv6_bytes,
+                                          start_location, end_location)));
   } else if (address_type == "mac") {
     ASSIGN_OR_RETURN(std::string mac_bytes,
                      MacStringToByteString(address_string));
