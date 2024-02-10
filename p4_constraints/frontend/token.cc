@@ -25,7 +25,7 @@
 namespace p4_constraints {
 
 // All token kinds. Keep in sync with enum Kind in token.h.
-const Token::Kind Token::kAllKinds[25] = {
+const Token::Kind Token::kAllKinds[26] = {
     // clang-format off
   TRUE,
   FALSE,
@@ -50,6 +50,7 @@ const Token::Kind Token::kAllKinds[25] = {
   OCTARY,
   DECIMAL,
   HEXADEC,
+  STRING,
   END_OF_INPUT,
   UNEXPECTED_CHAR,
     // clang-format on
@@ -103,6 +104,8 @@ std::string Token::KindToKeyword(Token::Kind token_kind) {
       return "<DECIMAL>";
     case Token::HEXADEC:
       return "<HEXADEC>";
+    case Token::STRING:
+      return "<STRING>";
     case Token::END_OF_INPUT:
       return "<END_OF_INPUT>";
     case Token::UNEXPECTED_CHAR:
