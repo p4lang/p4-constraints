@@ -93,7 +93,7 @@ const LazyRE2 kTokenPattern{
     "|(?:0[xX])" "(?P<hexadec>[0-9a-fA-F]+)"
     "|(?:0[dD])?" "(?P<decimal>[0-9]+)"
     // Strings.
-    "|(?P<string>\"([^\"]*)\")"
+    "|(?P<string>'([^']*)')"
     // clang-format on
 };
 
@@ -182,7 +182,6 @@ std::vector<Token> Tokenize(const ConstraintSource& constraint) {
       kind = Token::HEXADEC;
     } else if (!CaptureByName("string", captures).empty()) {
       lexeme = std::string(CaptureByName("string", captures));
-      // Update lexeme to exclude double quotation marks
       lexeme = lexeme.substr(1, lexeme.size() - 2);
       kind = Token::STRING;
     } else {
