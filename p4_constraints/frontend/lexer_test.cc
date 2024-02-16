@@ -301,7 +301,7 @@ TEST(LexerTest, CommentsAreLexedCorrectly) {
 
 TEST(LexerTest, TokenizeAnEmptyString) {
   std::vector<Token> empty_str_tokens = Tokenize({
-      .constraint_string = "\"\"",
+      .constraint_string = "''",
       .constraint_location = ast::SourceLocation(),
   });
   EXPECT_THAT(GetTokenKinds(empty_str_tokens),
@@ -311,7 +311,7 @@ TEST(LexerTest, TokenizeAnEmptyString) {
 
 TEST(LexerTest, TokenizeAnEmptyStringWithADoubleQuoteInMiddle) {
   std::vector<Token> double_quote_in_middle_str_tokens = Tokenize({
-      .constraint_string = "\"\"\"",
+      .constraint_string = "'''",
       .constraint_location = ast::SourceLocation(),
   });
   EXPECT_THAT(GetTokenKinds(double_quote_in_middle_str_tokens),
@@ -320,7 +320,7 @@ TEST(LexerTest, TokenizeAnEmptyStringWithADoubleQuoteInMiddle) {
 
 TEST(LexerTest, TokenizeString) {
   auto str_tokens = Tokenize({
-      .constraint_string = "\"192.168.2.1\"",
+      .constraint_string = "'192.168.2.1'",
       .constraint_location = ast::SourceLocation(),
   });
   EXPECT_THAT(GetTokenKinds(str_tokens),
@@ -328,29 +328,29 @@ TEST(LexerTest, TokenizeString) {
   EXPECT_THAT(str_tokens[0].text, "192.168.2.1");
 }
 
-TEST(LexerTest, TokenizeIPv4String) {
-  auto double_quote_str_tokens = Tokenize({
-      .constraint_string = "ipv4(\"192.168.2.1\")",
+TEST(LexerTest, TokenizeIPv4SingleQuoteString) {
+  auto single_quote_str_tokens = Tokenize({
+      .constraint_string = "ipv4('192.168.2.1')",
       .constraint_location = ast::SourceLocation(),
   });
-  EXPECT_THAT(GetTokenKinds(double_quote_str_tokens),
+  EXPECT_THAT(GetTokenKinds(single_quote_str_tokens),
               testing::ElementsAre(Token::ID, Token::LPAR, Token::STRING,
                                    Token::RPAR, Token::END_OF_INPUT));
 }
 
-TEST(LexerTest, TokenizeIPv4SingleQuoteString) {
-  auto single_quote_str_tokens = Tokenize({
-      .constraint_string = "ipv4(\'192.168.2.1\')",
+TEST(LexerTest, TokenizeIPv4DoubleQuoteString) {
+  auto double_quote_str_tokens = Tokenize({
+      .constraint_string = "ipv4(\"192.168.2.1\")",
       .constraint_location = ast::SourceLocation(),
   });
   EXPECT_THAT(
-      GetTokenKinds(single_quote_str_tokens),
+      GetTokenKinds(double_quote_str_tokens),
       testing::ElementsAre(Token::ID, Token::LPAR, Token::UNEXPECTED_CHAR));
 }
 
 TEST(LexerTest, TokenizeIPv4MixedQuoteString) {
   auto mixed_quote_str_tokens = Tokenize({
-      .constraint_string = "ipv4(\"192.168.2.1\')",
+      .constraint_string = "ipv4(\"192.168.2.1')",
       .constraint_location = ast::SourceLocation(),
   });
   EXPECT_THAT(
@@ -360,7 +360,7 @@ TEST(LexerTest, TokenizeIPv4MixedQuoteString) {
 
 TEST(LexerTest, TokenizeIPv4ReverseMixedQuoteString) {
   auto reverse_mixed_quote_str_tokens = Tokenize({
-      .constraint_string = "ipv4(\'192.168.2.1\")",
+      .constraint_string = "ipv4('192.168.2.1\")",
       .constraint_location = ast::SourceLocation(),
   });
   EXPECT_THAT(
