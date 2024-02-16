@@ -35,6 +35,7 @@ namespace p4_constraints {
 using ::gutils::testing::EqualsProto;
 using ::gutils::testing::proto::Partially;
 using ::gutils::testing::status::IsOkAndHolds;
+using ::gutils::testing::status::StatusIs;
 
 Token Binary(std::string text) {
   return Token(Token::BINARY, text, ast::SourceLocation(),
@@ -370,19 +371,42 @@ TEST_F(ParserTest, ParseIpv4AddressExpression) {
 TEST_F(ParserTest, FailsToParseInvalidIpv4Address) {
   std::vector<Token> short_ipv4_expression_tokens = {
       Id("ipv4"), kLpar, String("239.255.255"), kRpar};
-  EXPECT_THAT(
-      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
-                                       short_ipv4_expression_tokens,
-                                       kDummySource),
-      gutils::testing::status::StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                               short_ipv4_expression_tokens,
+                                               kDummySource),
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
   std::vector<Token> illegal_ipv4_expression_tokens = {
       Id("ipv4"), kLpar, String("239.abc.255.1"), kRpar};
+  EXPECT_THAT(internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                               illegal_ipv4_expression_tokens,
+                                               kDummySource),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST_F(ParserTest, ParseMacAddress) {
+  std::vector<Token> mac_tokens = {Id("mac"), kLpar,
+                                   String("00:00:00:00:00:0F"), kRpar};
   EXPECT_THAT(
       internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
-                                       illegal_ipv4_expression_tokens,
-                                       kDummySource),
-      gutils::testing::status::StatusIs(absl::StatusCode::kInvalidArgument));
+                                       mac_tokens, kDummySource),
+      IsOkAndHolds(Partially(EqualsProto(R"pb(integer_constant: "15")pb"))));
+}
+
+TEST_F(ParserTest, FailsToParseInvalidMacAddress) {
+  std::vector<Token> short_mac_expression_tokens = {
+      Id("ipv4"), kLpar, String("DE:EF:CA:FE"), kRpar};
+  EXPECT_THAT(internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                               short_mac_expression_tokens,
+                                               kDummySource),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+
+  std::vector<Token> illegal_mac_expression_tokens = {
+      Id("ipv4"), kLpar, String("DE:GH:RS:EF:CA:FE"), kRpar};
+  EXPECT_THAT(internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                               illegal_mac_expression_tokens,
+                                               kDummySource),
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace p4_constraints
