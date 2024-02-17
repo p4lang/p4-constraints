@@ -409,4 +409,65 @@ TEST_F(ParserTest, FailsToParseInvalidMacAddress) {
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
+TEST_F(ParserTest, ParseIpv6Address) {
+  std::vector<Token> zero_ipv6_tokens = {Id("ipv6"), kLpar, String("::"),
+                                         kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       zero_ipv6_tokens, kDummySource),
+      IsOkAndHolds(Partially(EqualsProto(R"pb(integer_constant: "0")pb"))));
+
+  std::vector<Token> full_ipv6_tokens = {
+      Id("ipv6"), kLpar, String("0000:0000:0000:0000:0000:0000:0000:0009"),
+      kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       full_ipv6_tokens, kDummySource),
+      IsOkAndHolds(Partially(EqualsProto(R"pb(integer_constant: "9")pb"))));
+
+  std::vector<Token> zero_start_ipv6_tokens = {Id("ipv6"), kLpar,
+                                               String("::0000:0005"), kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       zero_start_ipv6_tokens, kDummySource),
+      IsOkAndHolds(Partially(EqualsProto(R"pb(integer_constant: "5")pb"))));
+
+  std::vector<Token> zero_middle_ipv6_tokens = {
+      Id("ipv6"), kLpar, String("0000:0000::0000:4"), kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       zero_middle_ipv6_tokens, kDummySource),
+      IsOkAndHolds(Partially(EqualsProto(R"pb(integer_constant: "4")pb"))));
+
+  std::vector<Token> zero_end_ipv6_tokens = {Id("ipv6"), kLpar,
+                                             String("0000:0000::"), kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       zero_end_ipv6_tokens, kDummySource),
+      IsOkAndHolds(Partially(EqualsProto(R"pb(integer_constant: "0")pb"))));
+}
+
+TEST_F(ParserTest, FailsToParseInvalidIpv6Address) {
+  std::vector<Token> illegal_ipv6_tokens = {
+      Id("ipv6"), kLpar, String("2001:db8::lmno:5678"), kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       illegal_ipv6_tokens, kDummySource),
+      StatusIs(absl::StatusCode::kInvalidArgument));
+
+  std::vector<Token> long_illegal_ipv6_tokens = {
+      Id("ipv6"), kLpar,
+      String("2001:db8:3333:4444:5555:6666:7777:8888:5000:5000:5000"), kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       long_illegal_ipv6_tokens, kDummySource),
+      StatusIs(absl::StatusCode::kInvalidArgument));
+
+  std::vector<Token> extra_colons_ipv6_tokens = {Id("ipv6"), kLpar,
+                                                 String(":::"), kRpar};
+  EXPECT_THAT(
+      internal_parser::ParseConstraint(ConstraintKind::kTableConstraint,
+                                       extra_colons_ipv6_tokens, kDummySource),
+      StatusIs(absl::StatusCode::kInvalidArgument));
+}
 }  // namespace p4_constraints
