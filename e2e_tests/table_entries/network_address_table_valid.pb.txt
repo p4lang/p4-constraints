@@ -1,0 +1,19 @@
+table_id: 5
+match {
+  field_id: 1  # hdr.ethernet.dst_addr
+  exact {
+    value: "\x04" # 00:00:00:00:00:04
+  }
+}
+match {
+  field_id: 2  # hdr.ipv4.dst_addr
+  exact {
+    value: "\xFF" # 0.0.0.255
+  }
+}
+match {
+  field_id: 3  # hdr.ipv6.dst_addr
+  exact {
+    value: "\x01" # ::1
+  }
+}

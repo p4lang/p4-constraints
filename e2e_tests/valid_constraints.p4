@@ -69,11 +69,27 @@ control valid_constraints(inout headers_t hdr,
     actions = {}
   }
 
+  @entry_restriction("
+    hdr.ethernet.dst_addr::value < mac('00:00:00:00:00:05');
+    hdr.ipv4.dst_addr == ipv4('0.0.0.255');
+    hdr.ipv6.dst_addr::value > ipv6('::');
+  ")
+  @id(5)
+  table network_address_table {
+    key = {
+      hdr.ethernet.dst_addr : exact;
+      hdr.ipv4.dst_addr : exact;
+      hdr.ipv6.dst_addr : exact;
+    }
+    actions = { }
+  }
+
   apply {
     accept_all_entries.apply();
     reject_all_entries.apply();
     vrf_classifier_table.apply();
     optional_match_table.apply();
+    network_address_table.apply();
   }
 }
 
