@@ -162,6 +162,22 @@ can be expressed more succinctly without parentheses as
 
 Like P4, the language also provides the Boolean constants `true` and `false`.
 
+### Network address syntax
+
+A table entry may want to restrict certain values to valid network addresses. For example, the following constraint sets restrictions on IPv4, IPv6 and MAC addresses.
+
+```
+@entry_restriction("
+  hdr.ethernet.dst_addr::value < mac('00:00:00:00:00:05');
+  hdr.ipv4.dst_addr == ipv4('0.0.0.255');
+  hdr.ipv6.dst_addr::value > ipv6('::');
+")
+```
+
+Network address notation follows the syntax of `<address_type>(<string>)`
+where the `<address_type>` must be `ipv4`, `ipv6` or `mac` and `<string>` represents the respective network address in single quotes.
+Network addresses using this notation get converted into integer values.
+
 ## Grammar
 
 Formally, the set of expressions is given by the following grammar:
@@ -170,6 +186,7 @@ Formally, the set of expressions is given by the following grammar:
 expression ::=
   | 'true' | 'false'                                               // Boolean constants.
   | numeral                                                        // Numeric constants.
+  | address_type '(' string ')'                                    // Network address constant.
   | key                                                            // Table keys.
   | attribute_access                                               // Accessing table entry attribute.
   | '!' expression                                                 // Boolean negation.
@@ -189,6 +206,7 @@ numeral ::=
 
 key ::= id ('.' id)*                                               // Table keys, e.g. "hdr.ethernet.eth_type".
 id ::= [_a-zA-Z][_a-zA-Z0-9]*                                      // Identifiers.
+address_type ::= `ipv4` | 'ipv6' | `mac`                           // Network address types.
 ```
 As a syntactic convenience, top-level expression may be terminated
 by a trailing ';' without affecting the semantics of the expression.
