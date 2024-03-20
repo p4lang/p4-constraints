@@ -198,12 +198,12 @@ absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
     if (!keys_by_id.insert({key_info.id, key_info}).second) {
       return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
              << "table " << table.preamble().name()
-             << " has duplicate key: " << key.DebugString();
+             << " has duplicate key: " << absl::StrCat(key);
     }
     if (!keys_by_name.insert({key_info.name, key_info}).second) {
       return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
              << "table " << table.preamble().name()
-             << " has duplicate key: " << key.DebugString();
+             << " has duplicate key: " << absl::StrCat(key);
     }
   }
 
@@ -249,12 +249,12 @@ absl::StatusOr<ActionInfo> ParseActionInfo(const Action& action) {
     if (!params_by_id.insert({param_info.id, param_info}).second) {
       return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
              << "action " << action.preamble().name()
-             << " has duplicate param: " << param.DebugString();
+             << " has duplicate param: " << absl::StrCat(param);
     }
     if (!params_by_name.insert({param_info.name, param_info}).second) {
       return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
              << "action " << action.preamble().name()
-             << " has duplicate param: " << param.DebugString();
+             << " has duplicate param: " << absl::StrCat(param);
     }
   }
   ASSIGN_OR_RETURN(
@@ -326,7 +326,7 @@ absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     } else if (!table_info_by_id.insert({table.preamble().id(), *table_info})
                     .second) {
       errors.push_back(gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-                       << "duplicate table: " << table.DebugString());
+                       << "duplicate table: " << absl::StrCat(table));
     }
   }
 
@@ -337,7 +337,7 @@ absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     } else if (!action_info_by_id.insert({action.preamble().id(), *action_info})
                     .second) {
       errors.push_back(gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-                       << "duplicate action: " << action.DebugString());
+                       << "duplicate action: " << absl::StrCat(action));
     }
   }
 
