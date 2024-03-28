@@ -121,5 +121,8 @@ cc_library(
 cc_library(
     name = "constraint_kind",
     hdrs = ["constraint_kind.h"],
-    visibility = ["//visibility:public"],
+    visibility = [
+        "//p4_constraints/backend:__pkg__",
+        "@com_github_p4lang_p4c//:__subpackages__",
+    ],
 )
