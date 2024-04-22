@@ -164,6 +164,8 @@ cc_library(
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
+        "//p4_constraints/frontend:constraint_kind",
+        "//p4_constraints/frontend:parser",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_github_z3prover_z3//:api",
         "@com_google_absl//absl/container:flat_hash_map",
