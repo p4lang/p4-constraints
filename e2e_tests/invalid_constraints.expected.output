@@ -74,3 +74,15 @@ Type error: operand type optional<32> does not support ordered comparison
 102 |     ::unknown > 10;
     |     ^^^^^^^^^
 Type error: unknown attribute 'unknown'
+
+- e2e_tests/invalid_constraints.p4:113:1-9:
+    |       headers.ethernet.ether_type == 0x86DD;
+113 | ::unknown > 10;
+    | ^^^^^^^^^
+Type error: unknown attribute 'unknown'
+
+- e2e_tests/invalid_constraints.p4:157:5-13:
+    |     // An invalid constraint to ensure error messages are sensible.
+157 |     ::unknown > 10;
+    |     ^^^^^^^^^
+Type error: unknown attribute 'unknown'

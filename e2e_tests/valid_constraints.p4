@@ -18,7 +18,7 @@ control valid_constraints(inout headers_t hdr,
   @file(__FILE__)
   @line(__LINE__)
   @entry_restriction("
-    // Either wildcard or exact match (i.e., "optional" match).
+    // Either wildcard or exact match (i.e., 'optional' match).
     hdr.ipv4.dst_addr::mask == 0 || hdr.ipv4.dst_addr::mask == -1;
 
     // Only match on IPv4 addresses of IPv4 packets.
@@ -37,6 +37,44 @@ control valid_constraints(inout headers_t hdr,
   ")
   @id(3)
   table vrf_classifier_table {
+    key = {
+      hdr.ethernet.ether_type : ternary;
+      hdr.ethernet.src_addr : ternary;
+      hdr.ipv4.dst_addr : ternary;
+      standard_metadata.ingress_port: ternary;
+      hdr.ipv6.dst_addr : ternary;
+      hdr.ipv4.src_addr : optional;
+      local_metadata.dscp : ternary;
+      local_metadata.is_ip_packet : ternary;
+    }
+    actions = { }
+  }
+
+
+  @file(__FILE__)
+  @line(__LINE__)
+  // Tests that multiline strings also work.
+  @entry_restriction(
+    // Either wildcard or exact match (i.e., "optional" match).
+    "hdr.ipv4.dst_addr::mask == 0 || hdr.ipv4.dst_addr::mask == -1;"
+
+    // Only match on IPv4 addresses of IPv4 packets.
+    "hdr.ipv4.dst_addr::mask != 0 ->     "
+    // Macros are not usable within a single-line string.
+    "  hdr.ethernet.ether_type == 0x0800;"
+
+    // Only match on IPv6 addresses of IPv6 packets.
+    "hdr.ipv6.dst_addr::mask != 0 ->
+      hdr.ethernet.ether_type == IPv6_ETHER_TYPE;
+
+    local_metadata.dscp::mask != 0 -> (
+      hdr.ethernet.ether_type == IPv4_ETHER_TYPE ||
+      hdr.ethernet.ether_type == IPv6_ETHER_TYPE ||
+      local_metadata.is_ip_packet == 1
+    );
+  ")
+  @id(6)
+  table vrf_classifier_table_with_multiline_strings {
     key = {
       hdr.ethernet.ether_type : ternary;
       hdr.ethernet.src_addr : ternary;
@@ -90,6 +128,7 @@ control valid_constraints(inout headers_t hdr,
     vrf_classifier_table.apply();
     optional_match_table.apply();
     network_address_table.apply();
+    vrf_classifier_table_with_multiline_strings.apply();
   }
 }
 

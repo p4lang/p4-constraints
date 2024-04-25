@@ -11,7 +11,7 @@ e2e_tests/table_entries/acl_table_1.pb.txt
 All entries must satisfy:
 
 e2e_tests/valid_constraints.p4:22:5-65:
-   |     // Either wildcard or exact match (i.e., " optional " match).
+   |     // Either wildcard or exact match (i.e., 'optional' match).
 22 |     hdr.ipv4.dst_addr::mask == 0 || hdr.ipv4.dst_addr::mask == -1;
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -84,10 +84,10 @@ e2e_tests/table_entries/optional_match_table_invalid_1.pb.txt
 === Output ===
 All entries must satisfy:
 
-e2e_tests/valid_constraints.p4:62:5-32:
-   |     // A real constraint: only wildcard match is okay.
-62 |     hdr.ipv4.dst_addr::mask == 0;
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+e2e_tests/valid_constraints.p4:100:5-32:
+    |     // A real constraint: only wildcard match is okay.
+100 |     hdr.ipv4.dst_addr::mask == 0;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
 >>>Relevant Entry Info<<<
@@ -107,10 +107,10 @@ e2e_tests/table_entries/optional_match_table_valid_max_priority.pb.txt
 === Output ===
 All entries must satisfy:
 
-e2e_tests/valid_constraints.p4:64:5-27:
-   |     // A constraint on metadata.
-64 |     ::priority < 0x7fffffff;
-   |     ^^^^^^^^^^^^^^^^^^^^^^^
+e2e_tests/valid_constraints.p4:102:5-27:
+    |     // A constraint on metadata.
+102 |     ::priority < 0x7fffffff;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
 >>>Relevant Entry Info<<<

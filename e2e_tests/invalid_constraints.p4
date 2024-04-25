@@ -103,6 +103,77 @@ control invalid_constraints(inout headers_t headers,
   ")
   table unknown_metadata { actions = {} key = {} }
 
+  @file(__FILE__)
+  @line(__LINE__)
+  @entry_restriction(
+    // Either wildcard or exact match (i.e., "optional" match).
+    "headers.ipv4.dst_addr::mask == 0 || headers.ipv4.dst_addr::mask == -1;"
+
+    // Only match on IPv4 addresses of IPv4 packets.
+    "headers.ipv4.dst_addr::mask != 0 ->     "
+    // Macros are not usable within a single-line string.
+    "  headers.ethernet.ether_type == 0x0800;"
+
+    // Only match on IPv6 addresses of IPv6 packets.
+    "headers.ipv6.dst_addr::mask != 0 ->
+      headers.ethernet.ether_type == IPv6_ETHER_TYPE;"
+
+    // An invalid constraint to ensure error messages are sensible.
+    "::unknown > 10;"
+
+    // More valid stuff.
+    "local_metadata.dscp::mask != 0 -> (
+      headers.ethernet.ether_type == IPv4_ETHER_TYPE ||
+      headers.ethernet.ether_type == IPv6_ETHER_TYPE ||
+      local_metadata.is_ip_packet == 1
+    );
+  ")
+  table invalid_vrf_classifier_table_with_multiline_strings {
+    key = {
+      headers.ethernet.ether_type : ternary;
+      headers.ipv4.dst_addr : ternary;
+      headers.ipv6.dst_addr : ternary;
+      local_metadata.dscp : ternary;
+      local_metadata.is_ip_packet : ternary;
+    }
+    actions = { }
+  }
+
+  @file(__FILE__)
+  @line(__LINE__)
+  @entry_restriction("
+    // Either wildcard or exact match (i.e., 'optional' match).
+    headers.ipv4.dst_addr::mask == 0 || headers.ipv4.dst_addr::mask == -1;
+
+    // Only match on IPv4 addresses of IPv4 packets.
+    headers.ipv4.dst_addr::mask != 0 ->
+      headers.ethernet.ether_type == 0x0800;
+
+    // Only match on IPv6 addresses of IPv6 packets.
+    headers.ipv6.dst_addr::mask != 0 ->
+      headers.ethernet.ether_type == IPv6_ETHER_TYPE;
+
+    // An invalid constraint to ensure error messages are sensible.
+    ::unknown > 10;
+
+    // More valid stuff.
+    local_metadata.dscp::mask != 0 -> (
+      headers.ethernet.ether_type == IPv4_ETHER_TYPE ||
+      headers.ethernet.ether_type == IPv6_ETHER_TYPE ||
+      local_metadata.is_ip_packet == 1
+    );
+  ")
+  table invalid_vrf_classifier_table_without_multiline_strings {
+    key = {
+      headers.ethernet.ether_type : ternary;
+      headers.ipv4.dst_addr : ternary;
+      headers.ipv6.dst_addr : ternary;
+      local_metadata.dscp : ternary;
+      local_metadata.is_ip_packet : ternary;
+    }
+    actions = { }
+  }
+
   apply {
     forgot_quotes.apply();
     forgot_quotes_with_srcloc.apply();
@@ -119,6 +190,8 @@ control invalid_constraints(inout headers_t headers,
     boolean_negation_of_integer.apply();
     optional_does_not_support_ordered_comparison.apply();
     unknown_metadata.apply();
+    invalid_vrf_classifier_table_with_multiline_strings.apply();
+    invalid_vrf_classifier_table_without_multiline_strings.apply();
    }
  }
 
