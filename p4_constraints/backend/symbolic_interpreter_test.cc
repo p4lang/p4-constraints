@@ -856,20 +856,17 @@ TEST_P(FullySpecifiedConstraintTest, ConcretizeEntryGivesExactEntry) {
           table_info,
       }},
   };
-  // TODO(b/297400616): p4-constraints currently does not correctly translate
-  // the bytestring representing 1280 to 1280 (instead turning it into 5).
-  if (!absl::StrContains(GetParam().constraint_string, "1280")) {
-    // Sanity check that the expected entry actually satisfies the constraint.
-    // The empty string signifies that the entry doesn't violate the constraint.
-    ASSERT_THAT(ReasonEntryViolatesConstraint(
-                    GetParam().expected_concretized_entry, context),
-                IsOkAndHolds(""))
-        << "\nFor entry:\n"
-        << GetParam().expected_concretized_entry.DebugString()
-        << "\nConstraint string: " << GetParam().constraint_string
-        << "\nConstraint: " << table_info.constraint->DebugString()
-        << "\nAnd solver state: " << solver.to_smt2();
-  }
+
+  // Sanity check that the expected entry actually satisfies the constraint.
+  // The empty string signifies that the entry doesn't violate the constraint.
+  ASSERT_THAT(ReasonEntryViolatesConstraint(
+                  GetParam().expected_concretized_entry, context),
+              IsOkAndHolds(""))
+      << "\nFor entry:\n"
+      << GetParam().expected_concretized_entry.DebugString()
+      << "\nConstraint string: " << GetParam().constraint_string
+      << "\nConstraint: " << table_info.constraint->DebugString()
+      << "\nAnd solver state: " << solver.to_smt2();
 
   // Add symbolic table keys to symbolic key map.
   SymbolicEnvironment environment;
@@ -915,20 +912,17 @@ TEST_P(FullySpecifiedConstraintTest,
           table_info,
       }},
   };
-  // TODO(b/297400616): p4-constraints currently does not correctly translate
-  // the bytestring representing 1280 to 1280 (instead turning it into 5).
-  if (!absl::StrContains(GetParam().constraint_string, "1280")) {
-    // Sanity check that the expected entry actually satisfies the constraint.
-    // The empty string signifies that the entry doesn't violate the constraint.
-    ASSERT_THAT(ReasonEntryViolatesConstraint(
-                    GetParam().expected_concretized_entry, context),
-                IsOkAndHolds(""))
-        << "\nFor entry:\n"
-        << GetParam().expected_concretized_entry.DebugString()
-        << "\nConstraint string: " << GetParam().constraint_string
-        << "\nConstraint: " << table_info.constraint->DebugString()
-        << "\nAnd solver state: " << solver.to_smt2();
-  }
+
+  // Sanity check that the expected entry actually satisfies the constraint.
+  // The empty string signifies that the entry doesn't violate the constraint.
+  ASSERT_THAT(ReasonEntryViolatesConstraint(
+                  GetParam().expected_concretized_entry, context),
+              IsOkAndHolds(""))
+      << "\nFor entry:\n"
+      << GetParam().expected_concretized_entry.DebugString()
+      << "\nConstraint string: " << GetParam().constraint_string
+      << "\nConstraint: " << table_info.constraint->DebugString()
+      << "\nAnd solver state: " << solver.to_smt2();
 
   ASSERT_OK_AND_ASSIGN(SymbolicEnvironment environment,
                        EncodeValidTableEntryInZ3(table_info, solver));

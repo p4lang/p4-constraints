@@ -76,6 +76,7 @@ const LazyRE2 kTokenPattern{
     "|(?P<newline>(?:\\r\\n?)|\\n)"
     "|(?P<comment>//[^\\r\\n]*)"
     "|(?P<begin_multiline_comment>/\\*)"
+    "|(?P<multiline_string_separator>\\\"[ \\t\\r\\n]*\\\")"
     // Keywords.
     "|(?P<keyword>"
       "true|false|&&"
@@ -153,6 +154,9 @@ std::vector<Token> Tokenize(const ConstraintSource& constraint) {
       continue;
     } else if (!CaptureByName("begin_multiline_comment", captures).empty()) {
       SwallowMultiLineComment(&input, &current_location);
+      start_location = current_location;
+      continue;
+    } else if (!CaptureByName("multiline_string_separator", captures).empty()) {
       start_location = current_location;
       continue;
     } else if (!CaptureByName("keyword", captures).empty()) {
