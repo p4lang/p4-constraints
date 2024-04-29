@@ -25,6 +25,7 @@
 #define P4_CONSTRAINTS_BACKEND_SYMBOLIC_INTERPRETER_H_
 
 #include <functional>
+#include <memory>
 #include <ostream>
 #include <string>
 #include <variant>
@@ -87,43 +88,60 @@ struct SymbolicEnvironment {
       symbolic_attribute_by_name;
 };
 
-// -- Main Functions -----------------------------------------------------------
+// -- Main Class ---------------------------------------------------------------
 
-// Adds sufficient symbolic constraints to `solver` to represent an entry for
-// `table` that respects its P4-Constraints and is well-formed according to the
-// P4Runtime specification.
-// Specifically, populates `solver` with all of the keys from `table` aside from
-// those skipped through `skip_key_named`. Also adds well-formedness constraints
-// (further described at the `AddSymbolicKey` function below) for each key and
-// Z3 versions of any p4-constraints given by `table.constraints`. If the
-// P4Runtime standard requires the table's entries to have a priority (i.e.
-// because at least one key is either Optional or Ternary), then a symbolic
-// priority with well-formedness constraints is also added. Returns a
-// SymbolicEnvironment mapping the names of all symbolic variables to their
-// symbolic expression counterparts.
-// NOTE: This API will only encode a single table entry (as opposed to multiple)
-// for a given `solver`. In other words, it is NOT possible to encode
-// constraints for multiple entries by calling this function more than once with
-// the same `solver`.
-absl::StatusOr<SymbolicEnvironment> EncodeValidTableEntryInZ3(
-    const TableInfo& table, z3::solver& solver,
-    std::function<absl::StatusOr<bool>(absl::string_view key_name)>
-        skip_key_named = [](absl::string_view key_name) { return false; });
+// A solver for constraints on a table.
+// NOTE: Encodes a single table entry for the table given to the constructor. A
+// single instantiation can not be used to encode multiple entries.
+class ConstraintSolver {
+ public:
+  // Constructs a ConstraintSolver representing an entry for `table` that
+  // respects its P4-Constraints and is well-formed according to the P4Runtime
+  // specification. An entry encoded by the resulting ConstraintSolver does not
+  // include any `key` for which `skip_key_named(key)` is true.
+  static absl::StatusOr<ConstraintSolver> Create(
+      const TableInfo& table,
+      std::function<absl::StatusOr<bool>(absl::string_view key_name)>
+          skip_key_named = [](absl::string_view key_name) { return false; });
 
-// Returns an entry for the table given by `table_info` derived from `model`.
-// All keys named in `table_info` must be mapped by
-// `environment.symbolic_key_by_name` unless `skip_key_named(name)` holds for
-// the key `name`. NOTE: The entry will NOT contain an action and is thus not a
-// valid P4Runtime entry without modification.
-// NOTE: This API expects the `model` to represent a single table entry (as
-// opposed to multiple). This can be achieved by a call to
-// `EncodeValidTableEntryInZ3`.
-// TODO(b/242201770): Extract actions once action constraints are supported.
-absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
-    const z3::model& model, const TableInfo& table_info,
-    const SymbolicEnvironment& environment,
-    std::function<absl::StatusOr<bool>(absl::string_view key_name)>
-        skip_key_named = [](absl::string_view key_name) { return false; });
+  // Returns true and adds constraint to the solver. If `constraint` would make
+  // the current ConstraintSolver unable to generate an entry, returns false and
+  // does not change the state of the ConstraintSolver. If `constraint` is
+  // malformed returns error and `constraint_source` is used for debugging info.
+  absl::StatusOr<bool> AddConstraint(const ast::Expression& constraint,
+                                     const ConstraintSource& constraint_source);
+  // Similar to overload above except that both the AST expression and its
+  // source are derived from `constraint`. Additionally returns an error if a
+  // valid AST cannot be produced from `constraint`.
+  absl::StatusOr<bool> AddConstraint(absl::string_view constraint);
+
+  // Returns the entry encoded by the object.
+  // NOTE: The entry will NOT contain an action and is thus not a valid
+  // P4Runtime entry without modification.
+  // TODO(b/242201770): Extract actions once action constraints are supported.
+  absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry();
+
+ private:
+  explicit ConstraintSolver()
+      : context_(std::make_unique<z3::context>()),
+        solver_(std::make_unique<z3::solver>(*context_)) {}
+
+  // Z3 context and solver. Solver requires a reference to `context` for
+  // construction so it is privately stored to avoid dangling reference.
+  std::unique_ptr<z3::context> context_;
+  std::unique_ptr<z3::solver> solver_;
+
+  // TableInfo of table that is being constrained.
+  TableInfo table_info_;
+
+  // Symbolic environment for storing information on symbolic keys.
+  SymbolicEnvironment environment_;
+
+  // Function to determine whether a key should be ignored while creating
+  // `environment_` and generating a concrete entry.
+  std::function<absl::StatusOr<bool>(absl::string_view key_name)>
+      skip_key_named_;
+};
 
 // -- Accessors ----------------------------------------------------------------
 

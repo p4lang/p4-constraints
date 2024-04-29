@@ -103,7 +103,7 @@ cc_library(
         "-lgmp",
         "-lgmpxx",
     ],
-    visibility = ["//p4_constraints/backend:__pkg__"],
+    visibility = ["//visibility:private"],
     deps = [
         ":constraint_kind",
         ":token",

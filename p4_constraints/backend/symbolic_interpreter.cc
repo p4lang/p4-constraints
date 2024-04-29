@@ -41,7 +41,10 @@
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/backend/errors.h"
+#include "p4_constraints/backend/type_checker.h"
 #include "p4_constraints/constraint_source.h"
+#include "p4_constraints/frontend/constraint_kind.h"
+#include "p4_constraints/frontend/parser.h"
 #include "z3++.h"
 
 namespace p4_constraints {
@@ -676,22 +679,24 @@ absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
 
 }  // namespace internal_interpreter
 
-absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
-    const z3::model& model, const TableInfo& table_info,
-    const SymbolicEnvironment& environment,
-    std::function<absl::StatusOr<bool>(absl::string_view key_name)>
-        skip_key_named) {
+absl::StatusOr<p4::v1::TableEntry> ConstraintSolver::ConcretizeEntry() {
+  if (solver_->check() != z3::sat) {
+    return gutils::InternalErrorBuilder(GUTILS_LOC)
+           << "Constraints are not satisfiable.";
+  }
+
+  z3::model model = solver_->get_model();
   p4::v1::TableEntry table_entry;
-  table_entry.set_table_id(table_info.id);
+  table_entry.set_table_id(table_info_.id);
 
   // Construct match fields by evaluating their respective entries in the model.
-  for (const auto& [key_name, key_info] : table_info.keys_by_name) {
-    ASSIGN_OR_RETURN(bool key_should_be_skipped, skip_key_named(key_name));
+  for (const auto& [key_name, key_info] : table_info_.keys_by_name) {
+    ASSIGN_OR_RETURN(bool key_should_be_skipped, skip_key_named_(key_name));
     if (key_should_be_skipped) continue;
 
     ASSIGN_OR_RETURN(
         const SymbolicKey* symbolic_key,
-        gutils::FindPtrOrStatus(environment.symbolic_key_by_name, key_name));
+        gutils::FindPtrOrStatus(environment_.symbolic_key_by_name, key_name));
     ASSIGN_OR_RETURN(std::optional<p4::v1::FieldMatch> match,
                      ConcretizeKey(*symbolic_key, key_info, model));
 
@@ -703,7 +708,7 @@ absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
 
   // Set priority if it exists.
   if (auto priority_key =
-          gutils::FindPtrOrStatus(environment.symbolic_attribute_by_name,
+          gutils::FindPtrOrStatus(environment_.symbolic_attribute_by_name,
                                   kSymbolicPriorityAttributeName);
       priority_key.ok()) {
     if (model.has_interp((*priority_key)->value.decl())) {
@@ -720,12 +725,53 @@ absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry(
   return table_entry;
 }
 
-absl::StatusOr<SymbolicEnvironment> EncodeValidTableEntryInZ3(
-    const TableInfo& table, z3::solver& solver,
+absl::StatusOr<bool> ConstraintSolver::AddConstraint(
+    const ast::Expression& constraint,
+    const ConstraintSource& constraint_source) {
+  if (solver_->check() != z3::sat) {
+    return gutils::InternalErrorBuilder(GUTILS_LOC)
+           << "Stored constraints are unsatisfiable. Constraint solver must "
+              "hold a satisfiable constraint at all times.";
+  };
+
+  ASSIGN_OR_RETURN(z3::expr z3_constraint,
+                   internal_interpreter::EvaluateConstraintSymbolically(
+                       constraint, constraint_source, environment_, *solver_));
+  solver_->push();
+  solver_->add(z3_constraint);
+  if (solver_->check() != z3::sat) {
+    solver_->pop();
+    return false;
+  }
+  return true;
+};
+
+absl::StatusOr<bool> ConstraintSolver::AddConstraint(
+    absl::string_view constraint_string) {
+  ast::SourceLocation source_location;
+  source_location.set_table_name(table_info_.name);
+
+  ConstraintSource constraint_source{
+      .constraint_string = std::string(constraint_string),
+      .constraint_location = source_location,
+  };
+
+  ASSIGN_OR_RETURN(
+      ast::Expression constraint_ast,
+      ParseConstraint(ConstraintKind::kTableConstraint, constraint_source));
+
+  RETURN_IF_ERROR(InferAndCheckTypes(&constraint_ast, table_info_));
+
+  return ConstraintSolver::AddConstraint(constraint_ast, constraint_source);
+}
+
+absl::StatusOr<ConstraintSolver> ConstraintSolver::Create(
+    const TableInfo& table,
     std::function<absl::StatusOr<bool>(absl::string_view key_name)>
         skip_key_named) {
-  SymbolicEnvironment environment;
-  environment.symbolic_key_by_name.reserve(table.keys_by_name.size());
+  ConstraintSolver constraint_solver = ConstraintSolver();
+  constraint_solver.table_info_ = std::move(table);
+  constraint_solver.skip_key_named_ = std::move(skip_key_named);
 
   // Add keys to solver and map and determine whether the table needs a
   // priority.
@@ -736,31 +782,38 @@ absl::StatusOr<SymbolicEnvironment> EncodeValidTableEntryInZ3(
       // for their entries.
       requires_priority = true;
     }
-    ASSIGN_OR_RETURN(bool key_should_be_skipped, skip_key_named(key_name));
+    ASSIGN_OR_RETURN(bool key_should_be_skipped,
+                     constraint_solver.skip_key_named_(key_name));
     if (key_should_be_skipped) continue;
 
     ASSIGN_OR_RETURN(SymbolicKey key,
-                     internal_interpreter::AddSymbolicKey(key_info, solver));
-    environment.symbolic_key_by_name.insert({key_name, std::move(key)});
+                     internal_interpreter::AddSymbolicKey(
+                         key_info, *constraint_solver.solver_));
+    constraint_solver.environment_.symbolic_key_by_name.insert(
+        {key_name, std::move(key)});
   }
 
   if (requires_priority) {
     SymbolicAttribute priority =
-        internal_interpreter::AddSymbolicPriority(solver);
-    environment.symbolic_attribute_by_name.insert(
+        internal_interpreter::AddSymbolicPriority(*constraint_solver.solver_);
+    constraint_solver.environment_.symbolic_attribute_by_name.insert(
         {kSymbolicPriorityAttributeName, std::move(priority)});
   }
 
-  // Add constraint if it exists.
   if (table.constraint.has_value()) {
-    ASSIGN_OR_RETURN(
-        z3::expr constraint,
-        internal_interpreter::EvaluateConstraintSymbolically(
-            *table.constraint, table.constraint_source, environment, solver));
-    solver.add(constraint);
+    ASSIGN_OR_RETURN(bool modeled_constraint_added,
+                     constraint_solver.AddConstraint(*table.constraint,
+                                                     table.constraint_source));
+    if (!modeled_constraint_added) {
+      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+             << "TableInfo provided an unsatisfiable constraint. "
+                "ConstraintSolver must contain a satisfiable constraint at all "
+                "times so creation failed.\n Unsatisfiable Constraint: "
+             << table.constraint_source.constraint_string;
+    }
   }
 
-  return environment;
+  return constraint_solver;
 }
 
 absl::StatusOr<z3::expr> GetValue(const SymbolicKey& symbolic_key) {

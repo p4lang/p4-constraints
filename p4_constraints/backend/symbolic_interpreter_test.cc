@@ -12,7 +12,6 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
 #include "absl/status/status.h"
-#include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
 #include "gutils/parse_text_proto.h"
 #include "gutils/protocol_buffer_matchers.h"
@@ -43,7 +42,6 @@ using ::p4_constraints::ast::Type;
 using ::p4_constraints::internal_interpreter::AddSymbolicKey;
 using ::p4_constraints::internal_interpreter::AddSymbolicPriority;
 using ::p4_constraints::internal_interpreter::EvaluateConstraintSymbolically;
-using ::testing::IsEmpty;
 using ::testing::Not;
 
 // Tests basic properties with a suite of simple test cases.
@@ -588,80 +586,14 @@ TEST_P(ConstraintTest,
   EXPECT_EQ(solver.check(), GetParam().is_sat ? z3::sat : z3::unsat);
 }
 
-TEST_P(ConstraintTest, ConcretizeEntryGivesEntrySatisfyingConstraints) {
-  if (!GetParam().is_sat) {
-    GTEST_SKIP() << "Test only sensible for satisfiable constraints";
-  }
-  z3::context solver_context;
-  z3::solver solver(solver_context);
-
-  TableInfo table_info =
-      GetTableInfoWithConstraint(GetParam().constraint_string);
-
-  // Add symbolic table keys to symbolic key map.
-  SymbolicEnvironment environment;
-  for (const auto& [key_name, key_info] : table_info.keys_by_name) {
-    ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(key_info, solver));
-    environment.symbolic_key_by_name.insert({key_name, std::move(key)});
-  }
-
-  // Add symbolic priority to attribute map.
-  SymbolicAttribute symbolic_priority = AddSymbolicPriority(solver);
-  environment.symbolic_attribute_by_name.insert(
-      {kSymbolicPriorityAttributeName, std::move(symbolic_priority)});
-
-  ASSERT_OK_AND_ASSIGN(z3::expr z3_constraint,
-                       EvaluateConstraintSymbolically(
-                           *table_info.constraint, table_info.constraint_source,
-                           environment, solver));
-  solver.add(z3_constraint);
-
-  ASSERT_EQ(solver.check(), z3::sat);
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::TableEntry concretized_entry,
-      ConcretizeEntry(solver.get_model(), table_info, environment));
-
-  // Sanity check that every exact value is not the empty string.
-  for (const auto& match : concretized_entry.match()) {
-    if (match.has_exact()) {
-      EXPECT_NE(match.exact().value(), "");
-    }
-  }
-
-  ConstraintInfo context{
-      .action_info_by_id = {},
-      .table_info_by_id = {{
-          table_info.id,
-          table_info,
-      }},
-  };
-  // The empty string signifies that the entry doesn't violate the constraint.
-  EXPECT_THAT(ReasonEntryViolatesConstraint(concretized_entry, context),
-              IsOkAndHolds(""))
-      << "\nFor entry:\n"
-      << concretized_entry.DebugString()
-      << "\nConstraint string: " << GetParam().constraint_string
-      << "\nConstraint: " << table_info.constraint->DebugString()
-      << "\nAnd solver state: " << solver.to_smt2();
-}
-
-TEST(EncodeValidTableEntryInZ3Test, WorksWithoutConstraints) {
-  z3::context solver_context;
-  z3::solver solver(solver_context);
-
+TEST(CreateConstraintSolver, WorksWithoutConstraints) {
   TableInfo table_info = GetTableInfoWithConstraint("true");
   table_info.constraint = std::nullopt;
 
-  ASSERT_OK_AND_ASSIGN(SymbolicEnvironment environment,
-                       EncodeValidTableEntryInZ3(table_info, solver));
-
-  EXPECT_EQ(solver.check(), z3::sat);
+  EXPECT_OK(ConstraintSolver::Create(table_info));
 }
 
-TEST(EncodeValidTableEntryInZ3Test, WorksWithoutPriority) {
-  z3::context solver_context;
-  z3::solver solver(solver_context);
-
+TEST(CreateConstraintSolverAddConstraint, WorksWithoutPriority) {
   TableInfo table_info = GetTableInfoWithConstraint("true");
 
   // Remove the ternaries and optionals, so that no priority is required.
@@ -675,42 +607,31 @@ TEST(EncodeValidTableEntryInZ3Test, WorksWithoutPriority) {
     table_info.keys_by_name.erase(key.name);
     table_info.keys_by_id.erase(key.id);
   }
-
-  ASSERT_OK_AND_ASSIGN(SymbolicEnvironment environment,
-                       EncodeValidTableEntryInZ3(table_info, solver));
-  EXPECT_THAT(environment.symbolic_attribute_by_name, IsEmpty());
-
-  EXPECT_EQ(solver.check(), z3::sat);
+  EXPECT_OK(ConstraintSolver::Create(table_info));
 }
 
-TEST_P(ConstraintTest, EncodeValidTableEntryInZ3CheckSatAndUnsatCorrectness) {
-  z3::context solver_context;
-  z3::solver solver(solver_context);
-
+TEST_P(ConstraintTest, CreateOnlyWorksWithSatisfiableConstraints) {
   TableInfo table_info =
       GetTableInfoWithConstraint(GetParam().constraint_string);
 
-  ASSERT_OK_AND_ASSIGN(SymbolicEnvironment environment,
-                       EncodeValidTableEntryInZ3(table_info, solver));
-  EXPECT_EQ(solver.check(), GetParam().is_sat ? z3::sat : z3::unsat);
+  EXPECT_THAT(
+      ConstraintSolver::Create(table_info),
+      (GetParam().is_sat ? StatusIs(absl::StatusCode::kOk)
+                         : StatusIs(absl::StatusCode::kInvalidArgument)));
 }
 
-TEST_P(ConstraintTest, EncodeValidTableEntryInZ3AndConcretizeEntry) {
+TEST_P(ConstraintTest, CreateConstraintSolverAndConcretizeEntry) {
   if (!GetParam().is_sat) {
     GTEST_SKIP() << "Test only sensible for satisfiable constraints";
   }
-  z3::context solver_context;
-  z3::solver solver(solver_context);
-
   TableInfo table_info =
       GetTableInfoWithConstraint(GetParam().constraint_string);
 
-  ASSERT_OK_AND_ASSIGN(SymbolicEnvironment environment,
-                       EncodeValidTableEntryInZ3(table_info, solver));
-  ASSERT_EQ(solver.check(), z3::sat);
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::TableEntry concretized_entry,
-      ConcretizeEntry(solver.get_model(), table_info, environment));
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver constraint_solver,
+                       ConstraintSolver::Create(table_info));
+
+  ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry concretized_entry,
+                       constraint_solver.ConcretizeEntry());
 
   // The empty string signifies that the entry doesn't violate the constraint.
   ConstraintInfo context{
@@ -725,8 +646,7 @@ TEST_P(ConstraintTest, EncodeValidTableEntryInZ3AndConcretizeEntry) {
       << "\nFor entry:\n"
       << concretized_entry.DebugString()
       << "\nConstraint string: " << GetParam().constraint_string
-      << "\nConstraint: " << table_info.constraint->DebugString()
-      << "\nAnd solver state: " << solver.to_smt2();
+      << "\nConstraint: " << table_info.constraint->DebugString();
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -843,69 +763,8 @@ struct FullySpecifiedConstraintTestCase {
 using FullySpecifiedConstraintTest =
     testing::TestWithParam<FullySpecifiedConstraintTestCase>;
 
-TEST_P(FullySpecifiedConstraintTest, ConcretizeEntryGivesExactEntry) {
-  z3::context solver_context;
-  z3::solver solver(solver_context);
-
-  TableInfo table_info =
-      GetTableInfoWithConstraint(GetParam().constraint_string);
-  ConstraintInfo context{
-      .action_info_by_id = {},
-      .table_info_by_id = {{
-          table_info.id,
-          table_info,
-      }},
-  };
-  // TODO(b/297400616): p4-constraints currently does not correctly translate
-  // the bytestring representing 1280 to 1280 (instead turning it into 5).
-  if (!absl::StrContains(GetParam().constraint_string, "1280")) {
-    // Sanity check that the expected entry actually satisfies the constraint.
-    // The empty string signifies that the entry doesn't violate the constraint.
-    ASSERT_THAT(ReasonEntryViolatesConstraint(
-                    GetParam().expected_concretized_entry, context),
-                IsOkAndHolds(""))
-        << "\nFor entry:\n"
-        << GetParam().expected_concretized_entry.DebugString()
-        << "\nConstraint string: " << GetParam().constraint_string
-        << "\nConstraint: " << table_info.constraint->DebugString()
-        << "\nAnd solver state: " << solver.to_smt2();
-  }
-
-  // Add symbolic table keys to symbolic key map.
-  SymbolicEnvironment environment;
-  for (const auto& [key_name, key_info] : table_info.keys_by_name) {
-    ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(key_info, solver));
-    environment.symbolic_key_by_name.insert({key_name, std::move(key)});
-  }
-
-  // Add symbolic priority to attribute map.
-  SymbolicAttribute symbolic_priority = AddSymbolicPriority(solver);
-  environment.symbolic_attribute_by_name.insert(
-      {kSymbolicPriorityAttributeName, std::move(symbolic_priority)});
-
-  ASSERT_OK_AND_ASSIGN(z3::expr z3_constraint,
-                       EvaluateConstraintSymbolically(
-                           *table_info.constraint, table_info.constraint_source,
-                           environment, solver));
-  solver.add(z3_constraint);
-
-  ASSERT_EQ(solver.check(), z3::sat);
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::TableEntry concretized_entry,
-      ConcretizeEntry(solver.get_model(), table_info, environment,
-                      [&](absl::string_view key_name) {
-                        return GetParam().keys_to_skip.contains(key_name);
-                      }));
-
-  EXPECT_THAT(concretized_entry, IgnoringRepeatedFieldOrdering(EqualsProto(
-                                     GetParam().expected_concretized_entry)));
-}
-
 TEST_P(FullySpecifiedConstraintTest,
-       EncodeValidTableEntryInZ3AndConcretizeEntryGivesExactEntry) {
-  z3::context solver_context;
-  z3::solver solver(solver_context);
-
+       CreateConstraintSolverAndConcretizeEntryGivesExactEntry) {
   TableInfo table_info =
       GetTableInfoWithConstraint(GetParam().constraint_string);
   ConstraintInfo context{
@@ -915,31 +774,25 @@ TEST_P(FullySpecifiedConstraintTest,
           table_info,
       }},
   };
-  // TODO(b/297400616): p4-constraints currently does not correctly translate
-  // the bytestring representing 1280 to 1280 (instead turning it into 5).
-  if (!absl::StrContains(GetParam().constraint_string, "1280")) {
-    // Sanity check that the expected entry actually satisfies the constraint.
-    // The empty string signifies that the entry doesn't violate the constraint.
-    ASSERT_THAT(ReasonEntryViolatesConstraint(
-                    GetParam().expected_concretized_entry, context),
-                IsOkAndHolds(""))
-        << "\nFor entry:\n"
-        << GetParam().expected_concretized_entry.DebugString()
-        << "\nConstraint string: " << GetParam().constraint_string
-        << "\nConstraint: " << table_info.constraint->DebugString()
-        << "\nAnd solver state: " << solver.to_smt2();
-  }
 
-  ASSERT_OK_AND_ASSIGN(SymbolicEnvironment environment,
-                       EncodeValidTableEntryInZ3(table_info, solver));
+  // Sanity check that the expected entry actually satisfies the constraint.
+  // The empty string signifies that the entry doesn't violate the constraint.
+  ASSERT_THAT(ReasonEntryViolatesConstraint(
+                  GetParam().expected_concretized_entry, context),
+              IsOkAndHolds(""))
+      << "\nFor entry:\n"
+      << GetParam().expected_concretized_entry.DebugString()
+      << "\nConstraint string: " << GetParam().constraint_string
+      << "\nConstraint: " << table_info.constraint->DebugString();
 
-  ASSERT_EQ(solver.check(), z3::sat);
   ASSERT_OK_AND_ASSIGN(
-      p4::v1::TableEntry concretized_entry,
-      ConcretizeEntry(solver.get_model(), table_info, environment,
-                      [&](absl::string_view key_name) {
-                        return GetParam().keys_to_skip.contains(key_name);
-                      }));
+      ConstraintSolver constraint_solver,
+      ConstraintSolver::Create(table_info, [&](absl::string_view key_name) {
+        return GetParam().keys_to_skip.contains(key_name);
+      }));
+
+  ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry concretized_entry,
+                       constraint_solver.ConcretizeEntry());
 
   EXPECT_THAT(concretized_entry, IgnoringRepeatedFieldOrdering(EqualsProto(
                                      GetParam().expected_concretized_entry)));
@@ -1128,5 +981,237 @@ INSTANTIATE_TEST_SUITE_P(
     [](const testing::TestParamInfo<FullySpecifiedConstraintTestCase>& info) {
       return SnakeCaseToCamelCase(info.param.test_name);
     });
+
+TEST(AddConstraint, NonBooleanConstraintGivesInvalidArgument) {
+  ASSERT_OK_AND_ASSIGN(
+      ConstraintSolver constraint_solver,
+      ConstraintSolver::Create(GetTableInfoWithConstraint("true")));
+
+  EXPECT_THAT(constraint_solver.AddConstraint("42"),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(AddConstraint, UnknownVariableGivesInvalidArgument) {
+  ASSERT_OK_AND_ASSIGN(
+      ConstraintSolver constraint_solver,
+      ConstraintSolver::Create(GetTableInfoWithConstraint("true")));
+
+  EXPECT_THAT(constraint_solver.AddConstraint("dragon == 42"),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(AddConstraint, OnlySatisfiableConstraintCanBeAdded) {
+  ASSERT_OK_AND_ASSIGN(
+      ConstraintSolver constraint_solver,
+      ConstraintSolver::Create(GetTableInfoWithConstraint("true")));
+
+  EXPECT_THAT(constraint_solver.AddConstraint("false"), IsOkAndHolds(false));
+
+  EXPECT_THAT(constraint_solver.AddConstraint("true"), IsOkAndHolds(true));
+}
+
+struct AdditionalConstraintTestCase {
+  std::string test_name;
+  // A protobuf string representing a boolean AST Expression representing a
+  // constraint.
+  std::string p4_program_constraint_string;
+  std::string custom_constraint_string;
+  bool is_sat;
+};
+
+using AdditionalConstraintTest =
+    testing::TestWithParam<AdditionalConstraintTestCase>;
+
+TEST_P(AdditionalConstraintTest,
+       AddConstraintOnlyAddsSatisfiableConstraintsToSolver) {
+  TableInfo table_info =
+      GetTableInfoWithConstraint(GetParam().p4_program_constraint_string);
+
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver constraint_solver,
+                       ConstraintSolver::Create(table_info));
+
+  EXPECT_THAT(
+      constraint_solver.AddConstraint(GetParam().custom_constraint_string),
+      IsOkAndHolds(GetParam().is_sat));
+}
+
+TEST_P(AdditionalConstraintTest, AddConstraintAndConcretizeEntry) {
+  if (!GetParam().is_sat) {
+    GTEST_SKIP() << "Test only sensible for satisfiable constraints";
+  }
+
+  TableInfo table_info =
+      GetTableInfoWithConstraint(GetParam().p4_program_constraint_string);
+
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver constraint_solver,
+                       ConstraintSolver::Create(table_info));
+
+  ASSERT_THAT(
+      constraint_solver.AddConstraint(GetParam().custom_constraint_string),
+      IsOkAndHolds(true));
+
+  ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry concretized_entry,
+                       constraint_solver.ConcretizeEntry());
+
+  // The empty string signifies that the entry doesn't violate the
+  ConstraintInfo context{
+      .action_info_by_id = {},
+      .table_info_by_id = {{
+          table_info.id,
+          table_info,
+      }},
+  };
+  EXPECT_THAT(ReasonEntryViolatesConstraint(concretized_entry, context),
+              IsOkAndHolds(""))
+      << "\nFor entry:\n"
+      << concretized_entry.DebugString() << "\nP4 program constraint string: "
+      << "\nP4 program constraint: " << table_info.constraint->DebugString()
+      << GetParam().p4_program_constraint_string
+      << "\nCustom constraint string: " << GetParam().custom_constraint_string;
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AddtionalConstraintSatisfiabilityTests, AdditionalConstraintTest,
+    testing::ValuesIn(std::vector<AdditionalConstraintTestCase>{
+        {
+            .test_name = "adding_sat_does_not_affect_sat",
+            .p4_program_constraint_string = "true",
+            .custom_constraint_string = "true",
+            .is_sat = true,
+        },
+        {
+            .test_name = "adding_unsat_forces_unsat",
+            .p4_program_constraint_string = "true",
+            .custom_constraint_string = "false",
+            .is_sat = false,
+        },
+        {
+            .test_name = "independent_sats_are_sat",
+            .p4_program_constraint_string = "exact32 == 42;",
+            .custom_constraint_string = "optional32 != 42",
+            .is_sat = true,
+        },
+        {
+            .test_name = "related_and_compatible_sats_are_sat",
+            .p4_program_constraint_string = "exact32 == 42;",
+            .custom_constraint_string = "exact32 != 7",
+            .is_sat = true,
+        },
+        {
+            .test_name = "related_and_conflicting_sats_are_unsat",
+            .p4_program_constraint_string = "exact32 == 42;",
+            .custom_constraint_string = "exact32 != 42",
+            .is_sat = false,
+        },
+    }),
+    [](const testing::TestParamInfo<AdditionalConstraintTestCase>& info) {
+      return SnakeCaseToCamelCase(info.param.test_name);
+    });
+
+struct FullySpecifiedAdditionalConstraintTestCase {
+  std::string test_name;
+  // Protobuf strings representing a boolean AST Expression coming from a p4
+  // program and additional custom constraint respectively. The combination of
+  // both must fully specify the entry given below.
+  std::string p4_info_constraint_string;
+  std::string custom_constraint_string;
+  // Should be set with the only entry that can possibly meet the combination
+  // of constraint strings.
+  p4::v1::TableEntry expected_concretized_entry;
+  // Optionally, specify a set of keys that should be skipped when
+  // concretizing the table entry. This only makes sense for non-required keys.
+  absl::flat_hash_set<std::string> keys_to_skip;
+};
+
+using FullySpecifiedAdditionalConstraintTest =
+    testing::TestWithParam<FullySpecifiedAdditionalConstraintTestCase>;
+
+TEST_P(FullySpecifiedAdditionalConstraintTest,
+       EncodeValidTableEntryAndConcretizeEntryGivesExactEntry) {
+  TableInfo table_info =
+      GetTableInfoWithConstraint(GetParam().p4_info_constraint_string);
+  ConstraintInfo context{
+      .action_info_by_id = {},
+      .table_info_by_id = {{
+          table_info.id,
+          table_info,
+      }},
+  };
+
+  // Sanity check that the expected entry actually satisfies the constraint.
+  // The empty string signifies that the entry doesn't violate the
+  ASSERT_THAT(ReasonEntryViolatesConstraint(
+                  GetParam().expected_concretized_entry, context),
+              IsOkAndHolds(""))
+      << "\nFor entry:\n"
+      << GetParam().expected_concretized_entry.DebugString()
+      << "\nConstraint string: " << GetParam().p4_info_constraint_string
+      << "\nConstraint: " << table_info.constraint->DebugString();
+
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver constraint_solver,
+                       ConstraintSolver::Create(table_info));
+
+  ASSERT_THAT(
+      constraint_solver.AddConstraint(GetParam().custom_constraint_string),
+      IsOkAndHolds(true));
+
+  ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry concretized_entry,
+                       constraint_solver.ConcretizeEntry());
+
+  EXPECT_THAT(concretized_entry, IgnoringRepeatedFieldOrdering(EqualsProto(
+                                     GetParam().expected_concretized_entry)));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    CheckExactEntryOutput, FullySpecifiedAdditionalConstraintTest,
+    testing::ValuesIn(std::vector<FullySpecifiedAdditionalConstraintTestCase>{
+        {
+            .test_name = "only_equals_across_both_constraints",
+            .p4_info_constraint_string =
+                "exact11 == 5; ::priority == 50; "
+                "optional32::mask == 0; optional28::mask == 0;",
+            .custom_constraint_string =
+                "exact32 == 5; "
+                "lpm32::prefix_length == 0; ternary32::mask == 0; ",
+            .expected_concretized_entry =
+                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                  table_id: 1
+                  match {
+                    field_id: 1
+                    exact { value: "\005" }
+                  }
+                  match {
+                    field_id: 5
+                    exact { value: "\005" }
+                  }
+                  priority: 50
+                )pb"),
+        },
+        {
+            .test_name = "exact_inequalities_across_both_constraints",
+            .p4_info_constraint_string =
+                "::priority > 1; exact32::value > 1; exact11::value > 1;"
+                "lpm32::prefix_length == 0; ternary32::mask == 0;"
+                " optional32::mask == 0;  optional28::mask == 0;",
+            .custom_constraint_string =
+                "::priority < 3; exact32::value < 3; exact11::value < 3;",
+            .expected_concretized_entry =
+                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                  table_id: 1
+                  match {
+                    field_id: 1
+                    exact { value: "\002" }
+                  }
+                  match {
+                    field_id: 5
+                    exact { value: "\002" }
+                  }
+                  priority: 2
+                )pb"),
+        },
+    }),
+    [](const testing::TestParamInfo<FullySpecifiedAdditionalConstraintTestCase>&
+           info) { return SnakeCaseToCamelCase(info.param.test_name); });
+
 }  // namespace
 }  // namespace p4_constraints
