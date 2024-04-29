@@ -763,21 +763,6 @@ struct FullySpecifiedConstraintTestCase {
 using FullySpecifiedConstraintTest =
     testing::TestWithParam<FullySpecifiedConstraintTestCase>;
 
-TEST_P(FullySpecifiedConstraintTest, ConcretizeEntryGivesExactEntry) {
-  z3::context solver_context;
-  z3::solver solver(solver_context);
-
-  TableInfo table_info =
-      GetTableInfoWithConstraint(GetParam().constraint_string);
-  ConstraintInfo context{
-      .action_info_by_id = {},
-      .table_info_by_id = {{
-          table_info.id,
-          table_info,
-      }},
-  };
-
-
 TEST_P(FullySpecifiedConstraintTest,
        CreateConstraintSolverAndConcretizeEntryGivesExactEntry) {
   TableInfo table_info =
