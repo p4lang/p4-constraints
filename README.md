@@ -69,7 +69,7 @@ installed by the control plane at runtime.
 An *action restriction* is similar to an entry restriction, but is placed on a
 P4 action:
 ```p4
-// Disallow mulitcast group ID 0, since it indicates "no mulitcast" in 
+// Disallow mulitcast group ID 0, since it indicates "no multicast" in 
 // `v1model.p4`.
 @action_restriction("multicast_group_id != 0")
 action multicast(bit<16> multicast_group_id) {
