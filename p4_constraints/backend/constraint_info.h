@@ -104,11 +104,11 @@ struct ConstraintInfo {
   absl::flat_hash_map<uint32_t, TableInfo> table_info_by_id;
 };
 
-// Translates P4Info to ConstraintInfo.
+// Translates `P4Info` to `ConstraintInfo`.
 //
-// Parses all tables and their constraint annotations into an in-memory
-// representation suitable for constraint checking. Returns parsed
-// representation, or an error statuses if parsing fails.
+// Parses all tables and actions and their p4-constraints annotations into an
+// in-memory representation suitable for constraint checking. Returns parsed
+// representation, or an error status if parsing fails.
 absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     const p4::config::v1::P4Info& p4info);
 

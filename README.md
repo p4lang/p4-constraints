@@ -59,10 +59,23 @@ three requirements:
 3. It can only perform a wildcard or an exact match on the IPv4 address.
 
 The first two requirements are to rule out undefined behavior. The third
-requirement captures the intend of the P4 programmer that the ACL table
+requirement captures the intent of the P4 programmer that the ACL table
 should not require general ternary matches on the destination address; the
-constraint documents this intend and let's us catch accidental ternary matches
+constraint documents this intent and let's us catch accidental ternary matches
 installed by the control plane at runtime.
+
+## Example - Action Restrictions
+
+An *action restriction* is similar to an entry restriction, but is placed on a
+P4 action:
+```p4
+// Disallow multicast group ID 0, since it indicates "no multicast" in 
+// `v1model.p4`.
+@action_restriction("multicast_group_id != 0")
+action multicast(bit<16> multicast_group_id) {
+  standard_metadata.mcast_grp = multicast_group_id;
+}
+```
 
 ## API
 
@@ -71,23 +84,24 @@ one function for parsing constraints and one function for checking them.
 ```C++
 /* p4_constraints/backend/constraint_info.h */
 
-// Translates P4Info to ConstraintInfo.
+// Translates `P4Info` to `ConstraintInfo`.
 //
-// Parses all tables and their constraint annotations into an in-memory
-// representation suitable for constraint checking. Returns parsed
-// representation, or a nonempty list of error statuses if parsing fails.
-absl::variant<ConstraintInfo, std::vector<absl::Status>> P4ToConstraintInfo(
-    const p4::config::v1::P4Info& p4info);
+// Parses all tables and actions and their p4-constraints annotations into an
+// in-memory representation suitable for constraint checking. Returns parsed
+// representation, or an error status if parsing fails.
+absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
+    const p4::config::v1::P4Info &p4info);
 ```
 ```C++
 /* p4_constraints/backend/interpreter.h */
 
-// Checks if a given table entry satisfies the entry/action(s) constraint(s)
-// attached to its associated table/action(s). Returns the empty string if this
-// is the case or a human-readable nonempty string explaining why it is not the
-// case otherwise. Returns an InvalidArgument Status if the entry/action(s)
-// don't belong in ConstraintInfo or is inconsistent with the table/action(s)
-// definition in ConstraintInfo.
+// Checks if a given table entry satisfies the constraints attached to its
+// associated table/action.
+//
+// Returns the empty string if this is the case, or a human-readable nonempty
+// string explaining why it is not the case otherwise. Returns an
+// `InvalidArgument` if the entry's table or action is not defined in
+// `ConstraintInfo`, or if `entry` is inconsistent with these definitions.
 absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
     const p4::v1::TableEntry& entry, const ConstraintInfo& constraint_info);
 ```

@@ -36,12 +36,13 @@
 
 namespace p4_constraints {
 
-// Checks if a given table entry satisfies the entry/action(s) constraint(s)
-// attached to its associated table/action(s). Returns the empty string if this
-// is the case or a human-readable nonempty string explaining why it is not the
-// case otherwise. Returns an InvalidArgument Status if the entry/action(s)
-// don't belong in ConstraintInfo or is inconsistent with the table/action(s)
-// definition in ConstraintInfo.
+// Checks if a given table entry satisfies the constraints attached to its
+// associated table/action.
+//
+// Returns the empty string if this is the case, or a human-readable nonempty
+// string explaining why it is not the case otherwise. Returns an
+// `InvalidArgument` if the entry's table or action is not defined in
+// `ConstraintInfo`, or if `entry` is inconsistent with these definitions.
 absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
     const p4::v1::TableEntry& entry, const ConstraintInfo& constraint_info);
 
