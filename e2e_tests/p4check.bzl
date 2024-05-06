@@ -6,9 +6,9 @@ used in conjunction for "golden file testing" as follows:
     run_p4check(
         name = "main_p4check",
         src = "main.p4",
-        deps = ["included_in_main.p4", "header.h"],  # allows for `#include`
         out = ["main.p4check.output"],
-        table_entries = ["ipv4_table_entry_1.pb.txt, acl_table_entry_1.pb.txt"]
+        table_entries = ["ipv4_table_entry_1.pb.txt, acl_table_entry_1.pb.txt"],
+        deps = ["included_in_main.p4", "header.h"],  # allows for `#include`
     )
 
     diff_test(
