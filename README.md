@@ -59,9 +59,9 @@ three requirements:
 3. It can only perform a wildcard or an exact match on the IPv4 address.
 
 The first two requirements are to rule out undefined behavior. The third
-requirement captures the intend of the P4 programmer that the ACL table
+requirement captures the intent of the P4 programmer that the ACL table
 should not require general ternary matches on the destination address; the
-constraint documents this intend and let's us catch accidental ternary matches
+constraint documents this intent and let's us catch accidental ternary matches
 installed by the control plane at runtime.
 
 ## Example - Action Restrictions
