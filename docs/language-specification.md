@@ -74,7 +74,7 @@ table:
 | ternary      | k::value         | bit\<W\>   | masked-off bits are zero: `value & !mask == 0`
 |              | k::mask          | bit\<W\>   |
 | optional     | k::value         | bit\<W\>   | masked-off bits are zero: `value & !mask == 0` 
-|              | k::mask          | bit\<W\>   | wildcad or exact match: `mask == -1 \|\| mask == 0`
+|              | k::mask          | bit\<W\>   | wildcard or exact match: `mask == -1 \|\| mask == 0`
 | lpm          | k::value         | bit\<W\>   | masked-off bits are zero:`value & !prefix_mask == 0`<br> where `prefix_mask` is a `W`-bit vector whose upper `prefix_length` bits are 1 and the lower bits are 0
 |              | k::prefix_length | int        | `0 <= prefix_length && prefix_length <= W` 
 | range        | k::low           | bit\<W\>   | `low < high \|\| (low == 0 & high == 0)`
