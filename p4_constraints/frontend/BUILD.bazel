@@ -32,9 +32,12 @@ cc_test(
         ":parser",
         ":token",
         "//gutils:protocol_buffer_matchers",
+        "//gutils:status",
         "//gutils:status_matchers",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -100,14 +103,17 @@ cc_library(
         "-lgmp",
         "-lgmpxx",
     ],
-    visibility = ["//p4_constraints/backend:__pkg__"],
+    visibility = ["//visibility:private"],
     deps = [
         ":constraint_kind",
         ":token",
         "//gutils:ret_check",
         "//gutils:status",
         "//p4_constraints:ast_cc_proto",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:span",
     ],
 )
@@ -115,5 +121,5 @@ cc_library(
 cc_library(
     name = "constraint_kind",
     hdrs = ["constraint_kind.h"],
-    visibility = ["//p4_constraints/backend:__pkg__"],
+    visibility = ["//visibility:public"],
 )

@@ -54,6 +54,12 @@ using ::testing::Not;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 
+std::string PrintTextProto(const google::protobuf::Message& message) {
+  std::string text;
+  google::protobuf::TextFormat::PrintToString(message, &text);
+  return text;
+}
+
 class ReasonEntryViolatesConstraintTest : public ::testing::Test {
  public:
   const Type kUnknown = ParseTextProtoOrDie<Type>("unknown {}");
@@ -845,8 +851,8 @@ TEST_F(EvalTest, BinaryExpression_BooleanArguments) {
     for (bool right : {true, false}) {
       Expression expr = ExpressionWithType(
           kBool, absl::Substitute("binary_expression { left {$0} right {$1} }",
-                                  boolean(left).DebugString(),
-                                  boolean(right).DebugString()));
+                                  PrintTextProto(boolean(left)),
+                                  PrintTextProto(boolean(right))));
       EvalResult result;
 
       expr.mutable_binary_expression()->set_binop(ast::AND);
@@ -900,8 +906,8 @@ TEST_F(EvalTest, BinaryExpression_NumericArguments) {
     for (const Integer& right : values) {
       Expression expr = ExpressionWithType(
           kBool, absl::Substitute("binary_expression { left {$0} right {$1} }",
-                                  int_const(left).DebugString(),
-                                  int_const(right).DebugString()));
+                                  PrintTextProto(int_const(left)),
+                                  PrintTextProto(int_const(right))));
       EvalResult result;
 
       expr.mutable_binary_expression()->set_binop(ast::EQ);
@@ -947,7 +953,7 @@ TEST_F(EvalTest, BinaryExpression_CompositeArguments) {
   for (auto key : {"exact32", "ternary32", "lpm32", "range32"}) {
     Expression expr = ExpressionWithType(
         kBool, absl::Substitute("binary_expression { left {$0} right {$0} }",
-                                KeyExpr(key).DebugString()));
+                                PrintTextProto(KeyExpr(key))));
     EvalResult result;
 
     expr.mutable_binary_expression()->set_binop(ast::EQ);
@@ -1287,6 +1293,12 @@ TEST(ParseP4RTInteger, ParsesZeroCorrectly) {
   ASSERT_EQ(zero_string.at(0), '\0');
   EXPECT_THAT(ParseP4RTInteger(zero_string), Eq(0));
 }
+
+TEST(ParseP4RTInteger, ParsesTrailingZeroCorrectly) {
+  std::string hex_string = {'\xe0', '\x00', '\x00', '\x00'};
+  EXPECT_THAT(ParseP4RTInteger(hex_string), Eq(0xe0000000U));
+}
+
 }  // namespace
 }  // namespace internal_interpreter
 }  // namespace p4_constraints

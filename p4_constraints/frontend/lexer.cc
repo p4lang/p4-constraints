@@ -92,6 +92,8 @@ const LazyRE2 kTokenPattern{
     "|(?:0[oO])" "(?P<octary>[0-7]+)"
     "|(?:0[xX])" "(?P<hexadec>[0-9a-fA-F]+)"
     "|(?:0[dD])?" "(?P<decimal>[0-9]+)"
+    // Strings.
+    "|(?P<string>'([^']*)')"
     // clang-format on
 };
 
@@ -178,6 +180,10 @@ std::vector<Token> Tokenize(const ConstraintSource& constraint) {
       // Update lexeme to exclude base prefix.
       lexeme = std::string(CaptureByName("hexadec", captures));
       kind = Token::HEXADEC;
+    } else if (!CaptureByName("string", captures).empty()) {
+      lexeme = std::string(CaptureByName("string", captures));
+      lexeme = lexeme.substr(1, lexeme.size() - 2);
+      kind = Token::STRING;
     } else {
       LOG(ERROR) << "impossible: no capture group matched in string: "
                  << lexeme;

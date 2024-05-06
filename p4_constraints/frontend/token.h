@@ -55,12 +55,13 @@ struct Token {
     DECIMAL,         // decimal numeral: 0..9+ or 0[dD](0..9)+
     HEXADEC,         // hexadecimal numeral: 0[xX](0..9|[a-fA-F])+
     END_OF_INPUT,    // indicates that the end of the input was reached
+    STRING,          // single quote string: '[^']*'
     UNEXPECTED_CHAR  // indicates that an unexpected character was encountered
     // Invariant: UNEXPECTED_CHAR must always be the last (maximum) kind.
   };
 
   // All token kinds. Keep in sync with enum Kind.
-  static const Kind kAllKinds[25];
+  static const Kind kAllKinds[26];
 
   Token(const Kind kind, const std::string text,
         const ast::SourceLocation start_location,

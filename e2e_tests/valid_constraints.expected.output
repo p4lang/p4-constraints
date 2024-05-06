@@ -11,7 +11,7 @@ e2e_tests/table_entries/acl_table_1.pb.txt
 All entries must satisfy:
 
 e2e_tests/valid_constraints.p4:22:5-65:
-   |     // Either wildcard or exact match (i.e., " optional " match).
+   |     // Either wildcard or exact match (i.e., 'optional' match).
 22 |     hdr.ipv4.dst_addr::mask == 0 || hdr.ipv4.dst_addr::mask == -1;
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -23,14 +23,71 @@ Field: "hdr.ipv4.dst_addr" -> Value: Ternary{.value = 3224115, .mask = 3224115}
 
 ### P4Constraints Table Entry Test #######################
 === Input Table Entry File ===
+e2e_tests/table_entries/network_address_table_invalid_ipv4.pb.txt
+=== Output ===
+All entries must satisfy:
+
+In @entry_restriction of table 'valid_constraints.network_address_table'; at offset line 3, columns 5 to 42:
+  |     hdr.ethernet.dst_addr::value < mac('00:00:00:00:00:05');
+3 |     hdr.ipv4.dst_addr == ipv4('0.0.0.255');
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Relevant Entry Info<<<
+Table Name: "valid_constraints.network_address_table"
+Priority:0
+Field: "hdr.ipv4.dst_addr" -> Value: Exact{.value = 254}
+
+### P4Constraints Table Entry Test #######################
+=== Input Table Entry File ===
+e2e_tests/table_entries/network_address_table_invalid_ipv6.pb.txt
+=== Output ===
+All entries must satisfy:
+
+In @entry_restriction of table 'valid_constraints.network_address_table'; at offset line 4, columns 5 to 41:
+  |     hdr.ipv4.dst_addr == ipv4('0.0.0.255');
+4 |     hdr.ipv6.dst_addr::value > ipv6('::');
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Relevant Entry Info<<<
+Table Name: "valid_constraints.network_address_table"
+Priority:0
+Field: "hdr.ipv6.dst_addr" -> Value: Exact{.value = 0}
+
+### P4Constraints Table Entry Test #######################
+=== Input Table Entry File ===
+e2e_tests/table_entries/network_address_table_invalid_mac.pb.txt
+=== Output ===
+All entries must satisfy:
+
+In @entry_restriction of table 'valid_constraints.network_address_table'; at offset line 2, columns 5 to 59:
+  | 
+2 |     hdr.ethernet.dst_addr::value < mac('00:00:00:00:00:05');
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+But your entry does not.
+>>>Relevant Entry Info<<<
+Table Name: "valid_constraints.network_address_table"
+Priority:0
+Field: "hdr.ethernet.dst_addr" -> Value: Exact{.value = 6}
+
+### P4Constraints Table Entry Test #######################
+=== Input Table Entry File ===
+e2e_tests/table_entries/network_address_table_valid.pb.txt
+=== Output ===
+Constraint satisfied
+
+### P4Constraints Table Entry Test #######################
+=== Input Table Entry File ===
 e2e_tests/table_entries/optional_match_table_invalid_1.pb.txt
 === Output ===
 All entries must satisfy:
 
-e2e_tests/valid_constraints.p4:62:5-32:
-   |     // A real constraint: only wildcard match is okay.
-62 |     hdr.ipv4.dst_addr::mask == 0;
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+e2e_tests/valid_constraints.p4:100:5-32:
+    |     // A real constraint: only wildcard match is okay.
+100 |     hdr.ipv4.dst_addr::mask == 0;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
 >>>Relevant Entry Info<<<
@@ -50,10 +107,10 @@ e2e_tests/table_entries/optional_match_table_valid_max_priority.pb.txt
 === Output ===
 All entries must satisfy:
 
-e2e_tests/valid_constraints.p4:64:5-27:
-   |     // A constraint on metadata.
-64 |     ::priority < 0x7fffffff;
-   |     ^^^^^^^^^^^^^^^^^^^^^^^
+e2e_tests/valid_constraints.p4:102:5-27:
+    |     // A constraint on metadata.
+102 |     ::priority < 0x7fffffff;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
 >>>Relevant Entry Info<<<

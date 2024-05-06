@@ -195,17 +195,18 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 // The parser recognizes the following left-recursive grammar:
 //
 //   constraint ::=
-//     | 'true' | 'false'
-//     |  <numeral> | <key> | <attribute_access>
+//     | 'true'
+//     | 'false'
+//     | NUMERAL
+//     | ID '(' STRING ')'
+//     | ID ('.' ID)*         // key
+//     | '::' ID              // attribute_access
 //     | '!' constraint
 //     | '-' constraint
 //     | '(' constraint ')'
-//     | constraint '::' <id>
+//     | constraint '::' ID
 //     | constraint ('&&' | '||' | '->' | ';') constraint
 //     | constraint ('==' | '!=' | '>' | '>=' | '<' | '<=') constraint
-//
-//   <key> ::= <id> ('.' <id>)*
-//   <attribute_access> ::= '::' <id>
 //
 // As usual (see https://en.wikipedia.org/wiki/Left_recursion), we accomplish
 // this by removing left recursion from the grammar by rewriting it as follows:
@@ -213,14 +214,18 @@ absl::StatusOr<Token> ExpectTokenKind(Token::Kind kind, TokenStream* tokens) {
 //   constraint ::= initial extension?
 //
 //   initial ::=
-//     | 'true' | 'false'
-//     | <numeral> | <key> | <attribute_access>
+//     | 'true'
+//     | 'false'
+//     | NUMERAL
+//     | ID '(' STRING ')'
+//     | ID ('.' ID)*         // key
+//     | '::' ID              // attribute_access
 //     | '!' constraint
 //     | '-' constraint
 //     | '(' constraint ')'
 //
 //   extension ::=
-//     | '::' <id> extension
+//     | '::' ID extension
 //     | ('&&' | '||' | '->'| ';') constraint extension
 //     | ('==' | '!=' | '>' | '>=' | '<' | '<=') constraint
 //
@@ -245,14 +250,27 @@ absl::StatusOr<Expression> ParseConstraintAbove(ConstraintKind constraint_kind,
       break;
     }
     case Token::ID: {
-      // Parse variable: ID (DOT ID)*
-      std::vector<Token> id_tokens = {token};
-      while (tokens->Peek().kind == Token::DOT) {
-        tokens->Next();  // discard Token::DOT
-        ASSIGN_OR_RETURN(Token token, ExpectTokenKind(Token::ID, tokens));
-        id_tokens.push_back(token);
+      // Parse Network Addresses: ID '(' STRING ')'.
+      if (tokens->Peek().kind == Token::LPAR) {
+        tokens->Next();  // Discard the LPAR token.
+        ASSIGN_OR_RETURN(Token string_token,
+                         ExpectTokenKind(Token::STRING, tokens));
+        ASSIGN_OR_RETURN(Token rpar_token,
+                         ExpectTokenKind(Token::RPAR, tokens));
+        ASSIGN_OR_RETURN(
+            ast, ast::MakeNetworkAddressIntegerConstant(
+                     token.text, string_token.text, token.start_location,
+                     rpar_token.end_location));
+      } else {
+        // Parse variable: ID (DOT ID)*
+        std::vector<Token> id_tokens = {token};
+        while (tokens->Peek().kind == Token::DOT) {
+          tokens->Next();  // discard Token::DOT
+          ASSIGN_OR_RETURN(Token token, ExpectTokenKind(Token::ID, tokens));
+          id_tokens.push_back(token);
+        }
+        ASSIGN_OR_RETURN(ast, ast::MakeVariable(id_tokens, constraint_kind));
       }
-      ASSIGN_OR_RETURN(ast, ast::MakeVariable(id_tokens, constraint_kind));
       break;
     }
     case Token::DOUBLE_COLON: {

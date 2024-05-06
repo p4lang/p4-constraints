@@ -24,11 +24,14 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/types/optional.h"
+#include "gutils/source_location.h"
+#include "gutils/status_builder.h"
 #include "gutils/status_macros.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/config/v1/p4types.pb.h"
@@ -135,8 +138,45 @@ absl::StatusOr<absl::optional<ConstraintSource>> ExtractConstraint(
            << "Syntax error: @" << (is_table ? "entry" : "action")
            << "_restriction must be enclosed in '(\"' and '\")'";
   }
+
+  // Consume intermediate, matched double-quotes (") to allow constraints with
+  // the following shape (and similar for actions):
+  // ```p4
+  //   @entry_restriction(
+  //      "<constraint1>"
+  //      "<constraint2>"
+  //      ...
+  //   )
+  //   table foo { ... }
+  // ```
+  std::string constraint_string_without_quotes = std::string(constraint_string);
+  // Currently, the p4c frontend collapses all white space in annotations
+  // (like `@entry_restriction`) into a single space. See
+  // https://github.com/p4lang/p4c/issues/2333 for more information.
+  // Thus, rather than preserve the white space, we add a newline as an
+  // imperfect workaround to improve readability. The idea is that this form
+  // would most often be used for multi-line input.
+  RE2::GlobalReplace(&constraint_string_without_quotes, "\" \"", "\n");
+  // Ensure there are no further quotation marks in
+  // `constraint_string_without_quotes`, since those would always be incorrect.
+  if (absl::StrContains(constraint_string_without_quotes, "\"")) {
+    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+           << "In "
+           << (constraint_kind == ConstraintKind::kTableConstraint ? "table "
+                                                                   : "action ")
+           << preamble.name() << ":\n"
+           << "Syntax error: @"
+           << (constraint_kind == ConstraintKind::kTableConstraint ? "entry"
+                                                                   : "action")
+           << "_restriction was parsed with unexpected quotation marks (\"). "
+              "Ensure you aren't using any quotation marks in a comment. "
+              "Otherwise, this suggests a parser assumption was violated, "
+              "likely due to a p4c frontend change, or "
+              "`@p4runtime_translation` support being added.";
+  }
+
   return ConstraintSource{
-      .constraint_string = std::string(constraint_string),
+      .constraint_string = std::move(constraint_string_without_quotes),
       .constraint_location = constraint_location,
   };
 }

@@ -402,14 +402,16 @@ TEST_F(InferAndCheckTypesTest, BinaryBooleanOperators) {
     ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
     EXPECT_TRUE(expr.type().has_boolean());
 
-    Expression nested = ParseTextProtoOrDie<Expression>(
-        absl::Substitute(R"pb(
-                           binary_expression {
-                             binop: $0
-                             left { $1 }
-                             right { $1 }
-                           })pb",
-                         op, expr.DebugString()));
+    std::string expr_textproto;
+    google::protobuf::TextFormat::PrintToString(expr, &expr_textproto);
+    Expression nested =
+        ParseTextProtoOrDie<Expression>(absl::Substitute(R"pb(
+                                                           binary_expression {
+                                                             binop: $0
+                                                             left { $1 }
+                                                             right { $1 }
+                                                           })pb",
+                                                         op, expr_textproto));
     Expression* right = expr.mutable_binary_expression()->mutable_right();
     std::swap(*right->mutable_binary_expression()->mutable_left(),
               *right->mutable_binary_expression()->mutable_right());
