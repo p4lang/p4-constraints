@@ -100,7 +100,7 @@ These well-formedness constraints are shown in the table above and essentially
 say that the entries are valid [according to the P4Runtime standard].
 This includes *canonicity constraints* that rule out distinct but semanitcally
 equivalent representations of table entries. For example, using
-[P4's mask notation], the ternaries `10 &&& 10` and `11 &&& 11` are equivalent,
+[P4's mask notation], the ternaries `10 &&& 10` and `11 &&& 10` are equivalent,
 as both match the set of bitvectors `{10, 11}`. But only `10 &&& 10` is legal
 [according to the P4Runtime standard], which says that  masked-off bits must be
 0. In general, this is captured by the constraint `value & !mask == 0`.
