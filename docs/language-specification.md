@@ -82,7 +82,7 @@ table:
 
 Note that an `optional` match is just a restricted kind of `ternary` match whose mask always satisfies the following constraint:
 ```
-// Wildcard match or wildcard match.
+// Wildcard match or exact match.
 optional_match_key::mask == 0 || optional_match_key::mask == -1
 ```
 
@@ -98,7 +98,7 @@ In p4-constraints, we assume that all table entries we consider satisify certain
 `@entry_restriction`.
 These well-formedness constraints are shown in the table above and essentially
 say that the entries are valid [according to the P4Runtime standard].
-This includes *canonicity constraints* that rule out distinct but semanitcally
+This includes *canonicity constraints* that rule out distinct but semantically
 equivalent representations of table entries. For example, using
 [P4's mask notation], the ternaries `10 &&& 10` and `11 &&& 10` are equivalent,
 as both match the set of bitvectors `{10, 11}`. But only `10 &&& 10` is legal
