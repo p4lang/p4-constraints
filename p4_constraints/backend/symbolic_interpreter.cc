@@ -32,6 +32,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "gutils/collections.h"
+#include "gutils/ordered_map.h"
 #include "gutils/overload.h"
 #include "gutils/source_location.h"
 #include "gutils/status_builder.h"
@@ -690,7 +691,9 @@ absl::StatusOr<p4::v1::TableEntry> ConstraintSolver::ConcretizeEntry() {
   table_entry.set_table_id(table_info_.id);
 
   // Construct match fields by evaluating their respective entries in the model.
-  for (const auto& [key_name, key_info] : table_info_.keys_by_name) {
+  // Ordered for reproducibility.
+  for (const auto& [key_name, key_info] :
+       gutils::Ordered(table_info_.keys_by_name)) {
     ASSIGN_OR_RETURN(bool key_should_be_skipped, skip_key_named_(key_name));
     if (key_should_be_skipped) continue;
 
@@ -776,7 +779,9 @@ absl::StatusOr<ConstraintSolver> ConstraintSolver::Create(
   // Add keys to solver and map and determine whether the table needs a
   // priority.
   bool requires_priority = false;
-  for (const auto& [key_name, key_info] : table.keys_by_name) {
+  // Ordered for reproducibility.
+  for (const auto& [key_name, key_info] :
+       gutils::Ordered(constraint_solver.table_info_.keys_by_name)) {
     if (key_info.type.has_ternary() || key_info.type.has_optional_match()) {
       // In P4Runtime, all tables with ternaries or optionals require priorities
       // for their entries.
