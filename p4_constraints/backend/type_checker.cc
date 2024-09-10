@@ -191,7 +191,7 @@ using CompositeTypeAndField = std::tuple<Type::TypeCase, std::string>;
 
 // (composite type, field name) -> field type.
 const auto* const kFieldTypes =
-    new absl::flat_hash_map<const CompositeTypeAndField, const Type::TypeCase>{
+    new absl::flat_hash_map<CompositeTypeAndField, const Type::TypeCase>{
         {std::make_tuple(Type::kExact, "value"), Type::kFixedUnsigned},
         {std::make_tuple(Type::kTernary, "value"), Type::kFixedUnsigned},
         {std::make_tuple(Type::kTernary, "mask"), Type::kFixedUnsigned},
