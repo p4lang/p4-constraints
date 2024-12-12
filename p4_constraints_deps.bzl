@@ -20,9 +20,9 @@ def p4_constraints_deps():
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            url = "https://github.com/protocolbuffers/protobuf/releases/download/v22.2/protobuf-22.2.tar.gz",
-            strip_prefix = "protobuf-22.2",
-            sha256 = "1ff680568f8e537bb4be9813bac0c1d87848d5be9d000ebe30f0bc2d7aabe045",
+            url = "https://github.com/protocolbuffers/protobuf/releases/download/v29.1/protobuf-29.1.tar.gz",
+            strip_prefix = "protobuf-29.1",
+            sha256 = "3d32940e975c4ad9b8ba69640e78f5527075bae33ca2890275bf26b853c0962c",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
         http_archive(
