@@ -26,17 +26,17 @@ class StringErrorCollector : public google::protobuf::io::ErrorCollector {
   StringErrorCollector(const StringErrorCollector &) = delete;
   StringErrorCollector &operator=(const StringErrorCollector &) = delete;
 
-  // Implementation of protobuf::io::ErrorCollector::AddError.
-  void AddError(int line, int column, const std::string &message) override {
+  // Implementation of protobuf::io::ErrorCollector::RecordError.
+  void RecordError(int line, int column, std::string_view message) override {
     if (error_text_ != nullptr) {
       absl::SubstituteAndAppend(error_text_, "$0($1): $2\n", line, column,
                                 message);
     }
   }
 
-  // Implementation of protobuf::io::ErrorCollector::AddWarning.
-  void AddWarning(int line, int column, const std::string &message) override {
-    AddError(line, column, message);
+  // Implementation of protobuf::io::ErrorCollector::RecordWarning.
+  void RecordWarning(int line, int column, std::string_view message) override {
+    RecordError(line, column, message);
   }
 
  private:
