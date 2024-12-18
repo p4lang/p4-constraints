@@ -1,0 +1,25 @@
+module(
+    name = "p4-constraints",
+    bazel_compatibility = [">=7.4.1"],
+    repo_name = "com_github_p4lang_p4_constraints",
+)
+
+bazel_dep(name = "protobuf", version = "28.2", repo_name = "com_google_protobuf")
+bazel_dep(name = "abseil-cpp", version = "20240116.2", repo_name = "com_google_absl")
+bazel_dep(name = "re2", version = "2024-02-01", repo_name = "com_googlesource_code_re2")
+bazel_dep(name = "p4runtime", version = "1.4.1", repo_name = "com_github_p4lang_p4runtime")
+git_override(
+    module_name = "p4runtime",
+    commit = "da2e3441e1774112ecf44905ba8ef57d1b33c3e0",
+    remote = "https://github.com/p4lang/p4runtime.git",
+    strip_prefix = "proto",
+)
+
+# Dev Depdencies.
+bazel_dep(
+    name = "googletest",
+    version = "1.15.2",
+    dev_dependency = True,
+    repo_name = "com_google_googletest",
+)
+bazel_dep(name = "rules_license", version = "1.0.0", dev_dependency = True)
