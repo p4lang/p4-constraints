@@ -2,5 +2,13 @@
 try-import user.bazelrc
 
 # Use C++17.
-common --cxxopt='-std=c++17'
-common --host_cxxopt='-std=c++17'
+build --cxxopt=-std=c++17
+build --host_cxxopt=-std=c++17
+
+# Use Clang.
+build --action_env=CC=clang
+build --action_env=CXX=clang++
+
+# Use Bzlmod (`MODULE.bazel`) instead of `WORKSPACE.bazel`.
+common --noenable_bzlmod
+common --enable_workspace
