@@ -9,7 +9,7 @@ build --host_cxxopt=-std=c++17
 build --action_env=CC=clang
 build --action_env=CXX=clang++
 
-# Use `WORKSPACE.bazel` instead of Bzlmod (`MODULE.bazel`).
-# TODO - migrate to Bzlmod.
-common --noenable_bzlmod
+# Use Bzlmod (`MODULE.bazel`) and `WORKSPACE.bzlmod`.
+# TODO - Disable workspace once all dependencies are migrated to bzlmod.
+common --enable_bzlmod
 common --enable_workspace
