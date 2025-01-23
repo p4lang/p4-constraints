@@ -612,11 +612,11 @@ class WhenDeserializedMatcherBase {
   virtual Proto* MakeEmptyProto() const = 0;
 
   // Type name of the expected protobuf.
-  virtual std::string ExpectedTypeName() const = 0;
+  virtual absl::string_view ExpectedTypeName() const = 0;
 
   // Name of the type argument given to WhenDeserializedAs<>(), or
   // "protobuf" for WhenDeserialized().
-  virtual std::string TypeArgName() const = 0;
+  virtual absl::string_view TypeArgName() const = 0;
 
   // Deserializes the std::string as a protobuf of the same type as the expected
   // protobuf.
@@ -711,11 +711,11 @@ class WhenDeserializedMatcher
     return expected_proto_->New();
   }
 
-  virtual std::string ExpectedTypeName() const {
+  virtual absl::string_view ExpectedTypeName() const {
     return expected_proto_->GetDescriptor()->full_name();
   }
 
-  virtual std::string TypeArgName() const { return "protobuf"; }
+  virtual absl::string_view TypeArgName() const { return "protobuf"; }
 
  private:
   // The expected protobuf specified in the inner matcher
@@ -736,11 +736,11 @@ class WhenDeserializedAsMatcher : public WhenDeserializedMatcherBase<Proto> {
 
   virtual Proto* MakeEmptyProto() const { return new Proto; }
 
-  virtual std::string ExpectedTypeName() const {
+  virtual absl::string_view ExpectedTypeName() const {
     return Proto().GetDescriptor()->full_name();
   }
 
-  virtual std::string TypeArgName() const { return ExpectedTypeName(); }
+  virtual absl::string_view TypeArgName() const { return ExpectedTypeName(); }
 };
 
 // Implements the IsInitializedProto matcher, which is used to verify that a
