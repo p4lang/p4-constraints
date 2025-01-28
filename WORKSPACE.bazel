@@ -1,4 +1,7 @@
 # Bazel workspace file.
+#
+# NOTE: This file is ignored when bzlmod is enabled. It is provided for users
+# who have not yet migrated to bzlmod, and will be removed in the future.
 
 workspace(name = "com_github_p4lang_p4_constraints")
 
