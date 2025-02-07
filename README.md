@@ -230,6 +230,7 @@ Please note that every file containing source code must include the following
 copyright header:
 
     Copyright 2020 The P4-Constraints Authors
+    SPDX-License-Identifier: Apache-2.0
     
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -246,5 +247,5 @@ copyright header:
 This can be done automatically using
 [addlicense](https://github.com/google/addlicense) as follows:
 ```sh
-addlicense -c "The P4-Constraints Authors" -l apache ./p4_constraints
+addlicense -c "The P4-Constraints Authors" -s -l apache ./p4_constraints
 ```
