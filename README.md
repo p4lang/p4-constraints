@@ -243,8 +243,10 @@ copyright header:
     See the License for the specific language governing permissions and
     limitations under the License.
 
+    SPDX-License-Identifier: Apache-2.0
+
 This can be done automatically using
 [addlicense](https://github.com/google/addlicense) as follows:
 ```sh
-addlicense -c "The P4-Constraints Authors" -l apache ./p4_constraints
+addlicense -c "The P4-Constraints Authors" -s -l apache ./p4_constraints
 ```
