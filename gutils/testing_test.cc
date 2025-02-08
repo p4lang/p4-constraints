@@ -14,7 +14,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-
 #include "gutils/testing.h"
 
 #include <gtest/gtest.h>
