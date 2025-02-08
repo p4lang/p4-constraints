@@ -12,7 +12,7 @@ All entries must satisfy:
 
 e2e_tests/valid_constraints.p4:38:5-65:
    |     // Either wildcard or exact match (i.e., 'optional' match).
-22 |     hdr.ipv4.dst_addr::mask == 0 || hdr.ipv4.dst_addr::mask == -1;
+38 |     hdr.ipv4.dst_addr::mask == 0 || hdr.ipv4.dst_addr::mask == -1;
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
@@ -86,7 +86,7 @@ All entries must satisfy:
 
 e2e_tests/valid_constraints.p4:116:5-32:
     |     // A real constraint: only wildcard match is okay.
-100 |     hdr.ipv4.dst_addr::mask == 0;
+116 |     hdr.ipv4.dst_addr::mask == 0;
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
@@ -109,7 +109,7 @@ All entries must satisfy:
 
 e2e_tests/valid_constraints.p4:118:5-27:
     |     // A constraint on metadata.
-102 |     ::priority < 0x7fffffff;
+118 |     ::priority < 0x7fffffff;
     |     ^^^^^^^^^^^^^^^^^^^^^^^
 
 But your entry does not.
@@ -124,7 +124,7 @@ e2e_tests/table_entries/reject_all_entries_1.pb.txt
 All entries must satisfy:
 
 e2e_tests/valid_constraints.p4:30:1-5:
-14 | false
+30 | false
    | ^^^^^
 
 But your entry does not.
