@@ -14,7 +14,16 @@
 # and similarly for other platforms.
 
 # Possible values: {linux, darwin}_{amd64, arm64}.
-PLATFORM=${PLATFORM:-linux-amd64}
+which dpkg
+exit_status=$?
+if [ ${exit_status} -eq 0 ]
+then
+    ARCH=`dpkg --print-architecture`
+    PLATFORM=${PLATFORM:-linux-${ARCH}}
+else
+    # Guess amd64
+    PLATFORM=${PLATFORM:-linux-amd64}
+fi
 
 # Only files with these extensions will be formatted by clang-format.
 CLANG_FORMAT_EXTENSIONS="cc|h|proto"
