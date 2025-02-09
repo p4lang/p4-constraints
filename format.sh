@@ -34,8 +34,11 @@ find . -not -path "./third_party/**" \
   | xargs clang-format --verbose -style=google -i
 
 # Run buildifier (Bazel file formatter).
-BUILDIFIER="buildifier-$PLATFORM"
-wget "https://github.com/bazelbuild/buildtools/releases/download/v7.3.1/$BUILDIFIER"
-mv $BUILDIFIER buildifier
-chmod +x buildifier
+if [ ! -e buildifier ]
+then
+    BUILDIFIER="buildifier-$PLATFORM"
+    wget "https://github.com/bazelbuild/buildtools/releases/download/v7.3.1/$BUILDIFIER"
+    mv $BUILDIFIER buildifier
+    chmod +x buildifier
+fi
 ./buildifier --lint=fix -r .
