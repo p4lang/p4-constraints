@@ -8,12 +8,12 @@ Syntax error: @entry_restriction must be enclosed in '("' and '")'
 - In @entry_restriction of table 'invalid_constraints.empty_restriction'; at offset line 1, column 1:
 Parse error: unexpected token: <END_OF_INPUT>. Expected true, false, <BINARY>, <OCTARY>, <DECIMAL>, <HEXADEC>, <ID>, ::, !, -, or (.
 
-- e2e_tests/invalid_constraints.p4:21:3:
+- e2e_tests/invalid_constraints.p4:37:3:
 Parse error: unexpected token: <END_OF_INPUT>. Expected true, false, <BINARY>, <OCTARY>, <DECIMAL>, <HEXADEC>, <ID>, ::, !, -, or (.
 
-- e2e_tests/invalid_constraints.p4:27:5-15:
+- e2e_tests/invalid_constraints.p4:43:5-15:
    | 
-27 |     foo.bar.baz == 2
+43 |     foo.bar.baz == 2
    |     ^^^^^^^^^^^
 Type error: unknown key foo.bar.baz
 
@@ -22,9 +22,9 @@ Type error: unknown key foo.bar.baz
   | ^^^^^^^^^^^
 Type error: unknown key foo.bar.baz
 
-- e2e_tests/invalid_constraints.p4:38:21-22:
+- e2e_tests/invalid_constraints.p4:54:21-22:
    | 
-38 |     foo.bar.baz == 0b2
+54 |     foo.bar.baz == 0b2
    |                     ^^
 Parse error: unexpected token: <ID>. Expected <END_OF_INPUT>, ), ::, &&, ;, ||, ->, ==, !=, >, >=, <, or <=.
 
@@ -33,56 +33,56 @@ Parse error: unexpected token: <ID>. Expected <END_OF_INPUT>, ), ::, &&, ;, ||, 
   |                 ^^
 Parse error: unexpected token: <ID>. Expected <END_OF_INPUT>, ), ::, &&, ;, ||, ->, ==, !=, >, >=, <, or <=.
 
-- e2e_tests/invalid_constraints.p4:52:11-14:
+- e2e_tests/invalid_constraints.p4:68:11-14:
    |     /**************************************************************************/
-52 |     error here
+68 |     error here
    |           ^^^^
 Parse error: unexpected token: <ID>. Expected <END_OF_INPUT>, ), ::, &&, ;, ||, ->, ==, !=, >, >=, <, or <=.
 
-- e2e_tests/invalid_constraints.p4:60:5-30:
+- e2e_tests/invalid_constraints.p4:76:5-30:
    | 
-60 |     ternary_key::prefix_length
+76 |     ternary_key::prefix_length
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Type error: expression of type ternary<32> has no field 'prefix_length'
 
-- e2e_tests/invalid_constraints.p4:70:5-19:
+- e2e_tests/invalid_constraints.p4:86:5-19:
    | 
-70 |     0x0F0F :: value
+86 |     0x0F0F :: value
    |     ^^^^^^^^^^^^^^^
 Type error: expression of type int has no field 'value'
 
-- e2e_tests/invalid_constraints.p4:77:42-46:
+- e2e_tests/invalid_constraints.p4:93:42-46:
    | 
-77 |     -0x0F0F == -0o01234567 -> !false && -false
+93 |     -0x0F0F == -0o01234567 -> !false && -false
    |                                          ^^^^^
 Type error: expected type int, got bool
 
-- e2e_tests/invalid_constraints.p4:84:33:
-   | 
-84 |     !false -> -8 == -0b1000 || !1
-   |                                 ^
+- e2e_tests/invalid_constraints.p4:100:33:
+    | 
+100 |     !false -> -8 == -0b1000 || !1
+    |                                 ^
 Type error: expected type bool, got int
 
-- e2e_tests/invalid_constraints.p4:92:5-21:
-   | 
-92 |     optional_key > 10;
-   |     ^^^^^^^^^^^^^^^^^
+- e2e_tests/invalid_constraints.p4:108:5-21:
+    | 
+108 |     optional_key > 10;
+    |     ^^^^^^^^^^^^^^^^^
 Type error: operand type optional<32> does not support ordered comparison
 
-- e2e_tests/invalid_constraints.p4:102:5-13:
+- e2e_tests/invalid_constraints.p4:118:5-13:
     | 
-102 |     ::unknown > 10;
+118 |     ::unknown > 10;
     |     ^^^^^^^^^
 Type error: unknown attribute 'unknown'
 
-- e2e_tests/invalid_constraints.p4:113:1-9:
+- e2e_tests/invalid_constraints.p4:129:1-9:
     |       headers.ethernet.ether_type == 0x86DD;
-113 | ::unknown > 10;
+129 | ::unknown > 10;
     | ^^^^^^^^^
 Type error: unknown attribute 'unknown'
 
-- e2e_tests/invalid_constraints.p4:157:5-13:
+- e2e_tests/invalid_constraints.p4:173:5-13:
     |     // An invalid constraint to ensure error messages are sensible.
-157 |     ::unknown > 10;
+173 |     ::unknown > 10;
     |     ^^^^^^^^^
 Type error: unknown attribute 'unknown'
