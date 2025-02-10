@@ -37,7 +37,7 @@ find . -not -path "./third_party/**" \
 if [ ! -e buildifier ]
 then
     BUILDIFIER="buildifier-$PLATFORM"
-    wget "https://github.com/bazelbuild/buildtools/releases/download/v7.3.1/$BUILDIFIER"
+    wget "https://github.com/bazelbuild/buildtools/releases/download/v8.0.3/$BUILDIFIER"
     mv $BUILDIFIER buildifier
     chmod +x buildifier
 fi
