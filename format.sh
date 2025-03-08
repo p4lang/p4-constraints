@@ -25,4 +25,5 @@ find . -not -path "./third_party/**" \
   | egrep "\.(${CLANG_FORMAT_EXTENSIONS})\$" \
   | xargs clang-format --verbose -style=google -i
 
-bazel run -- @buildifier_prebuilt//:buildifier --lint=fix -r .
+bazel run -- \
+  @buildifier_prebuilt//:buildifier --lint=fix -r $(bazel info workspace)
