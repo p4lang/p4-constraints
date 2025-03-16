@@ -181,14 +181,14 @@ bazel test //...                                    # Run tests in container.
 
 The easiest way to experiment with p4-constraints is to write a
 [golden test](https://ro-che.info/articles/2017-12-04-golden-tests).
-We provide [Bazel rules](e2e_test/p4check.bzl) `run_p4check` and `diff_test` to
+We provide [Bazel rules](e2e_tests/p4check.bzl) `run_p4check` and `diff_test` to
 make this convenient.
-See the [e2e_test/](e2e_test/) folder -- in particular
-[e2e_test/BUILD.bazel](e2e_test/BUILD.bazel) -- for examples of how to use them.
+See the [e2e_tests/](e2e_tests/) folder -- in particular
+[e2e_tests/BUILD.bazel](e2e_tests/BUILD.bazel) -- for examples of how to use them.
 
 To run all golden tests, execute
 ```sh
-bazel test //e2e_test/...
+bazel test //e2e_tests/...
 ```
 [Recall](#building) that this will build p4c and requires
 [Bison](https://en.wikipedia.org/wiki/GNU_Bison) and
@@ -204,7 +204,7 @@ bazel run //e2e_test:invalid_constraints_test
 
 The `p4check` CLI allows invoking the p4-constraints library from the command
 line. The most convenient way to run `p4check` is using the
-[`run_p4check`-rule](e2e_test/p4check.bzl), as is done for
+[`run_p4check`-rule](e2e_tests/p4check.bzl), as is done for
 [golden testing](#golden-tests).
 
 To learn how to invoke [p4check](p4_constraints/cli/p4check.cc) manually,
@@ -217,7 +217,7 @@ bazel run p4_constraints/cli:p4check -- --help
 
 See [docs/language-specification.md](docs/language-specification.md) for a
 documentation of the constraint languages, or look at some example constraints
-in the .p4-files in the [e2e_test folder](e2e_test/).
+in the .p4-files in the [e2e_tests folder](e2e_tests/).
 
 ## Contributing
 
