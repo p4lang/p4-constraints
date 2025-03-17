@@ -395,13 +395,13 @@ TEST_F(InferAndCheckTypesTest, IdempotentTypeCastHandling) {
     for (std::pair<std::string, std::string> left_right : castable_pairs) {
       Expression expr = ParseTextProtoOrDie<Expression>(
           absl::Substitute(R"pb(
-            binary_expression {
-              binop: $0
-              left { key: "$1" }
-              right { key: "$2" }
-            })pb",
-            op, left_right.first, left_right.second));
-      
+                             binary_expression {
+                               binop: $0
+                               left { key: "$1" }
+                               right { key: "$2" }
+                             })pb",
+                           op, left_right.first, left_right.second));
+
       ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk())
           << "First type check failed: " << expr.DebugString();
       // Idempotent type cast test.
@@ -582,4 +582,4 @@ TEST_F(InferAndCheckTypesTest, AttributeAccessTypeChecks) {
   ASSERT_OK(InferAndCheckTypes(&expr, kTableInfo)) << expr.DebugString();
   EXPECT_EQ(expr.type(), kArbitraryInt) << expr.DebugString();
 }
-}// namespace p4_constraints
+}  // namespace p4_constraints

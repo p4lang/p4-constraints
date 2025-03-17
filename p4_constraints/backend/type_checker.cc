@@ -109,31 +109,30 @@ bool StrictlyAboveInCastabilityOrder(const Type& left, const Type& right) {
       return false;
   }
 }
-// Returns true if 'left' is exactly one level above 'right' in the castability order.
-// This ensures that casts only move one level up the Hasse diagram.
+// Returns true if 'left' is exactly one level above 'right' in the castability
+// order. This ensures that casts only move one level up the Hasse diagram.
 bool OneLevelAboveInCastabilityOrder(const Type& left, const Type& right) {
   // Check if left is strictly above right in the castability order
   if (!StrictlyAboveInCastabilityOrder(left, right)) {
     return false;
   }
-  
+
   // Now check that there isn't an intermediate type between them
   // For the specific Hasse diagram used in P4-Constraints:
-  
+
   // Case 1: right is arbitrary_int, left must be fixed_unsigned
   if (right.type_case() == Type::kArbitraryInt) {
     return left.type_case() == Type::kFixedUnsigned;
   }
-  
+
   // Case 2: right is fixed_unsigned, left must be one of the match types
   if (right.type_case() == Type::kFixedUnsigned) {
     return left.type_case() == Type::kExact ||
            left.type_case() == Type::kTernary ||
-           left.type_case() == Type::kLpm ||
-           left.type_case() == Type::kRange ||
+           left.type_case() == Type::kLpm || left.type_case() == Type::kRange ||
            left.type_case() == Type::kOptionalMatch;
   }
-  
+
   // No other valid one-level jumps in the hierarchy
   return false;
 }
@@ -351,24 +350,24 @@ absl::Status InferAndCheckTypes(Expression* expr, const ActionInfo* action_info,
       expr->mutable_type()->mutable_arbitrary_int();
       return absl::OkStatus();
     }
- 
+
     case ast::Expression::kTypeCast: {
       // Type check the inner expression first
       Expression* inner_expr = expr->mutable_type_cast();
       RETURN_IF_ERROR(InferAndCheckTypes(inner_expr, action_info, table_info));
-      
+
       const Type& target_type = expr->type();
       const Type& inner_type = inner_expr->type();
-      
+
       // Validate the cast is exactly one level in the castability order
       if (!OneLevelAboveInCastabilityOrder(target_type, inner_type)) {
         return StaticTypeError(constraint_source, expr->start_location(),
-                              expr->end_location())
-               << "invalid type cast from " << TypeName(inner_type) 
-               << " to " << TypeName(target_type) 
+                               expr->end_location())
+               << "invalid type cast from " << TypeName(inner_type) << " to "
+               << TypeName(target_type)
                << " - must be a single-step cast in the type hierarchy";
       }
-      
+
       return absl::OkStatus();
     }
     case Expression::kBinaryExpression: {
