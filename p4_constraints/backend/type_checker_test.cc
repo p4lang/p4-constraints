@@ -290,6 +290,24 @@ TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfIntTypeChecks) {
       R"pb(arithmetic_negation { key: "int" })pb");
   ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
   EXPECT_TRUE(expr.type().has_arbitrary_int());
+
+  // Arithmetic negation of int field access.
+  expr = ParseTextProtoOrDie<Expression>(R"pb(arithmetic_negation {
+                                                field_access {
+                                                  field: "prefix_length",
+                                                  expr { key: "lpm32" }
+                                                }
+                                              })pb");
+  ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
+  EXPECT_TRUE(expr.type().has_arbitrary_int());
+
+  // Arithmetic negation of int attribute access.
+  expr = ParseTextProtoOrDie<Expression>(
+      R"pb(arithmetic_negation {
+             attribute_access { attribute_name: "priority" }
+           })pb");
+  ASSERT_THAT(InferAndCheckTypes(&expr, kTableInfo), IsOk());
+  EXPECT_TRUE(expr.type().has_arbitrary_int());
 }
 
 TEST_F(InferAndCheckTypesTest, ArithmeticNegationOfNonIntDoesNotTypeChecks) {

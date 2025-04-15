@@ -183,6 +183,16 @@ can be expressed more succinctly without parentheses as
 
 Like P4, the language also provides the Boolean constants `true` and `false`.
 
+### Other unary operations
+
+Currently, besides field/attribute access and boolean negation (`!`) introduced
+above, the only unary operation allowed is arithmetic negation (`-`).
+
+Arithmetic negation can be applied on any `int` type expressions (including
+numeric constant, `int` key, and `int` field/attribute access) and the result is
+also `int` type. The semantics of arithmetic negation is to get the negative
+value of the signed integer operand.
+
 ### Network address syntax
 
 A table entry may want to restrict certain values to valid network addresses. For example, the following constraint sets restrictions on IPv4, IPv6 and MAC addresses.
