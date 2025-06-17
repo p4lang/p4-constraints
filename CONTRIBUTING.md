@@ -20,7 +20,7 @@ copy source files from it, all source files must have a comment
 containing an SPDX License Identifier.
 
 TODO: Add a link to a central p4lang repository document about this,
-when one is created.  Probably that will be
+when one is created. Probably that will be
 https://github.com/p4lang/p4c/blob/main/docs/licenses.md
 
 ## Coding guidelines

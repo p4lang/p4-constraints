@@ -16,6 +16,7 @@
 #include "p4_constraints/frontend/parser.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/log/check.h"
@@ -283,13 +284,13 @@ absl::StatusOr<Expression> ParseConstraintAbove(ConstraintKind constraint_kind,
     case Token::BANG: {
       ASSIGN_OR_RETURN(ast, ParseConstraintAbove(constraint_kind, tokens,
                                                  TokenPrecedence(token.kind)));
-      ASSIGN_OR_RETURN(ast, ast::MakeBooleanNegation(token, ast));
+      ASSIGN_OR_RETURN(ast, ast::MakeBooleanNegation(token, std::move(ast)));
       break;
     }
     case Token::MINUS: {
       ASSIGN_OR_RETURN(ast, ParseConstraintAbove(constraint_kind, tokens,
                                                  TokenPrecedence(token.kind)));
-      ASSIGN_OR_RETURN(ast, ast::MakeArithmeticNegation(token, ast));
+      ASSIGN_OR_RETURN(ast, ast::MakeArithmeticNegation(token, std::move(ast)));
       break;
     }
     case Token::LPAR: {
@@ -361,13 +362,14 @@ absl::StatusOr<Expression> ParseConstraintAbove(ConstraintKind constraint_kind,
     }
     if (token.kind == Token::DOUBLE_COLON) {
       ASSIGN_OR_RETURN(Token field, ExpectTokenKind(Token::ID, tokens));
-      ASSIGN_OR_RETURN(ast, ast::MakeFieldAccess(ast, field));
+      ASSIGN_OR_RETURN(ast, ast::MakeFieldAccess(std::move(ast), field));
     } else {
       // token.kind is one of &&, ;, ||, ->, ==, !=, >, >=, <, <=.
       ASSIGN_OR_RETURN(Expression another_ast,
                        ParseConstraintAbove(constraint_kind, tokens,
                                             TokenPrecedence(token.kind)));
-      ASSIGN_OR_RETURN(ast, ast::MakeBinaryExpression(token, ast, another_ast));
+      ASSIGN_OR_RETURN(ast, ast::MakeBinaryExpression(token, std::move(ast),
+                                                      std::move(another_ast)));
     }
   }
 }
