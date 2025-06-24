@@ -13,30 +13,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "gutils/ret_check.h"
+#include "p4_constraints/ret_check.h"
 
 #include "absl/status/status.h"
+#include "gutil/status.h"
+#include "p4_constraints/source_location.h"
 
-namespace gutils {
-
-::gutils::StatusBuilder RetCheckFailSlowPath(
-    ::gutils::SourceLocation location) {
+gutil::StatusBuilder RetCheckFailSlowPath(
+    p4_constraints::SourceLocation location) {
   // TODO Implement LogWithStackTrace().
-  return ::gutils::InternalErrorBuilder(location)
+  return gutil::InternalErrorBuilder()
          << "RET_CHECK failure (" << location.file_name() << ":"
          << location.line() << ") ";
 }
 
-::gutils::StatusBuilder RetCheckFailSlowPath(::gutils::SourceLocation location,
-                                             const char* condition) {
-  return ::gutils::RetCheckFailSlowPath(location) << condition;
+gutil::StatusBuilder RetCheckFailSlowPath(
+    p4_constraints::SourceLocation location, const char* condition) {
+  return RetCheckFailSlowPath(location) << condition;
 }
 
-::gutils::StatusBuilder RetCheckFailSlowPath(::gutils::SourceLocation location,
-                                             const char* condition,
-                                             const ::absl::Status& status) {
-  return ::gutils::RetCheckFailSlowPath(location)
+gutil::StatusBuilder RetCheckFailSlowPath(
+    p4_constraints::SourceLocation location, const char* condition,
+    const ::absl::Status& status) {
+  return RetCheckFailSlowPath(location)
          << condition << " returned " << status << " ";
 }
-
-}  // namespace gutils

@@ -30,11 +30,8 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
-#include "gutils/ordered_map.h"
-#include "gutils/parse_text_proto.h"
-#include "gutils/source_location.h"
-#include "gutils/status_builder.h"
-#include "gutils/status_macros.h"
+#include "gutil/ordered_map.h"
+#include "gutil/testing.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/backend/interpreter.h"
@@ -46,7 +43,7 @@
 namespace p4_constraints {
 namespace internal_interpreter {
 
-using ::gutils::ParseTextProtoOrDie;
+using ::gutil::ParseProtoOrDie;
 using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::SourceLocation;
 using ::p4_constraints::ast::Type;
@@ -60,14 +57,14 @@ struct TestCase {
 };
 
 absl::StatusOr<ConstraintInfo> MakeConstraintInfo(TestCase test_case) {
-  const Type kExact32 = ParseTextProtoOrDie<Type>("exact { bitwidth: 32 }");
-  const Type kTernary32 = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }");
-  const Type kLpm32 = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }");
-  const Type kRange32 = ParseTextProtoOrDie<Type>("range { bitwidth: 32 }");
+  const Type kExact32 = ParseProtoOrDie<Type>("exact { bitwidth: 32 }");
+  const Type kTernary32 = ParseProtoOrDie<Type>("ternary { bitwidth: 32 }");
+  const Type kLpm32 = ParseProtoOrDie<Type>("lpm { bitwidth: 32 }");
+  const Type kRange32 = ParseProtoOrDie<Type>("range { bitwidth: 32 }");
   const Type kOptional32 =
-      ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
+      ParseProtoOrDie<Type>("optional_match { bitwidth: 32 }");
   const Type kFixedUnsigned32 =
-      ParseTextProtoOrDie<Type>("fixed_unsigned { bitwidth: 32 }");
+      ParseProtoOrDie<Type>("fixed_unsigned { bitwidth: 32 }");
 
   const TableInfo kTableInfo = {
       .id = 1,
@@ -160,7 +157,7 @@ std::vector<TestCase> TestCases() {
   test_cases.push_back(TestCase{
       .table_constraint = "true;",
       .constraint_by_action_id{{1, "multicast_group_id != 0"}},
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
@@ -178,7 +175,7 @@ std::vector<TestCase> TestCases() {
 
   test_cases.push_back(TestCase{
       .constraint_by_action_id{{1, "multicast_group_id != 0"}},
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         action {
           action {
@@ -192,7 +189,7 @@ std::vector<TestCase> TestCases() {
 
   test_cases.push_back(TestCase{
       .constraint_by_action_id{{1, "multicast_group_id != 0"}},
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         action {
           action {
@@ -206,7 +203,7 @@ std::vector<TestCase> TestCases() {
 
   test_cases.push_back(TestCase{
       .constraint_by_action_id{{1, "multicast_group_id != dummy_var"}},
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         action {
           action {
@@ -222,7 +219,7 @@ std::vector<TestCase> TestCases() {
   test_cases.push_back(TestCase{
       .constraint_by_action_id{{1, "multicast_group_id != 0"},
                                {2, "vlan_id != 0"}},
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         action {
           action_profile_action_set {
@@ -249,7 +246,7 @@ std::vector<TestCase> TestCases() {
   test_cases.push_back(TestCase{
       .constraint_by_action_id{{1, "multicast_group_id != 0"},
                                {2, "vlan_id != 0"}},
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         action {
           action_profile_action_set {
@@ -275,7 +272,7 @@ std::vector<TestCase> TestCases() {
 
   test_cases.push_back(TestCase{
       .table_constraint = "true;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
@@ -287,7 +284,7 @@ std::vector<TestCase> TestCases() {
 
   test_cases.push_back(TestCase{
       .table_constraint = "exact32::value != 10 || exact32::value == 10;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
@@ -299,7 +296,7 @@ std::vector<TestCase> TestCases() {
 
   test_cases.push_back(TestCase{
       .table_constraint = "exact32::value > 6 && exact32::value < 5;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
@@ -317,7 +314,7 @@ std::vector<TestCase> TestCases() {
       .table_constraint = "exact32::value > 5;\n"
                           "exact32::value < 20;\n"
                           "exact32::value == 14;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
@@ -331,7 +328,7 @@ std::vector<TestCase> TestCases() {
       .table_constraint = "exact32::value > 0;\n"
                           "exact32::value > 7 || exact32::value == 5;\n"
                           "exact32::value == 9;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
@@ -345,7 +342,7 @@ std::vector<TestCase> TestCases() {
       .table_constraint = "exact32::value > 0;\n"
                           "exact32::value < 42;\n"
                           "exact32::value < 20 -> exact32::value == 14;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
@@ -359,7 +356,7 @@ std::vector<TestCase> TestCases() {
       .table_constraint = "exact32::value == 1 || exact32::value == 2;\n"
                           "!(exact32::value == 10 -> exact32::value == 10);\n"
                           "exact32::value == 3 || exact32::value == 4;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
@@ -372,7 +369,7 @@ std::vector<TestCase> TestCases() {
   test_cases.push_back(TestCase{
       .table_constraint = "exact32::value == 80 || ternary32::value == 3096;\n"
                           "ternary32::mask == 255 && exact32::value == 3;",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
@@ -389,7 +386,7 @@ std::vector<TestCase> TestCases() {
   test_cases.push_back(TestCase{
       .table_constraint =
           "(false || false) && (!(true -> true) && (false || false));",
-      .table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      .table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
@@ -408,11 +405,11 @@ absl::StatusOr<std::string> EntryToString(const EvaluationContext& context,
       std::get_if<TableEntry>(&context.constraint_context);
 
   if (table_entry == nullptr) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "The constraint context does not contain a TableEntry.";
   }
   std::string key_info = absl::StrJoin(
-      gutils::Ordered(table_entry->keys), "\n",
+      gutil::AsOrderedView(table_entry->keys), "\n",
       [](std::string* out, auto pair) {
         absl::StrAppend(out, "Key:\"", pair.first,
                         "\" -> Value: ", EvalResultToString(pair.second));
@@ -429,12 +426,12 @@ absl::StatusOr<std::string> ActionToString(const EvaluationContext& context) {
   const ActionInvocation* action_invocation =
       std::get_if<ActionInvocation>(&context.constraint_context);
   if (action_invocation == nullptr) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "The constraint context does not contain an "
               "ActionInvocation.";
   }
   std::string param_info = absl::StrJoin(
-      gutils::Ordered(action_invocation->action_parameters), "\n",
+      gutil::AsOrderedView(action_invocation->action_parameters), "\n",
       [](std::string* out, auto pair) {
         absl::StrAppend(out, "-- Action Parameter:\"", pair.first,
                         "\" -> Value: ", EvalResultToString(pair.second));
@@ -512,7 +509,7 @@ absl::Status main() {
         }
         case p4::v1::TableAction::kActionProfileMemberId:
         case p4::v1::TableAction::kActionProfileGroupId:
-          return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+          return gutil::InvalidArgumentErrorBuilder()
                  << "action restrictions not supported for entries with the "
                     "given kind of action: "
                  << test_case.table_entry.DebugString();
@@ -526,7 +523,7 @@ absl::Status main() {
           break;
         }
         case p4::v1::TableAction::TYPE_NOT_SET:
-          return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+          return gutil::InvalidArgumentErrorBuilder()
                  << "unknown action type "
                  << test_case.table_entry.DebugString();
       }

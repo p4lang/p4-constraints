@@ -23,6 +23,7 @@
 #include <cstring>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
@@ -37,10 +38,9 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/variant.h"
-#include "gutils/ordered_map.h"
-#include "gutils/overload.h"
-#include "gutils/ret_check.h"
-#include "gutils/status_macros.h"
+#include "gutil/ordered_map.h"
+#include "gutil/overload.h"
+#include "gutil/status.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
@@ -48,6 +48,7 @@
 #include "p4_constraints/backend/errors.h"
 #include "p4_constraints/constraint_source.h"
 #include "p4_constraints/quote.h"
+#include "p4_constraints/ret_check.h"
 
 namespace p4_constraints {
 
@@ -76,7 +77,7 @@ std::string P4IDToString(uint32_t p4_object_id) {
 
 std::string EvalResultToString(const EvalResult& result) {
   return absl::visit(
-      gutils::Overload{
+      gutil::Overload{
           [](bool result) -> std::string { return result ? "true" : "false"; },
           [](const Integer& result) { return result.get_str(); },
           [](const Exact& result) {
@@ -127,7 +128,7 @@ absl::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
     const p4::v1::FieldMatch& p4field, const TableInfo& table_info) {
   auto it = table_info.keys_by_id.find(p4field.field_id());
   if (it == table_info.keys_by_id.end()) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "unknown table key with ID " << P4IDToString(p4field.field_id());
   }
   const KeyInfo& key = it->second;
@@ -177,7 +178,7 @@ absl::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
     }
 
     default:
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "unsupported P4RT field match type "
              << p4field.field_match_type_case();
   }
@@ -192,7 +193,7 @@ absl::StatusOr<EvaluationContext> ParseTableEntry(
     ASSIGN_OR_RETURN(auto kv, ParseKey(field, table_info));
     auto result = keys.insert(kv);
     if (result.second == false) {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "duplicate match on key " << kv.first << " with ID "
              << P4IDToString(field.field_id());
     }
@@ -204,7 +205,7 @@ absl::StatusOr<EvaluationContext> ParseTableEntry(
     if (keys.contains(name)) continue;
     switch (key_info.type.type_case()) {
       case ast::Type::kExact:
-        return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+        return gutil::InvalidArgumentErrorBuilder()
                << "missing exact match key '" << key_info.name << "'";
       case ast::Type::kTernary:
       case ast::Type::kOptionalMatch:
@@ -227,7 +228,7 @@ absl::StatusOr<EvaluationContext> ParseTableEntry(
       case ast::Type::TYPE_NOT_SET:
         break;
     }
-    return gutils::InternalErrorBuilder(GUTILS_LOC)
+    return gutil::InternalErrorBuilder()
            << "Key '" << key_info.name
            << "' of invalid match type detected at runtime: "
            << key_info.type.DebugString();
@@ -255,11 +256,11 @@ absl::StatusOr<EvaluationContext> ParseAction(const p4::v1::Action& action,
     Integer param_value = ParseP4RTInteger(param.value());
     auto it = action_info.params_by_id.find(param_id);
     if (it == action_info.params_by_id.end()) {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "unknown action param with ID " << P4IDToString(param_id);
     }
     if (action_parameters.contains(it->second.name)) {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "duplicate action param with ID " << P4IDToString(param_id);
     }
     action_parameters[it->second.name] = param_value;
@@ -435,7 +436,7 @@ absl::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
     }
 
     default:
-      return gutils::InternalErrorBuilder(GUTILS_LOC)
+      return gutil::InternalErrorBuilder()
              << "unknown binary operator " << ast::BinaryOperator_Name(binop)
              << " encountered at runtime";
   }
@@ -445,7 +446,7 @@ struct EvalFieldAccess {
   const absl::string_view field;
 
   absl::Status Error(const std::string& type) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "value of type " << type << " has no field " << field;
   }
 
@@ -545,7 +546,7 @@ absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
               break;
             }
             default:
-              return gutils::InternalErrorBuilder(GUTILS_LOC)
+              return gutil::InternalErrorBuilder()
                      << "unreachable code reached";
           }
 
@@ -574,7 +575,7 @@ absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
         }
 
         default:
-          return gutils::InternalErrorBuilder(GUTILS_LOC)
+          return gutil::InternalErrorBuilder()
                  << "unknown binary operator "
                  << ast::BinaryOperator_Name(binop)
                  << " encountered at runtime";
@@ -582,7 +583,7 @@ absl::StatusOr<const Expression*> MinimalSubexpressionLeadingToEvalResult(
     }
 
     default:
-      return gutils::InternalErrorBuilder(GUTILS_LOC)
+      return gutil::InternalErrorBuilder()
              << "Explanation search should terminate at boolean expressions\n "
              << "Non-boolean expression reached: " << expression.DebugString();
   }
@@ -605,11 +606,11 @@ absl::StatusOr<std::string> ExplainConstraintViolation(
   const absl::flat_hash_set<std::string> relevant_fields =
       ast::GetVariables(*explanation);
   return std::visit(
-      gutils::Overload{
+      gutil::Overload{
           [&](const TableEntry& table_entry) -> std::string {
             // Ordered for determinism when golden testing.
             std::string key_info = absl::StrJoin(
-                gutils::Ordered(table_entry.keys), "",
+                gutil::AsOrderedView(table_entry.keys), "",
                 [&](std::string* out,
                     const std::pair<std::string, EvalResult>& pair) {
                   if (relevant_fields.contains(pair.first)) {
@@ -632,7 +633,7 @@ absl::StatusOr<std::string> ExplainConstraintViolation(
           },
           [&](const ActionInvocation& action_invocation) -> std::string {
             std::string param_info = absl::StrJoin(
-                gutils::Ordered(action_invocation.action_parameters), "",
+                gutil::AsOrderedView(action_invocation.action_parameters), "",
                 [&](std::string* out,
                     const std::pair<std::string, Integer>& pair) {
                   if (relevant_fields.contains(pair.first)) {
@@ -672,7 +673,7 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
     case Expression::kIntegerConstant: {
       mpz_class result;
       if (result.set_str(expr.integer_constant(), 10) == 0) return {result};
-      return gutils::InternalErrorBuilder(GUTILS_LOC)
+      return gutil::InternalErrorBuilder()
              << "AST invariant violated; invalid decimal string: "
              << expr.integer_constant();
     }
@@ -776,7 +777,7 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
     case Expression::EXPRESSION_NOT_SET:
       break;
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+  return gutil::InvalidArgumentErrorBuilder()
          << "invalid expression: " << expr.DebugString();
 }
 
@@ -835,7 +836,7 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
   const uint32_t action_id = action.action_id();
   auto* action_info = GetActionInfoOrNull(constraint_info, action_id);
   if (action_info == nullptr) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "action entry with unknown action ID " << P4IDToString(action_id);
   }
   // Check if action has an action restriction.
@@ -843,7 +844,7 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
 
   const Expression& constraint = *action_info->constraint;
   if (constraint.type().type_case() != Type::kBoolean) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "action " << action_info->name
            << " has non-boolean constraint: " << constraint.DebugString();
   }
@@ -895,7 +896,7 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
   // Find table associated with entry.
   auto* table_info = GetTableInfoOrNull(constraint_info, entry.table_id());
   if (table_info == nullptr) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "table entry with unknown table ID "
            << P4IDToString(entry.table_id());
   }
@@ -903,7 +904,7 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
   if (table_info->constraint.has_value()) {
     const Expression& constraint = table_info->constraint.value();
     if (constraint.type().type_case() != Type::kBoolean) {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "table " << table_info->name
              << " has non-boolean constraint: " << constraint.DebugString();
     }
@@ -931,7 +932,7 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
           entry.action().action(), constraint_info);
     case p4::v1::TableAction::kActionProfileMemberId:
     case p4::v1::TableAction::kActionProfileGroupId:
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "action restrictions not supported for entries with the given "
                 "kind of action: "
              << entry.DebugString();
@@ -942,7 +943,7 @@ absl::StatusOr<std::string> ReasonEntryViolatesConstraint(
     case p4::v1::TableAction::TYPE_NOT_SET:
       break;
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+  return gutil::InvalidArgumentErrorBuilder()
          << "unknown action type " << entry.action().type_case();
 }
 

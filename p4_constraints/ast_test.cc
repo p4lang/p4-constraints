@@ -22,20 +22,20 @@
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/substitute.h"
-#include "gutils/parse_text_proto.h"
-#include "gutils/status_matchers.h"
+#include "gutil/status_matchers.h"
+#include "gutil/testing.h"
 
 namespace p4_constraints {
 namespace ast {
 
-using ::gutils::testing::status::IsOkAndHolds;
+using ::gutil::IsOkAndHolds;
 using ::testing::Contains;
 using ::testing::Eq;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 
 Expression ParseRawAst(const std::string constraint) {
-  return gutils::ParseTextProtoOrDie<Expression>(constraint);
+  return gutil::ParseProtoOrDie<Expression>(constraint);
 }
 
 TEST(SizeTest, SizeOfBooleanConstantsOneAndNotCached) {

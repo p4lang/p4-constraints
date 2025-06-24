@@ -20,6 +20,12 @@ load("@rules_proto//proto:setup.bzl", "rules_proto_setup")
 
 rules_proto_setup()
 
+# -- Load GUtil -----------------------------------------------------------------
+
+load("@com_google_gutil//:gutil_deps.bzl", "gutil_deps")
+
+gutil_deps()
+
 # -- P4{C, Runtime} + transitive dependencies ----------------------------------
 
 load("@com_github_p4lang_p4c//:bazel/p4c_deps.bzl", "p4c_deps")

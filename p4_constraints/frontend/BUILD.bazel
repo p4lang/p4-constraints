@@ -15,7 +15,6 @@ cc_library(
         ":constraint_kind",
         ":lexer",
         ":token",
-        "//gutils:status",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
         "//p4_constraints:quote",
@@ -23,6 +22,8 @@ cc_library(
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_gutil//gutil:status",
     ],
 )
 
@@ -34,14 +35,13 @@ cc_test(
         ":constraint_kind",
         ":parser",
         ":token",
-        "//gutils:protocol_buffer_matchers",
-        "//gutils:status",
-        "//gutils:status_matchers",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
+        "@com_google_gutil//gutil:proto_matchers",
+        "@com_google_gutil//gutil:status_matchers",
     ],
 )
 
@@ -110,14 +110,14 @@ cc_library(
     deps = [
         ":constraint_kind",
         ":token",
-        "//gutils:ret_check",
-        "//gutils:status",
         "//p4_constraints:ast_cc_proto",
+        "//p4_constraints:ret_check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:span",
+        "@com_google_gutil//gutil:status",
     ],
 )
 

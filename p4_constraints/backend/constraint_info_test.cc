@@ -24,8 +24,9 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
 #include "absl/status/statusor.h"
-#include "gutils/proto.h"
-#include "gutils/status_matchers.h"
+#include "gutil/proto.h"
+#include "gutil/status.h"           // IWYU pragma: keep
+#include "gutil/status_matchers.h"  // IWYU pragma: keep
 #include "p4/config/v1/p4info.pb.h"
 
 using p4::config::v1::P4Info;
@@ -54,7 +55,7 @@ TEST(P4ToConstraintInfoTest, ValidActionRestrictionSucceeds) {
     }
       )pb";
 
-  ASSERT_OK(gutils::ReadProtoFromString(proto_string, &p4_info));
+  ASSERT_OK(gutil::ReadProtoFromString(proto_string, &p4_info));
 
   absl::StatusOr<ConstraintInfo> constraints =
       p4_constraints::P4ToConstraintInfo(p4_info);
@@ -89,7 +90,7 @@ TEST(P4ToConstraintInfoTest, ActionWithP4NamedTypeConstraintFails) {
     }
       )pb";
 
-  ASSERT_OK(gutils::ReadProtoFromString(proto_string, &p4_info));
+  ASSERT_OK(gutil::ReadProtoFromString(proto_string, &p4_info));
 
   absl::StatusOr<ConstraintInfo> constraints =
       p4_constraints::P4ToConstraintInfo(p4_info);
@@ -111,7 +112,7 @@ TEST(P4ToConstraintInfoTest, ConstraintAnnotationsMustBeEnclosedInParen) {
       }
     }
       )pb";
-  ASSERT_OK(gutils::ReadProtoFromString(proto_string, &p4_info));
+  ASSERT_OK(gutil::ReadProtoFromString(proto_string, &p4_info));
 
   absl::StatusOr<ConstraintInfo> constraints =
       p4_constraints::P4ToConstraintInfo(p4_info);
@@ -129,15 +130,15 @@ Syntax error: @action_restriction must be enclosed in '("' and '")'
 TEST(GetTableInfoOrNullTest, ShouldGetNonNullptrToTableInfo) {
   P4Info p4_info;
 
-  ASSERT_OK(gutils::ReadProtoFromString(R"pb(
-                                          tables {
-                                            preamble {
-                                              id: 1
-                                              name: "table",
-                                            }
-                                          }
-                                        )pb",
-                                        &p4_info));
+  ASSERT_OK(gutil::ReadProtoFromString(R"pb(
+                                         tables {
+                                           preamble {
+                                             id: 1
+                                             name: "table",
+                                           }
+                                         }
+                                       )pb",
+                                       &p4_info));
 
   ASSERT_OK_AND_ASSIGN(ConstraintInfo constraints,
                        p4_constraints::P4ToConstraintInfo(p4_info));
@@ -148,7 +149,7 @@ TEST(GetTableInfoOrNullTest, ShouldGetNonNullptrToTableInfo) {
 TEST(GetActionInfoOrNullTest, ShouldGetNonNullptrToActionInfo) {
   P4Info p4_info;
 
-  ASSERT_OK(gutils::ReadProtoFromString(
+  ASSERT_OK(gutil::ReadProtoFromString(
       R"pb(
         actions {
           preamble {

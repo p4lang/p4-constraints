@@ -10,6 +10,14 @@ def p4_constraints_deps():
             urls = ["https://github.com/abseil/abseil-cpp/releases/download/20240722.0/abseil-cpp-20240722.0.tar.gz"],
             strip_prefix = "abseil-cpp-20240722.0",
         )
+    if not native.existing_rule("com_google_gutil"):
+        http_archive(
+            name = "com_google_gutil",
+            # Newest commit on main as of 2025-05-14.
+            url = "https://github.com/google/gutil/archive/d2f1bdd819287c3951adaba5ea6e5426d2eefff1.zip",
+            strip_prefix = "gutil-d2f1bdd819287c3951adaba5ea6e5426d2eefff1",
+            sha256 = "033bcab2835a0aea0427d38503f5ae2bd478af134ab8f3e75b65d2cd444ac8ca",
+        )
     if not native.existing_rule("com_google_googletest"):
         http_archive(
             name = "com_google_googletest",

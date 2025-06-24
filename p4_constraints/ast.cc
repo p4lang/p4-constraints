@@ -15,6 +15,7 @@
 
 #include "p4_constraints/ast.h"
 
+#include <optional>
 #include <string>
 
 #include "absl/container/flat_hash_set.h"
@@ -26,9 +27,8 @@
 #include "absl/types/optional.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/message_differencer.h"
-#include "gutils/proto.h"
-#include "gutils/status_builder.h"
-#include "gutils/status_macros.h"
+#include "gutil/proto.h"
+#include "gutil/status.h"
 #include "p4_constraints/ast.pb.h"
 
 namespace p4_constraints {
@@ -122,7 +122,7 @@ absl::StatusOr<int> TypeBitwidthOrStatus(const Type& type) {
   if (bitwidth.has_value()) {
     return *bitwidth;
   } else {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "expected a type with bitwidth, but got: " << type;
   }
 }
@@ -203,7 +203,7 @@ bool HaveSameSource(const SourceLocation& source_location_1,
       source_location_1.GetDescriptor()->FindFieldByName("line"));
   differ.IgnoreField(
       source_location_1.GetDescriptor()->FindFieldByName("column"));
-  return gutils::ProtoEqual(source_location_1, source_location_2, differ);
+  return gutil::ProtoEqual(source_location_1, source_location_2, differ);
 }
 
 // Populates `variable_set` with the variables used in `expr`.
@@ -286,7 +286,7 @@ absl::StatusOr<int> Size(const ast::Expression& ast, SizeCache* size_cache) {
       break;
     }
     default:
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "invalid expression: " << ast.DebugString();
   }
 
