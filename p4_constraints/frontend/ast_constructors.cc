@@ -33,12 +33,11 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "gutils/ret_check.h"
-#include "gutils/status_builder.h"
-#include "gutils/status_macros.h"
+#include "gutil/status.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/frontend/constraint_kind.h"
 #include "p4_constraints/frontend/token.h"
+#include "p4_constraints/ret_check.h"
 
 namespace p4_constraints {
 namespace ast {
@@ -70,7 +69,7 @@ absl::StatusOr<ast::BinaryOperator> ConvertBinaryOperator(Token::Kind binop) {
     case Token::LE:
       return ast::LE;
     default:
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "expected binary operator, got " << binop;
   }
 }
@@ -95,7 +94,7 @@ absl::StatusOr<std::string> ConvertNumeral(const Token& numeral_token) {
           << "invalid hexadecimal string \"" << numeral_token.text << "\".\n";
       return numeral.get_str(10);
     default:
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "expected numeral, got " << numeral_token.kind;
   }
 }
@@ -104,27 +103,24 @@ absl::StatusOr<uint8_t> Base10StringToByte(
     const std::string_view& base10_string) {
   uint8_t byte;
   if (base10_string.empty() || base10_string.size() > 3) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-           << absl::StreamFormat(
-                  "Invalid base10 string length: '%d', expected 0 < string "
-                  "length < 3.",
-                  base10_string.size());
+    return gutil::InvalidArgumentErrorBuilder() << absl::StreamFormat(
+               "Invalid base10 string length: '%d', expected 0 < string "
+               "length < 3.",
+               base10_string.size());
   }
   int buffer = 0;
   for (char c : base10_string) {
     if (c > '9' || c < '0') {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-             << absl::StreamFormat(
-                    "Invalid character in base-10 string: '%c' in string '%s'",
-                    c, base10_string);
+      return gutil::InvalidArgumentErrorBuilder() << absl::StreamFormat(
+                 "Invalid character in base-10 string: '%c' in string '%s'", c,
+                 base10_string);
     }
     buffer = buffer * 10 + (c - '0');
   }
   if (buffer > 255) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-           << absl::StreamFormat(
-                  "Invalid base10 string. Buffer size of '%d' exceeded 255",
-                  buffer);
+    return gutil::InvalidArgumentErrorBuilder() << absl::StreamFormat(
+               "Invalid base10 string. Buffer size of '%d' exceeded 255",
+               buffer);
   }
   memcpy(&byte, &buffer, 1);
   return byte;
@@ -133,19 +129,17 @@ absl::StatusOr<uint8_t> Base10StringToByte(
 absl::StatusOr<uint8_t> Base16StringToByte(absl::string_view& base16_string) {
   uint8_t byte;
   if (base16_string.empty() || base16_string.size() > 2) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-           << absl::StreamFormat(
-                  "Invalid base16 string length: '%d', expected 0 < string "
-                  "length <= 2.",
-                  base16_string.size());
+    return gutil::InvalidArgumentErrorBuilder() << absl::StreamFormat(
+               "Invalid base16 string length: '%d', expected 0 < string "
+               "length <= 2.",
+               base16_string.size());
   }
   int buffer = 0;
   for (char c : base16_string) {
     if (!absl::ascii_isxdigit(c)) {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-             << absl::StreamFormat(
-                    "Invalid character in base16 string: '%c' in string '%s'",
-                    c, base16_string);
+      return gutil::InvalidArgumentErrorBuilder() << absl::StreamFormat(
+                 "Invalid character in base16 string: '%c' in string '%s'", c,
+                 base16_string);
     }
     int value =
         (c >= 'A') ? (c >= 'a') ? (c - 'a' + 10) : (c - 'A' + 10) : (c - '0');
@@ -159,11 +153,10 @@ absl::StatusOr<std::string> Ipv4StringToByteString(
     const absl::string_view& ipv4_address) {
   std::vector<std::string_view> bytes = absl::StrSplit(ipv4_address, '.');
   if (bytes.size() != 4) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-           << absl::StreamFormat(
-                  "Invalid length for an IPv4 address: '%s'. Expected IPv4 "
-                  "address to be 4 bytes.",
-                  ipv4_address);
+    return gutil::InvalidArgumentErrorBuilder() << absl::StreamFormat(
+               "Invalid length for an IPv4 address: '%s'. Expected IPv4 "
+               "address to be 4 bytes.",
+               ipv4_address);
   }
 
   std::bitset<32> bits;
@@ -195,7 +188,7 @@ absl::StatusOr<std::string> Ipv6StringToByteString(
     auto ip = AnyByteStringToBitset<128>(bytes);
     return ip.to_string();
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+  return gutil::InvalidArgumentErrorBuilder()
          << absl::StreamFormat("Invalid Ipv6 address: %s", ipv6_address);
 }
 
@@ -203,11 +196,10 @@ absl::StatusOr<std::string> MacStringToByteString(
     const absl::string_view& mac_address) {
   std::vector<std::string> bytes = absl::StrSplit(mac_address, ':');
   if (bytes.size() != 6) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-           << absl::StreamFormat(
-                  "Invalid length for MAC address: '%s'. Expected MAC address"
-                  " to be 6 bytes.",
-                  mac_address);
+    return gutil::InvalidArgumentErrorBuilder() << absl::StreamFormat(
+               "Invalid length for MAC address: '%s'. Expected MAC address"
+               " to be 6 bytes.",
+               mac_address);
   }
 
   std::bitset<48> bits;
@@ -330,7 +322,7 @@ absl::StatusOr<ast::Expression> MakeVariable(absl::Span<const Token> tokens,
       return ast;
     }
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+  return gutil::InvalidArgumentErrorBuilder()
          << "Unexpected value for ConstraintKind: "
          << static_cast<int>(constraint_kind);
 }

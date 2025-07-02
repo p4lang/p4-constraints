@@ -26,10 +26,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
-#include "gutils/source_location.h"
-#include "gutils/status.h"
-#include "gutils/status_builder.h"
-#include "gutils/status_macros.h"
+#include "gutil/status.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
@@ -47,30 +44,28 @@ using ::p4_constraints::ast::Type;
 
 // -- Error handling -----------------------------------------------------------
 
-gutils::StatusBuilder StaticTypeError(const ConstraintSource& source,
-                                      const SourceLocation& start,
-                                      const SourceLocation& end) {
+gutil::StatusBuilder StaticTypeError(const ConstraintSource& source,
+                                     const SourceLocation& start,
+                                     const SourceLocation& end) {
   absl::StatusOr<std::string> quote = QuoteSubConstraint(source, start, end);
   if (!quote.ok()) {
-    return gutils::InternalErrorBuilder(GUTILS_LOC)
+    return gutil::InternalErrorBuilder()
            << "Failed to quote sub-constraint: "
-           << gutils::StableStatusToString(quote.status());
+           << gutil::StableStatusToString(quote.status());
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-         << *quote << "Type error: ";
+  return gutil::InvalidArgumentErrorBuilder() << *quote << "Type error: ";
 }
 
-gutils::StatusBuilder InternalError(const ConstraintSource& source,
-                                    const SourceLocation& start,
-                                    const SourceLocation& end) {
+gutil::StatusBuilder InternalError(const ConstraintSource& source,
+                                   const SourceLocation& start,
+                                   const SourceLocation& end) {
   absl::StatusOr<std::string> quote = QuoteSubConstraint(source, start, end);
   if (!quote.ok()) {
-    return gutils::InternalErrorBuilder(GUTILS_LOC)
+    return gutil::InternalErrorBuilder()
            << "Failed to quote sub-constraint: "
-           << gutils::StableStatusToString(quote.status());
+           << gutil::StableStatusToString(quote.status());
   }
-  return gutils::InternalErrorBuilder(GUTILS_LOC)
-         << *quote << "Internal error: ";
+  return gutil::InternalErrorBuilder() << *quote << "Internal error: ";
 }
 
 // -- Castability & Unification ------------------------------------------------
@@ -236,11 +231,11 @@ absl::Status InferAndCheckTypes(Expression* expr, const ActionInfo* action_info,
 
   // We expect exactly one of {action_info, table_info} to be set.
   if (action_info != nullptr && table_info != nullptr) {
-    return gutils::InternalErrorBuilder(GUTILS_LOC)
+    return gutil::InternalErrorBuilder()
            << "Both action_info and table_info are nullptr.";
   }
   if (action_info == nullptr && table_info == nullptr) {
-    return gutils::InternalErrorBuilder(GUTILS_LOC)
+    return gutil::InternalErrorBuilder()
            << "Both action_info and table_info are not nullptr.";
   }
 
@@ -371,7 +366,7 @@ absl::Status InferAndCheckTypes(Expression* expr, const ActionInfo* action_info,
           return absl::OkStatus();
         }
         default:
-          return gutils::InternalErrorBuilder(GUTILS_LOC)
+          return gutil::InternalErrorBuilder()
                  << "unknown binary operator "
                  << ast::BinaryOperator_Name(bin_expr->binop());
       }

@@ -32,12 +32,10 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
-#include "gutils/collections.h"
-#include "gutils/ordered_map.h"
-#include "gutils/overload.h"
-#include "gutils/source_location.h"
-#include "gutils/status_builder.h"
-#include "gutils/status_macros.h"
+#include "gutil/collections.h"
+#include "gutil/ordered_map.h"
+#include "gutil/overload.h"
+#include "gutil/status.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
@@ -55,22 +53,22 @@ namespace {
 absl::StatusOr<z3::expr> GetFieldAccess(const SymbolicKey& symbolic_key,
                                         absl::string_view field) {
   return std::visit(
-      gutils::Overload{
+      gutil::Overload{
           [&](const SymbolicExact& exact) -> absl::StatusOr<z3::expr> {
             if (field == "value") return exact.value;
-            return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+            return gutil::InvalidArgumentErrorBuilder()
                    << "Exact has no field '" << field << "'";
           },
           [&](const SymbolicTernary& ternary) -> absl::StatusOr<z3::expr> {
             if (field == "value") return ternary.value;
             if (field == "mask") return ternary.mask;
-            return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+            return gutil::InvalidArgumentErrorBuilder()
                    << "Ternary has no field \"" << field << "\"";
           },
           [&](const SymbolicLpm& lpm) -> absl::StatusOr<z3::expr> {
             if (field == "value") return lpm.value;
             if (field == "prefix_length") return lpm.prefix_length;
-            return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+            return gutil::InvalidArgumentErrorBuilder()
                    << "LPM has no field \"" << field << "\"";
           },
       },
@@ -84,13 +82,13 @@ using SymbolicEvalResultPair =
 absl::StatusOr<SymbolicEvalResultPair> EnsureSameType(
     const SymbolicEvalResult& expr1, const SymbolicEvalResult& expr2) {
   if (expr1.index() != expr2.index()) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "Expected expr1 and expr2 to have the same result type, but got: "
               "'"
            << expr1.index() << "' and '" << expr2.index() << "'.";
   }
   return std::visit(
-      gutils::Overload{
+      gutil::Overload{
           [&](const z3::expr& left) -> absl::StatusOr<SymbolicEvalResultPair> {
             return std::make_pair(left, std::get<z3::expr>(expr2));
           },
@@ -110,13 +108,13 @@ using SymbolicKeyPair =
 absl::StatusOr<SymbolicKeyPair> EnsureSameType(const SymbolicKey& key1,
                                                const SymbolicKey& key2) {
   if (key1.index() != key2.index()) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "Expected key1 and key2 to have the same type, but got: "
               "'"
            << key1.index() << "' and '" << key2.index() << "'.";
   }
   return std::visit(
-      gutils::Overload{
+      gutil::Overload{
           [&](const SymbolicExact& left) -> absl::StatusOr<SymbolicKeyPair> {
             return std::make_pair(left, std::get<SymbolicExact>(key2));
           },
@@ -132,7 +130,7 @@ absl::StatusOr<SymbolicKeyPair> EnsureSameType(const SymbolicKey& key1,
 
 absl::Status EnsureBinopIsEqualsOrNotEquals(ast::BinaryOperator binop) {
   if (binop != ast::BinaryOperator::EQ && binop != ast::BinaryOperator::NE) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "Expected binary operation to be EQ or NE, but got: " << binop;
   }
   return absl::OkStatus();
@@ -167,7 +165,7 @@ absl::StatusOr<z3::expr> EvalBinaryExpression(const z3::expr& left,
     default:
       break;
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+  return gutil::InvalidArgumentErrorBuilder()
          << "got invalid binary operation: " << binop;
 }
 
@@ -286,7 +284,7 @@ absl::StatusOr<SymbolicEvalResult> EvalTypeCast(
 
     // TODO(b/291779521): Range matches are not currently supported.
     case ast::Type::kRange:
-      return gutils::UnimplementedErrorBuilder(GUTILS_LOC)
+      return gutil::UnimplementedErrorBuilder()
              << "Range matches are not currently supported by the "
                 "p4-constraints symbolic representation.";
 
@@ -295,10 +293,10 @@ absl::StatusOr<SymbolicEvalResult> EvalTypeCast(
     case ast::Type::kBoolean:
     case ast::Type::kArbitraryInt:
     case ast::Type::TYPE_NOT_SET:
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "cannot cast expression to type " << type_to_cast_to;
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+  return gutil::InvalidArgumentErrorBuilder()
          << "Got invalid type to cast to: " << type_to_cast_to;
 }
 
@@ -354,9 +352,9 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
     }
 
     case ast::Expression::kKey: {
-      ASSIGN_OR_RETURN(const SymbolicKey* key,
-                       gutils::FindPtrOrStatus(environment.symbolic_key_by_name,
-                                               expr.key()));
+      ASSIGN_OR_RETURN(
+          const SymbolicKey* key,
+          gutil::FindPtrOrStatus(environment.symbolic_key_by_name, expr.key()));
       return *key;
     }
 
@@ -370,8 +368,8 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
       // moment. If there were, this logic would need to change.
       ASSIGN_OR_RETURN(
           const SymbolicKey* key,
-          gutils::FindPtrOrStatus(environment.symbolic_key_by_name,
-                                  expr.field_access().expr().key()));
+          gutil::FindPtrOrStatus(environment.symbolic_key_by_name,
+                                 expr.field_access().expr().key()));
       return GetFieldAccess(*key, expr.field_access().field());
     }
 
@@ -379,8 +377,8 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
       // All attributes should be in the map.
       ASSIGN_OR_RETURN(
           const SymbolicAttribute* attribute,
-          gutils::FindPtrOrStatus(environment.symbolic_attribute_by_name,
-                                  expr.attribute_access().attribute_name()));
+          gutil::FindPtrOrStatus(environment.symbolic_attribute_by_name,
+                                 expr.attribute_access().attribute_name()));
       return attribute->value;
     }
 
@@ -408,7 +406,7 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
     case ast::Expression::EXPRESSION_NOT_SET:
       break;
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+  return gutil::InvalidArgumentErrorBuilder()
          << "got invalid expression: " << expr.DebugString();
 }
 
@@ -476,7 +474,7 @@ absl::StatusOr<std::string> Z3BitvectorValueToP4RuntimeBytestring(
   if (absl::ConsumePrefix(&z3_value, "#b")) {
     return BitstringToP4RuntimeBytestring(z3_value, bitwidth);
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+  return gutil::InvalidArgumentErrorBuilder()
          << "Expected a Z3 bitvector value starting with '#x' or '#b', but got "
             "'"
          << z3_value << "'.";
@@ -539,7 +537,7 @@ absl::StatusOr<std::optional<p4::v1::FieldMatch>> ConcretizeKey(
       ASSIGN_OR_RETURN(z3::expr key_prefix_length, GetPrefixLength(match_key));
       if (!model.eval(key_prefix_length, /*model_completion=*/true)
                .is_numeral()) {
-        return gutils::InternalErrorBuilder(GUTILS_LOC)
+        return gutil::InternalErrorBuilder()
                << "Prefix length should always be an integer. Instead, got '"
                << model.eval(key_prefix_length)
                << "' for key: " << key_info.name;
@@ -563,7 +561,7 @@ absl::StatusOr<std::optional<p4::v1::FieldMatch>> ConcretizeKey(
 
     // TODO(b/291779521): Range matches are not currently supported.
     case ast::Type::kRange:
-      return gutils::UnimplementedErrorBuilder(GUTILS_LOC)
+      return gutil::UnimplementedErrorBuilder()
              << "Range matches are not currently supported by the "
                 "p4-constraints symbolic representation.";
 
@@ -574,10 +572,10 @@ absl::StatusOr<std::optional<p4::v1::FieldMatch>> ConcretizeKey(
     case p4_constraints::ast::Type::kArbitraryInt:
     case p4_constraints::ast::Type::kFixedUnsigned:
     case p4_constraints::ast::Type::TYPE_NOT_SET:
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "expected a match type, but got: " << key_info;
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+  return gutil::InvalidArgumentErrorBuilder()
          << "got invalid type: " << key_info;
 }
 
@@ -589,7 +587,7 @@ absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
                                            z3::solver& solver) {
   ASSIGN_OR_RETURN(int bitwidth, ast::TypeBitwidthOrStatus(key.type));
   if (bitwidth == 0) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "expected a key type with bitwidth > 0, but got: " << key;
   }
   switch (key.type.type_case()) {
@@ -639,7 +637,7 @@ absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
 
     // TODO(b/291779521): Range matches are not currently supported.
     case ast::Type::kRange:
-      return gutils::UnimplementedErrorBuilder(GUTILS_LOC)
+      return gutil::UnimplementedErrorBuilder()
              << "Range matches are not currently supported by the "
                 "p4-constraints symbolic representation.";
 
@@ -650,11 +648,10 @@ absl::StatusOr<SymbolicKey> AddSymbolicKey(const KeyInfo& key,
     case ast::Type::kArbitraryInt:
     case ast::Type::kFixedUnsigned:
     case ast::Type::TYPE_NOT_SET:
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "expected a match type, but got: " << key;
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-         << "got invalid type: " << key;
+  return gutil::InvalidArgumentErrorBuilder() << "got invalid type: " << key;
 }
 
 SymbolicAttribute AddSymbolicPriority(z3::solver& solver) {
@@ -671,7 +668,7 @@ absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
     const SymbolicEnvironment& environment, z3::solver& solver) {
   // TODO(b/296865478): Run the typechecker here instead when it is idempotent.
   if (!constraint.type().has_boolean()) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "expected a constraint of type boolean, but got:\n"
            << constraint.DebugString();
   }
@@ -683,8 +680,7 @@ absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
 
 absl::StatusOr<p4::v1::TableEntry> ConstraintSolver::ConcretizeEntry() {
   if (solver_->check() != z3::sat) {
-    return gutils::InternalErrorBuilder(GUTILS_LOC)
-           << "Constraints are not satisfiable.";
+    return gutil::InternalErrorBuilder() << "Constraints are not satisfiable.";
   }
 
   z3::model model = solver_->get_model();
@@ -694,13 +690,13 @@ absl::StatusOr<p4::v1::TableEntry> ConstraintSolver::ConcretizeEntry() {
   // Construct match fields by evaluating their respective entries in the model.
   // Ordered for reproducibility.
   for (const auto& [key_name, key_info] :
-       gutils::Ordered(table_info_.keys_by_name)) {
+       gutil::AsOrderedView(table_info_.keys_by_name)) {
     ASSIGN_OR_RETURN(bool key_should_be_skipped, skip_key_named_(key_name));
     if (key_should_be_skipped) continue;
 
     ASSIGN_OR_RETURN(
         const SymbolicKey* symbolic_key,
-        gutils::FindPtrOrStatus(environment_.symbolic_key_by_name, key_name));
+        gutil::FindPtrOrStatus(environment_.symbolic_key_by_name, key_name));
     ASSIGN_OR_RETURN(std::optional<p4::v1::FieldMatch> match,
                      ConcretizeKey(*symbolic_key, key_info, model));
 
@@ -712,14 +708,14 @@ absl::StatusOr<p4::v1::TableEntry> ConstraintSolver::ConcretizeEntry() {
 
   // Set priority if it exists.
   if (auto priority_key =
-          gutils::FindPtrOrStatus(environment_.symbolic_attribute_by_name,
-                                  kSymbolicPriorityAttributeName);
+          gutil::FindPtrOrStatus(environment_.symbolic_attribute_by_name,
+                                 kSymbolicPriorityAttributeName);
       priority_key.ok()) {
     if (model.has_interp((*priority_key)->value.decl())) {
       table_entry.set_priority(
           model.eval((*priority_key)->value).get_numeral_int());
     } else {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "A priority SymbolicAttribute existed, but it was not "
                 "constrained. This should never happen. Please use "
                 "AddSymbolicPriority to initialize a priority for the symbolic "
@@ -733,7 +729,7 @@ absl::StatusOr<bool> ConstraintSolver::AddConstraint(
     const ast::Expression& constraint,
     const ConstraintSource& constraint_source) {
   if (solver_->check() != z3::sat) {
-    return gutils::InternalErrorBuilder(GUTILS_LOC)
+    return gutil::InternalErrorBuilder()
            << "Stored constraints are unsatisfiable. Constraint solver must "
               "hold a satisfiable constraint at all times.";
   };
@@ -782,7 +778,7 @@ absl::StatusOr<ConstraintSolver> ConstraintSolver::Create(
   bool requires_priority = false;
   // Ordered for reproducibility.
   for (const auto& [key_name, key_info] :
-       gutils::Ordered(constraint_solver.table_info_.keys_by_name)) {
+       gutil::AsOrderedView(constraint_solver.table_info_.keys_by_name)) {
     if (key_info.type.has_ternary() || key_info.type.has_optional_match()) {
       // In P4Runtime, all tables with ternaries or optionals require priorities
       // for their entries.
@@ -811,7 +807,7 @@ absl::StatusOr<ConstraintSolver> ConstraintSolver::Create(
                      constraint_solver.AddConstraint(*table.constraint,
                                                      table.constraint_source));
     if (!modeled_constraint_added) {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "TableInfo provided an unsatisfiable constraint. "
                 "ConstraintSolver must contain a satisfiable constraint at all "
                 "times so creation failed.\n Unsatisfiable Constraint: "

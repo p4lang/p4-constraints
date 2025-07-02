@@ -18,14 +18,11 @@ cc_library(
     deps = [
         ":constraint_info",
         ":errors",
-        "//gutils:ordered_map",
-        "//gutils:overload",
-        "//gutils:ret_check",
-        "//gutils:status",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
         "//p4_constraints:quote",
+        "//p4_constraints:ret_check",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -37,6 +34,9 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:variant",
+        "@com_google_gutil//gutil:ordered_map",
+        "@com_google_gutil//gutil:overload",
+        "@com_google_gutil//gutil:status",
     ],
 )
 
@@ -51,8 +51,6 @@ cc_test(
     deps = [
         ":constraint_info",
         ":interpreter",
-        "//gutils:parse_text_proto",
-        "//gutils:status_matchers",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
@@ -62,6 +60,8 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
+        "@com_google_gutil//gutil:status_matchers",
+        "@com_google_gutil//gutil:testing",
     ],
 )
 
@@ -76,12 +76,11 @@ cc_library(
         "type_checker.h",
     ],
     deps = [
-        "//gutils:source_location",
-        "//gutils:status",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
         "//p4_constraints:quote",
+        "//p4_constraints:source_location",
         "//p4_constraints/frontend:constraint_kind",
         "//p4_constraints/frontend:parser",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
@@ -94,6 +93,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:optional",
+        "@com_google_gutil//gutil:status",
         "@com_googlesource_code_re2//:re2",
     ],
 )
@@ -106,10 +106,6 @@ cc_test(
     deps = [
         ":constraint_info",
         ":interpreter",
-        "//gutils:ordered_map",
-        "//gutils:parse_text_proto",
-        "//gutils:source_location",
-        "//gutils:status",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
         "//p4_constraints/frontend:constraint_kind",
@@ -121,6 +117,8 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_gutil//gutil:ordered_map",
+        "@com_google_gutil//gutil:testing",
     ],
 )
 
@@ -137,14 +135,14 @@ cc_test(
     srcs = ["type_checker_test.cc"],
     deps = [
         ":constraint_info",
-        "//gutils:parse_text_proto",
-        "//gutils:status_matchers",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
+        "@com_google_gutil//gutil:status_matchers",
+        "@com_google_gutil//gutil:testing",
     ],
 )
 
@@ -159,11 +157,6 @@ cc_library(
     deps = [
         ":constraint_info",
         ":errors",
-        "//gutils:collections",
-        "//gutils:ordered_map",
-        "//gutils:overload",
-        "//gutils:source_location",
-        "//gutils:status",
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
@@ -176,6 +169,10 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_gutil//gutil:collections",
+        "@com_google_gutil//gutil:ordered_map",
+        "@com_google_gutil//gutil:overload",
+        "@com_google_gutil//gutil:status",
     ],
 )
 
@@ -184,12 +181,11 @@ cc_library(
     srcs = ["errors.cc"],
     hdrs = ["errors.h"],
     deps = [
-        "//gutils:source_location",
-        "//gutils:status",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
         "//p4_constraints:quote",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_gutil//gutil:status",
     ],
 )
 
@@ -200,10 +196,6 @@ cc_test(
         ":constraint_info",
         ":interpreter",
         ":symbolic_interpreter",
-        "//gutils:parse_text_proto",
-        "//gutils:protocol_buffer_matchers",
-        "//gutils:status_matchers",
-        "//gutils:testing",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
         "//p4_constraints/frontend:constraint_kind",
@@ -216,6 +208,9 @@ cc_test(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
+        "@com_google_gutil//gutil:proto_matchers",
+        "@com_google_gutil//gutil:status_matchers",
+        "@com_google_gutil//gutil:testing",
     ],
 )
 
@@ -224,12 +219,13 @@ cc_test(
     srcs = ["constraint_info_test.cc"],
     deps = [
         ":constraint_info",
-        "//gutils:proto",
-        "//gutils:status_matchers",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
+        "@com_google_gutil//gutil:proto",
+        "@com_google_gutil//gutil:status",
+        "@com_google_gutil//gutil:status_matchers",
     ],
 )

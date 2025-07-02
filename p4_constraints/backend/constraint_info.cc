@@ -31,9 +31,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/types/optional.h"
-#include "gutils/source_location.h"
-#include "gutils/status_builder.h"
-#include "gutils/status_macros.h"
+#include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/config/v1/p4types.pb.h"
 #include "p4_constraints/ast.pb.h"
@@ -133,7 +131,7 @@ absl::StatusOr<absl::optional<ConstraintSource>> ExtractConstraint(
   if (!absl::ConsumePrefix(&constraint_string, "(\"") ||
       !absl::ConsumeSuffix(&constraint_string, "\")")) {
     bool is_table = constraint_kind == ConstraintKind::kTableConstraint;
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "In " << (is_table ? "table " : "action ") << preamble.name()
            << ":\n"
            << "Syntax error: @" << (is_table ? "entry" : "action")
@@ -161,7 +159,7 @@ absl::StatusOr<absl::optional<ConstraintSource>> ExtractConstraint(
   // Ensure there are no further quotation marks in
   // `constraint_string_without_quotes`, since those would always be incorrect.
   if (absl::StrContains(constraint_string_without_quotes, "\"")) {
-    return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+    return gutil::InvalidArgumentErrorBuilder()
            << "In "
            << (constraint_kind == ConstraintKind::kTableConstraint ? "table "
                                                                    : "action ")
@@ -203,7 +201,7 @@ absl::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
           type.mutable_optional_match()->set_bitwidth(key.bitwidth());
           return type;
         default:
-          return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+          return gutil::InvalidArgumentErrorBuilder()
                  << "match key of invalid MatchType: "
                  << MatchField::MatchType_Name(key.match_type());
       }
@@ -211,7 +209,7 @@ absl::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
       *type.mutable_unsupported()->mutable_name() = key.other_match_type();
       return type;
     default:
-      return gutils::InternalErrorBuilder(GUTILS_LOC)
+      return gutil::InternalErrorBuilder()
              << "unknown MatchField.match case: " << key.match_case();
   }
 }
@@ -237,12 +235,12 @@ absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
     ASSIGN_OR_RETURN(const ast::Type type, ParseKeyType(key));
     const KeyInfo key_info{.id = key.id(), .name = key.name(), .type = type};
     if (!keys_by_id.insert({key_info.id, key_info}).second) {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "table " << table.preamble().name()
              << " has duplicate key: " << key.DebugString();
     }
     if (!keys_by_name.insert({key_info.name, key_info}).second) {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "table " << table.preamble().name()
              << " has duplicate key: " << key.DebugString();
     }
@@ -288,12 +286,12 @@ absl::StatusOr<ActionInfo> ParseActionInfo(const Action& action) {
         .type = type,
     };
     if (!params_by_id.insert({param_info.id, param_info}).second) {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "action " << action.preamble().name()
              << " has duplicate param: " << param.DebugString();
     }
     if (!params_by_name.insert({param_info.name, param_info}).second) {
-      return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      return gutil::InvalidArgumentErrorBuilder()
              << "action " << action.preamble().name()
              << " has duplicate param: " << param.DebugString();
     }
@@ -366,7 +364,7 @@ absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
       errors.push_back(table_info.status());
     } else if (!table_info_by_id.insert({table.preamble().id(), *table_info})
                     .second) {
-      errors.push_back(gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      errors.push_back(gutil::InvalidArgumentErrorBuilder()
                        << "duplicate table: " << table.DebugString());
     }
   }
@@ -377,7 +375,7 @@ absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
       errors.push_back(action_info.status());
     } else if (!action_info_by_id.insert({action.preamble().id(), *action_info})
                     .second) {
-      errors.push_back(gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+      errors.push_back(gutil::InvalidArgumentErrorBuilder()
                        << "duplicate action: " << action.DebugString());
     }
   }
@@ -389,7 +387,7 @@ absl::StatusOr<ConstraintInfo> P4ToConstraintInfo(
     };
     return info;
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
+  return gutil::InvalidArgumentErrorBuilder()
          << "P4Info to constraint info translation failed with the following "
             "errors:\n- "
          << absl::StrJoin(errors, "\n- ",

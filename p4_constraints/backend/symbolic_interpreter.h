@@ -36,7 +36,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
-#include "gutils/overload.h"
+#include "gutil/overload.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
@@ -185,7 +185,7 @@ void AbslStringify(Sink& sink, const SymbolicAttribute& attribute) {
 template <typename Sink>
 void AbslStringify(Sink& sink, const SymbolicKey& symbolic_key) {
   std::visit(
-      gutils::Overload{
+      gutil::Overload{
           [&](const auto& variant) { absl::Format(&sink, "%v", variant); },
       },
       symbolic_key);
@@ -207,7 +207,7 @@ void AbslStringify(Sink& sink, const z3::expr& expr) {
 template <typename Sink>
 void AbslStringify(Sink& sink, const SymbolicEvalResult& result) {
   std::visit(
-      gutils::Overload{
+      gutil::Overload{
           [&](const auto& variant) { absl::Format(&sink, "%v", variant); },
       },
       result);

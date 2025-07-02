@@ -17,32 +17,33 @@
 // Based on http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4519.pdf.
 //
 // To define a function that has access to the source location of the
-// callsite, define it with a parameter of type `gutils::SourceLocation`. The
-// caller can then invoke the function, passing `IREE_LOC` as the argument.
+// callsite, define it with a parameter of type
+// `p4_constraints::SourceLocation`. The caller can then invoke the function,
+// passing `P4_CONSTRAINTS_LOC` as the argument.
 
-#ifndef IREE_BASE_INTERNAL_SOURCE_LOCATION_H_
-#define IREE_BASE_INTERNAL_SOURCE_LOCATION_H_
+#ifndef THIRD_PARTY_P4LANG_P4_CONSTRAINTS_P4_CONSTRAINTS_SOURCE_LOCATION_H_
+#define THIRD_PARTY_P4LANG_P4_CONSTRAINTS_P4_CONSTRAINTS_SOURCE_LOCATION_H_
 
 #include <cstdint>
 
 #if defined(__is_identifier)
-#define IREE_INTERNAL_HAS_KEYWORD(x) !(__is_identifier(x))
+#define P4_CONSTRAINTS_INTERNAL_HAS_KEYWORD(x) !(__is_identifier(x))
 #else
-#define IREE_INTERNAL_HAS_KEYWORD(x) 0
+#define P4_CONSTRAINTS_INTERNAL_HAS_KEYWORD(x) 0
 #endif
 
-#if !defined(IREE_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT)
-#if IREE_INTERNAL_HAS_KEYWORD(__builtin_LINE) && \
-    IREE_INTERNAL_HAS_KEYWORD(__builtin_FILE)
-#define IREE_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT 1
+#if !defined(P4_CONSTRAINTS_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT)
+#if P4_CONSTRAINTS_INTERNAL_HAS_KEYWORD(__builtin_LINE) && \
+    P4_CONSTRAINTS_INTERNAL_HAS_KEYWORD(__builtin_FILE)
+#define P4_CONSTRAINTS_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT 1
 #else
-#define IREE_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT 0
+#define P4_CONSTRAINTS_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT 0
 #endif
 #endif
 
-#undef IREE_INTERNAL_HAS_KEYWORD
+#undef P4_CONSTRAINTS_INTERNAL_HAS_KEYWORD
 
-namespace gutils {
+namespace p4_constraints {
 
 // Class representing a specific location in the source code of a program.
 class SourceLocation {
@@ -57,13 +58,13 @@ class SourceLocation {
   constexpr SourceLocation() : line_(0), file_name_(nullptr) {}
 
   // Wrapper to invoke the private constructor below. This should only be used
-  // by the `IREE_LOC` macro, hence the name.
+  // by the `P4_CONSTRAINTS_LOC` macro, hence the name.
   static constexpr SourceLocation DoNotInvokeDirectly(std::uint_least32_t line,
                                                       const char* file_name) {
     return SourceLocation(line, file_name);
   }
 
-#if IREE_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT
+#if P4_CONSTRAINTS_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT
   // SourceLocation::current
   //
   // Creates a `SourceLocation` based on the current line and file.  APIs that
@@ -91,11 +92,11 @@ class SourceLocation {
   // support them.
 
  private:
-  // Do not invoke this constructor directly. Instead, use the `IREE_LOC` macro
-  // below.
+  // Do not invoke this constructor directly. Instead, use the
+  // `P4_CONSTRAINTS_LOC` macro below.
   //
-  // `file_name` must outlive all copies of the `gutils::SourceLocation` object,
-  // so in practice it should be a string literal.
+  // `file_name` must outlive all copies of the `p4_constraints::SourceLocation`
+  // object, so in practice it should be a string literal.
   constexpr SourceLocation(std::uint_least32_t line, const char* file_name)
       : line_(line), file_name_(file_name) {}
 
@@ -112,31 +113,34 @@ class SourceLocation {
   const char* file_name_;
 };
 
-}  // namespace gutils
+}  // namespace p4_constraints
 
-// If a function takes an `gutils::SourceLocation` parameter, pass this as the
-// argument.
-#define IREE_LOC \
-  ::gutils::SourceLocation::DoNotInvokeDirectly(__LINE__, __FILE__)
-#define GUTILS_LOC IREE_LOC
+// If a function takes an `p4_constraints::SourceLocation` parameter, pass this
+// as the argument.
+#define P4_CONSTRAINTS_LOC \
+  ::p4_constraints::SourceLocation::DoNotInvokeDirectly(__LINE__, __FILE__)
 
-// IREE_LOC_CURRENT_DEFAULT_ARG
+// P4_CONSTRAINTS_LOC_CURRENT_DEFAULT_ARG
 //
-// Specifies that a function should use `gutils::SourceLocation::current()` on
-// platforms where it will return useful information, but require explicitly
-// passing `IREE_LOC` on platforms where it would return dummy information.
+// Specifies that a function should use
+// `p4_constraints::SourceLocation::current()` on platforms where it will return
+// useful information, but require explicitly passing `P4_CONSTRAINTS_LOC` on
+// platforms where it would return dummy information.
 //
 // Usage:
 //
 //   void MyLog(absl::string_view msg,
-//              gutils::SourceLocation loc IREE_LOC_CURRENT_DEFAULT_ARG) {
+//              p4_constraints::SourceLocation loc
+//              P4_CONSTRAINTS_LOC_CURRENT_DEFAULT_ARG)
+//              {
 //     std::cout << loc.file_name() << "@" << loc.line() << ": " << msg;
 //   }
 //
-#if IREE_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT
-#define IREE_LOC_CURRENT_DEFAULT_ARG = ::gutils::SourceLocation::current()
+#if P4_CONSTRAINTS_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT
+#define P4_CONSTRAINTS_LOC_CURRENT_DEFAULT_ARG \
+  = ::p4_constraints::SourceLocation::current()
 #else
-#define IREE_LOC_CURRENT_DEFAULT_ARG
+#define P4_CONSTRAINTS_LOC_CURRENT_DEFAULT_ARG
 #endif
 
-#endif  // IREE_BASE_INTERNAL_SOURCE_LOCATION_H_
+#endif  // THIRD_PARTY_P4LANG_P4_CONSTRAINTS_P4_CONSTRAINTS_SOURCE_LOCATION_H_

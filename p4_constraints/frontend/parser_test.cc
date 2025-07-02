@@ -24,8 +24,8 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "gutils/protocol_buffer_matchers.h"
-#include "gutils/status_matchers.h"
+#include "gutil/proto_matchers.h"
+#include "gutil/status_matchers.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/constraint_kind.h"
@@ -33,10 +33,10 @@
 
 namespace p4_constraints {
 
-using ::gutils::testing::EqualsProto;
-using ::gutils::testing::proto::Partially;
-using ::gutils::testing::status::IsOkAndHolds;
-using ::gutils::testing::status::StatusIs;
+using ::gutil::EqualsProto;
+using ::gutil::IsOkAndHolds;
+using ::gutil::Partially;
+using ::gutil::StatusIs;
 
 Token Binary(std::string text) {
   return Token(Token::BINARY, text, ast::SourceLocation(),

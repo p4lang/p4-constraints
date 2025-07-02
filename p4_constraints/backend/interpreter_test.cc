@@ -31,8 +31,8 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
-#include "gutils/parse_text_proto.h"
-#include "gutils/status_matchers.h"
+#include "gutil/status_matchers.h"
+#include "gutil/testing.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
@@ -44,9 +44,9 @@ namespace internal_interpreter {
 namespace {
 
 using ::absl::StatusCode;
-using ::gutils::ParseTextProtoOrDie;
-using ::gutils::testing::status::IsOkAndHolds;
-using ::gutils::testing::status::StatusIs;
+using ::gutil::IsOkAndHolds;
+using ::gutil::ParseProtoOrDie;
+using ::gutil::StatusIs;
 using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::Type;
 using ::testing::Contains;
@@ -63,21 +63,21 @@ std::string PrintTextProto(const google::protobuf::Message& message) {
 
 class ReasonEntryViolatesConstraintTest : public ::testing::Test {
  public:
-  const Type kUnknown = ParseTextProtoOrDie<Type>("unknown {}");
+  const Type kUnknown = ParseProtoOrDie<Type>("unknown {}");
   const Type kUnsupported =
-      ParseTextProtoOrDie<Type>(R"pb(unsupported { name: "optional" })pb");
-  const Type kBool = ParseTextProtoOrDie<Type>("boolean {}");
-  const Type kArbitraryInt = ParseTextProtoOrDie<Type>("arbitrary_int {}");
+      ParseProtoOrDie<Type>(R"pb(unsupported { name: "optional" })pb");
+  const Type kBool = ParseProtoOrDie<Type>("boolean {}");
+  const Type kArbitraryInt = ParseProtoOrDie<Type>("arbitrary_int {}");
   const Type kFixedUnsigned16 =
-      ParseTextProtoOrDie<Type>("fixed_unsigned { bitwidth: 16 }");
+      ParseProtoOrDie<Type>("fixed_unsigned { bitwidth: 16 }");
   const Type kFixedUnsigned32 =
-      ParseTextProtoOrDie<Type>("fixed_unsigned { bitwidth: 32 }");
-  const Type kExact32 = ParseTextProtoOrDie<Type>("exact { bitwidth: 32 }");
-  const Type kTernary32 = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }");
-  const Type kLpm32 = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }");
-  const Type kRange32 = ParseTextProtoOrDie<Type>("range { bitwidth: 32 }");
+      ParseProtoOrDie<Type>("fixed_unsigned { bitwidth: 32 }");
+  const Type kExact32 = ParseProtoOrDie<Type>("exact { bitwidth: 32 }");
+  const Type kTernary32 = ParseProtoOrDie<Type>("ternary { bitwidth: 32 }");
+  const Type kLpm32 = ParseProtoOrDie<Type>("lpm { bitwidth: 32 }");
+  const Type kRange32 = ParseProtoOrDie<Type>("range { bitwidth: 32 }");
   const Type kOptional32 =
-      ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
+      ParseProtoOrDie<Type>("optional_match { bitwidth: 32 }");
 
   // Used to avoid quoting errors. Not important for unit testing.
   const ConstraintSource kDummySource = {
@@ -122,7 +122,7 @@ class ReasonEntryViolatesConstraintTest : public ::testing::Test {
   };
 
   const p4::v1::TableEntry kTableEntry =
-      ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+      ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
         table_id: 1
         match {
           field_id: 1
@@ -143,7 +143,7 @@ class ReasonEntryViolatesConstraintTest : public ::testing::Test {
 
   static Expression ExpressionWithType(const Type& type,
                                        const std::string& expr_string) {
-    Expression expr = ParseTextProtoOrDie<Expression>(expr_string);
+    Expression expr = ParseProtoOrDie<Expression>(expr_string);
     *expr.mutable_type() = type;
     return expr;
   }
@@ -245,7 +245,7 @@ class EvalTest : public ReasonEntryViolatesConstraintTest {};
 class EvalToBoolCacheTest : public ReasonEntryViolatesConstraintTest {};
 
 TEST_F(ReasonEntryViolatesConstraintTest, EntryShouldMeetActionConstraint) {
-  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+  p4::v1::TableEntry table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
     table_id: 1
     action {
       action {
@@ -266,7 +266,7 @@ TEST_F(ReasonEntryViolatesConstraintTest, EntryShouldMeetActionConstraint) {
 }
 
 TEST_F(ReasonEntryViolatesConstraintTest, MissingActionIdShouldFailForAction) {
-  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+  p4::v1::TableEntry table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
     table_id: 1
     action {
       action {
@@ -286,7 +286,7 @@ TEST_F(ReasonEntryViolatesConstraintTest, MissingActionIdShouldFailForAction) {
 
 TEST_F(ReasonEntryViolatesConstraintTest,
        MissingActionIdShouldFailForActionProfileActionSet) {
-  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+  p4::v1::TableEntry table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
     table_id: 1
     action {
       action_profile_action_set {
@@ -321,7 +321,7 @@ TEST_F(ReasonEntryViolatesConstraintTest,
 
 TEST_F(ReasonEntryViolatesConstraintTest,
        ActionProfileMemberIdReturnsUnimplementedError) {
-  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+  p4::v1::TableEntry table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
     table_id: 1
     action { action_profile_member_id: 1 }
   )pb");
@@ -337,7 +337,7 @@ TEST_F(ReasonEntryViolatesConstraintTest,
 
 TEST_F(ReasonEntryViolatesConstraintTest,
        ActionProfileGroupIdReturnsUnimplementedError) {
-  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+  p4::v1::TableEntry table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
     table_id: 1
     action { action_profile_group_id: 1 }
   )pb");
@@ -352,7 +352,7 @@ TEST_F(ReasonEntryViolatesConstraintTest,
 }
 
 TEST_F(ReasonEntryViolatesConstraintTest, EntryShouldViolateActionConstraint) {
-  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+  p4::v1::TableEntry table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
     table_id: 1
     action {
       action {
@@ -363,26 +363,25 @@ TEST_F(ReasonEntryViolatesConstraintTest, EntryShouldViolateActionConstraint) {
   )pb");
 
   // Constraint to check that multicast_group_id != 0.
-  Expression multicast_group_id_constraint =
-      ParseTextProtoOrDie<Expression>(R"pb(
-        start_location { action_name: "multicast_group_id" }
-        end_location { action_name: "multicast_group_id" }
-        type { boolean {} }
-        binary_expression {
-          binop: NE
-          left {
-            type { fixed_unsigned { bitwidth: 32 } }
-            action_parameter: "multicast_group_id"
-          }
-          right {
-            type { fixed_unsigned { bitwidth: 32 } }
-            type_cast {
-              type { arbitrary_int {} }
-              integer_constant: "0"
-            }
-          }
+  Expression multicast_group_id_constraint = ParseProtoOrDie<Expression>(R"pb(
+    start_location { action_name: "multicast_group_id" }
+    end_location { action_name: "multicast_group_id" }
+    type { boolean {} }
+    binary_expression {
+      binop: NE
+      left {
+        type { fixed_unsigned { bitwidth: 32 } }
+        action_parameter: "multicast_group_id"
+      }
+      right {
+        type { fixed_unsigned { bitwidth: 32 } }
+        type_cast {
+          type { arbitrary_int {} }
+          integer_constant: "0"
         }
-      )pb");
+      }
+    }
+  )pb");
 
   ActionInfo action_info = kMulticastGroupIdActionInfo;
   action_info.constraint = multicast_group_id_constraint;
@@ -399,7 +398,7 @@ TEST_F(ReasonEntryViolatesConstraintTest, EntryShouldViolateActionConstraint) {
 
 TEST_F(ReasonEntryViolatesConstraintTest,
        EntryShouldMeetActionProfileActionSetConstraint) {
-  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+  p4::v1::TableEntry table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
     table_id: 1
     action {
       action_profile_action_set {
@@ -434,7 +433,7 @@ TEST_F(ReasonEntryViolatesConstraintTest,
 
 TEST_F(ReasonEntryViolatesConstraintTest,
        EntryShouldViolateActionProfileActionSetConstraint) {
-  p4::v1::TableEntry table_entry = ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+  p4::v1::TableEntry table_entry = ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
     table_id: 1
     action {
       action_profile_action_set {
@@ -457,29 +456,28 @@ TEST_F(ReasonEntryViolatesConstraintTest,
   )pb");
 
   // Constraint to check that multicast_group_id != 0.
-  Expression multicast_group_id_constraint =
-      ParseTextProtoOrDie<Expression>(R"pb(
-        start_location { action_name: "multicast_group_id" }
-        end_location { action_name: "multicast_group_id" }
-        type { boolean {} }
-        binary_expression {
-          binop: NE
-          left {
-            type { fixed_unsigned { bitwidth: 32 } }
-            action_parameter: "multicast_group_id"
-          }
-          right {
-            type { fixed_unsigned { bitwidth: 32 } }
-            type_cast {
-              type { arbitrary_int {} }
-              integer_constant: "0"
-            }
-          }
+  Expression multicast_group_id_constraint = ParseProtoOrDie<Expression>(R"pb(
+    start_location { action_name: "multicast_group_id" }
+    end_location { action_name: "multicast_group_id" }
+    type { boolean {} }
+    binary_expression {
+      binop: NE
+      left {
+        type { fixed_unsigned { bitwidth: 32 } }
+        action_parameter: "multicast_group_id"
+      }
+      right {
+        type { fixed_unsigned { bitwidth: 32 } }
+        type_cast {
+          type { arbitrary_int {} }
+          integer_constant: "0"
         }
-      )pb");
+      }
+    }
+  )pb");
 
   // Constraint to check that vlan_id != 0.
-  Expression vlan_id_constraint = ParseTextProtoOrDie<Expression>(R"pb(
+  Expression vlan_id_constraint = ParseProtoOrDie<Expression>(R"pb(
     start_location { action_name: "vlan_id" }
     end_location { action_name: "vlan_id" }
     type { boolean {} }
@@ -533,7 +531,7 @@ TEST_F(ReasonEntryViolatesConstraintTest, BooleanConstants) {
       ExpressionWithType(kBool, "boolean_constant: true");
 
   // start_location and end_location provided for quoting.
-  Expression const_false = ParseTextProtoOrDie<Expression>(R"pb(
+  Expression const_false = ParseProtoOrDie<Expression>(R"pb(
     start_location { table_name: "table" }
     end_location { table_name: "table" }
     type { boolean {} }
@@ -601,7 +599,7 @@ TEST_F(ReasonEntryViolatesConstraintTest, EntriesWithLeadingZeroesWork) {
 }
 
 TEST_F(ReasonEntryViolatesConstraintTest, EntriesWithOnlyZeroesWork) {
-  Expression exact_equals_num = ParseTextProtoOrDie<Expression>(R"pb(
+  Expression exact_equals_num = ParseProtoOrDie<Expression>(R"pb(
     start_location { table_name: "table" }
     end_location { table_name: "table" }
     type { boolean {} }
@@ -639,7 +637,7 @@ TEST_F(ReasonEntryViolatesConstraintTest, EntriesWithOnlyZeroesWork) {
 }
 
 TEST_F(ReasonEntryViolatesConstraintTest, EntriesWithZeroAsciiValueWorks) {
-  Expression exact_equals_num = ParseTextProtoOrDie<Expression>(R"pb(
+  Expression exact_equals_num = ParseProtoOrDie<Expression>(R"pb(
     start_location { table_name: "table" }
     end_location { table_name: "table" }
     type { boolean {} }
@@ -691,7 +689,7 @@ Expression GetPriorityEqualityConstraint(const int32_t priority) {
     }
   )pb";
 
-  return ParseTextProtoOrDie<Expression>(
+  return ParseProtoOrDie<Expression>(
       absl::Substitute(kPriorityEqualityConstraint, priority));
 }
 
@@ -717,7 +715,7 @@ TEST_F(ReasonEntryViolatesConstraintTest,
   const int32_t priority = 10;
 
   const p4::v1::TableEntry table_entry_with_priority =
-      ParseTextProtoOrDie<p4::v1::TableEntry>(
+      ParseProtoOrDie<p4::v1::TableEntry>(
           absl::Substitute(kTableEntryWithPriority, priority));
 
   // Equality to a different priority.

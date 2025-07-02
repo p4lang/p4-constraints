@@ -23,9 +23,8 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "gutils/status.h"
-#include "gutils/status_builder.h"
-#include "gutils/status_macros.h"
+#include "absl/strings/str_cat.h"
+#include "gutil/status.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/constraint_source.h"
 #include "p4_constraints/frontend/ast_constructors.h"
@@ -140,20 +139,19 @@ int TokenPrecedence(Token::Kind kind) {
 
 // -- Error handling -----------------------------------------------------------
 
-gutils::StatusBuilder ParseError(const ConstraintSource& source,
-                                 const SourceLocation& start,
-                                 const SourceLocation& end) {
+gutil::StatusBuilder ParseError(const ConstraintSource& source,
+                                const SourceLocation& start,
+                                const SourceLocation& end) {
   absl::StatusOr<std::string> quote = QuoteSubConstraint(source, start, end);
   if (!quote.ok()) {
-    return gutils::InternalErrorBuilder(GUTILS_LOC)
+    return gutil::InternalErrorBuilder()
            << "Failed to quote sub-constraint: "
-           << gutils::StableStatusToString(quote.status());
+           << gutil::StableStatusToString(quote.status());
   }
-  return gutils::InvalidArgumentErrorBuilder(GUTILS_LOC)
-         << *quote << "Parse error: ";
+  return gutil::InvalidArgumentErrorBuilder() << *quote << "Parse error: ";
 }
 
-gutils::StatusBuilder ParseError(Token token, const ConstraintSource& source) {
+gutil::StatusBuilder ParseError(Token token, const ConstraintSource& source) {
   return ParseError(source, token.start_location, token.end_location);
 }
 
@@ -161,25 +159,29 @@ gutils::StatusBuilder ParseError(Token token, const ConstraintSource& source) {
 // since one of the given other tokens was expected.
 absl::Status Unexpected(Token token, const std::vector<Token::Kind>& expected,
                         const ConstraintSource& source) {
-  gutils::StatusBuilder error = ParseError(token, source);
+  gutil::StatusBuilder error = ParseError(token, source);
   if (token.kind == Token::UNEXPECTED_CHAR) {
     // Slightly awkward phrasing because the unexpected character may actually
     // be further back in the input, see "known limitation" in lexer.h.
     return error << "unexpected character at or after '" << token.text << "'.";
   }
 
-  error << "unexpected token: " << token.kind << ".";
+  std::string unexpected_token_str =
+      absl::StrCat("unexpected token: ", Token::KindToKeyword(token.kind), ".");
   for (int i = 0; i < expected.size(); i++) {
     if (i == 0) {
-      error << " Expected " << expected[i];
+      absl::StrAppend(&unexpected_token_str, " Expected ",
+                      Token::KindToKeyword(expected[i]));
     } else if (i == expected.size() - 1) {
-      error << ", or " << expected[i];
+      absl::StrAppend(&unexpected_token_str, ", or ",
+                      Token::KindToKeyword(expected[i]));
     } else {
-      error << ", " << expected[i];
+      absl::StrAppend(&unexpected_token_str, ", ",
+                      Token::KindToKeyword(expected[i]));
     }
-    if (i == expected.size() - 1) error << ".";
+    if (i == expected.size() - 1) absl::StrAppend(&unexpected_token_str, ".");
   }
-  return error;
+  return error << unexpected_token_str;
 }
 
 // -- Actual parsing -----------------------------------------------------------

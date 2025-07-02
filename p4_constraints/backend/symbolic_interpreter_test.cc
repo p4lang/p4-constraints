@@ -29,10 +29,9 @@
 #include "absl/log/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
-#include "gutils/parse_text_proto.h"
-#include "gutils/protocol_buffer_matchers.h"
-#include "gutils/status_matchers.h"
-#include "gutils/testing.h"
+#include "gutil/proto_matchers.h"
+#include "gutil/status_matchers.h"
+#include "gutil/testing.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
@@ -46,13 +45,12 @@
 namespace p4_constraints {
 namespace {
 
-using ::gutils::ParseTextProtoOrDie;
-using ::gutils::SnakeCaseToCamelCase;
-using ::gutils::testing::EqualsProto;
-using ::gutils::testing::proto::IgnoringRepeatedFieldOrdering;
-using ::gutils::testing::status::IsOk;
-using ::gutils::testing::status::IsOkAndHolds;
-using ::gutils::testing::status::StatusIs;
+using ::gutil::EqualsProto;
+using ::gutil::IsOk;
+using ::gutil::IsOkAndHolds;
+using ::gutil::ParseProtoOrDie;
+using ::gutil::SnakeCaseToCamelCase;
+using ::gutil::StatusIs;
 using ::p4_constraints::ast::Expression;
 using ::p4_constraints::ast::Type;
 using ::p4_constraints::internal_interpreter::AddSymbolicKey;
@@ -119,41 +117,41 @@ INSTANTIATE_TEST_SUITE_P(
         {
             .id = 1,
             .name = "exact32",
-            .type = ParseTextProtoOrDie<ast::Type>("exact { bitwidth: 32 }"),
+            .type = ParseProtoOrDie<ast::Type>("exact { bitwidth: 32 }"),
         },
         {
             .id = 2,
             .name = "optional32",
-            .type = ParseTextProtoOrDie<ast::Type>(
-                "optional_match { bitwidth: 32 }"),
+            .type =
+                ParseProtoOrDie<ast::Type>("optional_match { bitwidth: 32 }"),
         },
         {
             .id = 3,
             .name = "ternary32",
-            .type = ParseTextProtoOrDie<ast::Type>("ternary { bitwidth: 32 }"),
+            .type = ParseProtoOrDie<ast::Type>("ternary { bitwidth: 32 }"),
         },
         {
             .id = 1,
             .name = "lpm32",
-            .type = ParseTextProtoOrDie<ast::Type>("lpm { bitwidth: 32 }"),
+            .type = ParseProtoOrDie<ast::Type>("lpm { bitwidth: 32 }"),
         },
 
         // Keys with different bitwidths.
         {
             .id = 1,
             .name = "optional2",
-            .type = ParseTextProtoOrDie<ast::Type>(
-                "optional_match { bitwidth: 2 }"),
+            .type =
+                ParseProtoOrDie<ast::Type>("optional_match { bitwidth: 2 }"),
         },
         {
             .id = 1,
             .name = "ternary128",
-            .type = ParseTextProtoOrDie<ast::Type>("ternary { bitwidth: 128 }"),
+            .type = ParseProtoOrDie<ast::Type>("ternary { bitwidth: 128 }"),
         },
         {
             .id = 1,
             .name = "lpm128",
-            .type = ParseTextProtoOrDie<ast::Type>("lpm { bitwidth: 128 }"),
+            .type = ParseProtoOrDie<ast::Type>("lpm { bitwidth: 128 }"),
         },
     }),
     [](const testing::TestParamInfo<KeyInfo>& info) {
@@ -173,18 +171,18 @@ INSTANTIATE_TEST_SUITE_P(
         {
             .id = 1,
             .name = "zero_bitwidth_key",
-            .type = ParseTextProtoOrDie<ast::Type>("exact { bitwidth: 0 }"),
+            .type = ParseProtoOrDie<ast::Type>("exact { bitwidth: 0 }"),
         },
         {
             .id = 1,
             .name = "non_match_key_with_bitwidth",
-            .type = ParseTextProtoOrDie<ast::Type>(
-                "fixed_unsigned { bitwidth: 10 }"),
+            .type =
+                ParseProtoOrDie<ast::Type>("fixed_unsigned { bitwidth: 10 }"),
         },
         {
             .id = 1,
             .name = "non_match_key_without_bitwidth",
-            .type = ParseTextProtoOrDie<ast::Type>("boolean {}"),
+            .type = ParseProtoOrDie<ast::Type>("boolean {}"),
         },
     }),
     [](const testing::TestParamInfo<KeyInfo>& info) {
@@ -198,7 +196,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest, OptionalCanHaveZeroMask) {
   KeyInfo optional_key_info{
       .id = 1,
       .name = "optional32",
-      .type = ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("optional_match { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key,
@@ -215,7 +213,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest, OptionalCanHaveFullMask) {
   KeyInfo optional_key_info{
       .id = 1,
       .name = "optional32",
-      .type = ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("optional_match { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key,
@@ -235,7 +233,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest, OptionalCantHaveArbitraryMask) {
   KeyInfo optional_key_info{
       .id = 1,
       .name = "optional32",
-      .type = ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("optional_match { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key,
@@ -253,7 +251,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest,
   KeyInfo optional_key_info{
       .id = 1,
       .name = "optional32",
-      .type = ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("optional_match { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key,
@@ -272,7 +270,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest, TernaryCanHaveZeroMask) {
   KeyInfo ternary_key_info{
       .id = 1,
       .name = "ternary32",
-      .type = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("ternary { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key,
@@ -289,7 +287,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest, TernaryCanHaveFullMask) {
   KeyInfo ternary_key_info{
       .id = 1,
       .name = "ternary32",
-      .type = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("ternary { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key,
@@ -309,7 +307,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest, TernaryCanHaveArbitraryMask) {
   KeyInfo ternary_key_info{
       .id = 1,
       .name = "ternary32",
-      .type = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("ternary { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key,
@@ -327,7 +325,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest,
   KeyInfo ternary_key_info{
       .id = 1,
       .name = "ternary32",
-      .type = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("ternary { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key,
@@ -347,7 +345,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest,
   KeyInfo ternary_key_info{
       .id = 1,
       .name = "ternary32",
-      .type = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("ternary { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key,
@@ -366,7 +364,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest, LpmCanHavePrefixLengthZero) {
   KeyInfo lpm_key_info{
       .id = 1,
       .name = "lpm32",
-      .type = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("lpm { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(lpm_key_info, solver));
@@ -382,7 +380,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest, LpmCanHavePrefixLengthOfBitwidth) {
   KeyInfo lpm_key_info{
       .id = 1,
       .name = "lpm32",
-      .type = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("lpm { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(lpm_key_info, solver));
@@ -399,7 +397,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest,
   KeyInfo lpm_key_info{
       .id = 1,
       .name = "lpm32",
-      .type = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("lpm { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(lpm_key_info, solver));
@@ -416,7 +414,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest,
   KeyInfo lpm_key_info{
       .id = 1,
       .name = "lpm32",
-      .type = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("lpm { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(lpm_key_info, solver));
@@ -433,7 +431,7 @@ TEST(AddSymbolicKeySensibleConstraintsTest,
   KeyInfo lpm_key_info{
       .id = 1,
       .name = "lpm32",
-      .type = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }"),
+      .type = ParseProtoOrDie<Type>("lpm { bitwidth: 32 }"),
   };
 
   ASSERT_OK_AND_ASSIGN(SymbolicKey key, AddSymbolicKey(lpm_key_info, solver));
@@ -481,16 +479,16 @@ TEST(AddSymbolicPriorityTest, PositiveTooLargeIntegerIsUnsat) {
 }
 
 TableInfo GetTableInfoWithConstraint(absl::string_view constraint_string) {
-  const Type kExact32 = ParseTextProtoOrDie<Type>("exact { bitwidth: 32 }");
-  const Type kTernary32 = ParseTextProtoOrDie<Type>("ternary { bitwidth: 32 }");
-  const Type kLpm32 = ParseTextProtoOrDie<Type>("lpm { bitwidth: 32 }");
+  const Type kExact32 = ParseProtoOrDie<Type>("exact { bitwidth: 32 }");
+  const Type kTernary32 = ParseProtoOrDie<Type>("ternary { bitwidth: 32 }");
+  const Type kLpm32 = ParseProtoOrDie<Type>("lpm { bitwidth: 32 }");
   const Type kOptional32 =
-      ParseTextProtoOrDie<Type>("optional_match { bitwidth: 32 }");
+      ParseProtoOrDie<Type>("optional_match { bitwidth: 32 }");
   // Keys whose bitwidth is not a multiple of 8 may be handled somewhat
   // differently, so they are good to test.
-  const Type kExact11 = ParseTextProtoOrDie<Type>("exact { bitwidth: 11 }");
+  const Type kExact11 = ParseProtoOrDie<Type>("exact { bitwidth: 11 }");
   const Type kOptional28 =
-      ParseTextProtoOrDie<Type>("optional_match { bitwidth: 28 }");
+      ParseProtoOrDie<Type>("optional_match { bitwidth: 28 }");
   const std::string kTableName = "table";
 
   ConstraintSource source{
@@ -771,8 +769,9 @@ struct FullySpecifiedConstraintTestCase {
   // Should be set with the only entry that can possibly meet the constraint
   // string.
   p4::v1::TableEntry expected_concretized_entry;
-  // Optionally, specify a set of keys that should be skipped when concretizing
-  // the table entry. This only makes sense for non-required keys.
+  // Optionally, specify a set of keys that should be skipped when
+  // concretizing the table entry. This only makes sense for non-required
+  // keys.
   absl::flat_hash_set<std::string> keys_to_skip;
 };
 
@@ -810,8 +809,8 @@ TEST_P(FullySpecifiedConstraintTest,
   ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry concretized_entry,
                        constraint_solver.ConcretizeEntry());
 
-  EXPECT_THAT(concretized_entry, IgnoringRepeatedFieldOrdering(EqualsProto(
-                                     GetParam().expected_concretized_entry)));
+  EXPECT_THAT(concretized_entry,
+              EqualsProto(GetParam().expected_concretized_entry));
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -824,7 +823,7 @@ INSTANTIATE_TEST_SUITE_P(
                 "lpm32::prefix_length == 0; ternary32::mask == 0; "
                 "optional32::mask == 0; optional28::mask == 0;",
             .expected_concretized_entry =
-                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                   table_id: 1
                   match {
                     field_id: 1
@@ -844,7 +843,7 @@ INSTANTIATE_TEST_SUITE_P(
                 "lpm32::prefix_length == 0; ternary32::mask == 0; "
                 "optional32::mask == 0; optional28::mask == 0;",
             .expected_concretized_entry =
-                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                   table_id: 1
                   match {
                     field_id: 1
@@ -864,7 +863,7 @@ INSTANTIATE_TEST_SUITE_P(
                                  "== 0; optional32::mask == 0; exact11 == 1; "
                                  "exact32 == 1; optional28::mask == 0;",
             .expected_concretized_entry =
-                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                   table_id: 1
                   match {
                     field_id: 1
@@ -884,7 +883,7 @@ INSTANTIATE_TEST_SUITE_P(
                                  "exact11 == 1; exact32 == 1; ::priority == 1; "
                                  "optional28::mask == 0;",
             .expected_concretized_entry =
-                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                   table_id: 1
                   match {
                     field_id: 1
@@ -905,10 +904,11 @@ INSTANTIATE_TEST_SUITE_P(
             .test_name = "set_ternary",
             .constraint_string =
                 "ternary32 == 5; "
-                "lpm32::prefix_length == 0; optional32::mask == 0; exact11 == "
+                "lpm32::prefix_length == 0; optional32::mask == 0; exact11 "
+                "== "
                 "1; exact32 == 1; ::priority == 1; optional28::mask == 0;",
             .expected_concretized_entry =
-                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                   table_id: 1
                   match {
                     field_id: 1
@@ -929,10 +929,11 @@ INSTANTIATE_TEST_SUITE_P(
             .test_name = "set_optional32",
             .constraint_string =
                 "optional32 == 5; "
-                "lpm32::prefix_length == 0; ternary32::mask == 0;  exact11 == "
+                "lpm32::prefix_length == 0; ternary32::mask == 0;  exact11 "
+                "== "
                 "1; exact32 == 1; ::priority == 1; optional28::mask == 0;",
             .expected_concretized_entry =
-                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                   table_id: 1
                   match {
                     field_id: 1
@@ -956,7 +957,7 @@ INSTANTIATE_TEST_SUITE_P(
                 "lpm32::prefix_length == 0; ternary32::mask == 0; exact11 == "
                 "1; exact32 == 1; ::priority == 1; optional32::mask == 0;",
             .expected_concretized_entry =
-                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                   table_id: 1
                   match {
                     field_id: 1
@@ -975,11 +976,11 @@ INSTANTIATE_TEST_SUITE_P(
         },
         {
             .test_name = "skip_optionals",
-            .constraint_string =
-                "lpm32::prefix_length == 0; ternary32::mask == 0; exact11 == 1;"
-                "exact32 == 1; ::priority == 1;",
+            .constraint_string = "lpm32::prefix_length == 0; ternary32::mask "
+                                 "== 0; exact11 == 1;"
+                                 "exact32 == 1; ::priority == 1;",
             .expected_concretized_entry =
-                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                   table_id: 1
                   match {
                     field_id: 1
@@ -1135,7 +1136,8 @@ struct FullySpecifiedAdditionalConstraintTestCase {
   // of constraint strings.
   p4::v1::TableEntry expected_concretized_entry;
   // Optionally, specify a set of keys that should be skipped when
-  // concretizing the table entry. This only makes sense for non-required keys.
+  // concretizing the table entry. This only makes sense for non-required
+  // keys.
   absl::flat_hash_set<std::string> keys_to_skip;
 };
 
@@ -1174,8 +1176,8 @@ TEST_P(FullySpecifiedAdditionalConstraintTest,
   ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry concretized_entry,
                        constraint_solver.ConcretizeEntry());
 
-  EXPECT_THAT(concretized_entry, IgnoringRepeatedFieldOrdering(EqualsProto(
-                                     GetParam().expected_concretized_entry)));
+  EXPECT_THAT(concretized_entry,
+              EqualsProto(GetParam().expected_concretized_entry));
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -1190,7 +1192,7 @@ INSTANTIATE_TEST_SUITE_P(
                 "exact32 == 5; "
                 "lpm32::prefix_length == 0; ternary32::mask == 0; ",
             .expected_concretized_entry =
-                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                   table_id: 1
                   match {
                     field_id: 1
@@ -1212,7 +1214,7 @@ INSTANTIATE_TEST_SUITE_P(
             .custom_constraint_string =
                 "::priority < 3; exact32::value < 3; exact11::value < 3;",
             .expected_concretized_entry =
-                ParseTextProtoOrDie<p4::v1::TableEntry>(R"pb(
+                ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                   table_id: 1
                   match {
                     field_id: 1
