@@ -32,6 +32,7 @@
 #include <variant>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -122,12 +123,17 @@ class ConstraintSolver {
   // TODO(b/242201770): Extract actions once action constraints are supported.
   absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry();
 
+  // Adds the ConstraintSolver's constraints to the target solver.
+  // Renames variables according to the passed SymbolicEnvironment as needed.
+  absl::Status ExportConstraintsToTargetSolver(
+      z3::solver& solver, const SymbolicEnvironment& environment);
+
  private:
   explicit ConstraintSolver()
       : context_(std::make_unique<z3::context>()),
         solver_(std::make_unique<z3::solver>(*context_)) {}
 
-  // Z3 context and solver. Solver requires a reference to `context` for
+  // Z3 context and solver. 'solver' requires a reference to `context` for
   // construction so it is privately stored to avoid dangling reference.
   std::unique_ptr<z3::context> context_;
   std::unique_ptr<z3::solver> solver_;

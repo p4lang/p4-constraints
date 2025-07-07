@@ -46,6 +46,7 @@
 #include "p4_constraints/frontend/constraint_kind.h"
 #include "p4_constraints/frontend/parser.h"
 #include "z3++.h"
+#include "z3_api.h"
 
 namespace p4_constraints {
 namespace {
@@ -828,6 +829,162 @@ absl::StatusOr<z3::expr> GetMask(const SymbolicKey& symbolic_key) {
 
 absl::StatusOr<z3::expr> GetPrefixLength(const SymbolicKey& symbolic_key) {
   return GetFieldAccess(symbolic_key, "prefix_length");
+}
+
+// Substitute variable names in `expr`, replacing variables in `src_env` with
+// ones in `dst_env`. Note that `dst_env` is a subset of `src_env` and may not
+// share the same z3 context.
+absl::StatusOr<z3::expr> TranslateBySymbolicEnvironment(
+    z3::expr expr, const SymbolicEnvironment& src_env,
+    const SymbolicEnvironment& dst_env) {
+  for (const auto& entry : dst_env.symbolic_key_by_name) {
+    const auto& key_name = entry.first;
+    const auto& dst_key = entry.second;
+    auto src_it = src_env.symbolic_key_by_name.find(key_name);
+    if (src_it == src_env.symbolic_key_by_name.end()) {
+      return gutil::InvalidArgumentErrorBuilder()
+             << "Cannot rename nonexistent key '" << key_name
+             << "' specified in destination but not in source.";
+    }
+    const SymbolicKey& src_key = src_it->second;
+
+    // Replace `src_env` variables appearing in `expr` with the
+    // corresponding `dst_env` variables.
+    z3::expr_vector from(expr.ctx());
+    z3::expr_vector to(expr.ctx());
+    ASSIGN_OR_RETURN(
+        expr,
+        std::visit(
+            gutil::Overload{
+                [&](const SymbolicExact& src_exact)
+                    -> absl::StatusOr<z3::expr> {
+                  const SymbolicExact& dst_exact =
+                      std::get<SymbolicExact>(dst_key);
+                  z3::expr translated_dst_value = z3::to_expr(
+                      expr.ctx(), Z3_translate(dst_exact.value.ctx(),
+                                               dst_exact.value, expr.ctx()));
+                  if (!eq(src_exact.value.get_sort(),
+                          translated_dst_value.get_sort())) {
+                    return gutil::InternalErrorBuilder()
+                           << "Mismatched Z3 sorts during symbolic translation "
+                              "for "
+                              "key '"
+                           << key_name << "': src sort is "
+                           << src_exact.value.get_sort() << ", dst sort is "
+                           << translated_dst_value.get_sort();
+                  }
+                  from.push_back(src_exact.value);
+                  to.push_back(translated_dst_value);
+                  return expr.substitute(from, to);
+                },
+                [&](const SymbolicTernary& src_ternary)
+                    -> absl::StatusOr<z3::expr> {
+                  const SymbolicTernary& dst_ternary =
+                      std::get<SymbolicTernary>(dst_key);
+                  // Translate dst_ternary values to the context of expr.
+                  z3::expr translated_dst_value = z3::to_expr(
+                      expr.ctx(), Z3_translate(dst_ternary.value.ctx(),
+                                               dst_ternary.value, expr.ctx()));
+                  z3::expr translated_dst_mask = z3::to_expr(
+                      expr.ctx(), Z3_translate(dst_ternary.mask.ctx(),
+                                               dst_ternary.mask, expr.ctx()));
+                  if (!eq(src_ternary.value.get_sort(),
+                          translated_dst_value.get_sort())) {
+                    return gutil::InternalErrorBuilder()
+                           << "Mismatched Z3 sorts during symbolic translation "
+                              "for "
+                              "key '"
+                           << key_name << "': src sort is "
+                           << src_ternary.value.get_sort() << ", dst sort is "
+                           << translated_dst_value.get_sort();
+                  }
+                  if (!eq(src_ternary.mask.get_sort(),
+                          translated_dst_mask.get_sort())) {
+                    return gutil::InternalErrorBuilder()
+                           << "Mismatched Z3 sorts during symbolic translation "
+                              "for "
+                              "mask of key '"
+                           << key_name << "': src sort is "
+                           << src_ternary.mask.get_sort() << ", dst sort is "
+                           << translated_dst_mask.get_sort();
+                  }
+                  from.push_back(src_ternary.value);
+                  to.push_back(translated_dst_value);
+                  from.push_back(src_ternary.mask);
+                  to.push_back(translated_dst_mask);
+                  return expr.substitute(from, to);
+                },
+                [&](const SymbolicLpm& src_lpm) -> absl::StatusOr<z3::expr> {
+                  const SymbolicLpm& dst_lpm = std::get<SymbolicLpm>(dst_key);
+                  z3::expr translated_dst_value = z3::to_expr(
+                      expr.ctx(), Z3_translate(dst_lpm.value.ctx(),
+                                               dst_lpm.value, expr.ctx()));
+                  z3::expr translated_dst_prefix_length = z3::to_expr(
+                      expr.ctx(),
+                      Z3_translate(dst_lpm.prefix_length.ctx(),
+                                   dst_lpm.prefix_length, expr.ctx()));
+                  if (!eq(src_lpm.value.get_sort(),
+                          translated_dst_value.get_sort())) {
+                    return gutil::InternalErrorBuilder()
+                           << "Mismatched Z3 sorts during symbolic translation "
+                              "for "
+                              "key '"
+                           << key_name << "': src sort is "
+                           << src_lpm.value.get_sort() << ", dst sort is "
+                           << translated_dst_value.get_sort();
+                  }
+                  if (!eq(src_lpm.prefix_length.get_sort(),
+                          translated_dst_prefix_length.get_sort())) {
+                    return gutil::InternalErrorBuilder()
+                           << "Mismatched Z3 sorts during symbolic translation "
+                              "for "
+                              "prefix_length of key '"
+                           << key_name << "': src sort is "
+                           << src_lpm.prefix_length.get_sort()
+                           << ", dst sort is "
+                           << translated_dst_prefix_length.get_sort();
+                  }
+                  from.push_back(src_lpm.value);
+                  to.push_back(translated_dst_value);
+                  from.push_back(src_lpm.prefix_length);
+                  to.push_back(translated_dst_prefix_length);
+                  return expr.substitute(from, to);
+                },
+            },
+            src_key));
+  }
+
+  // Substitute attribute names.
+  for (const auto& [attribute_name, dst_attribute] :
+       dst_env.symbolic_attribute_by_name) {
+    auto src_it = src_env.symbolic_attribute_by_name.find(attribute_name);
+    if (src_it == src_env.symbolic_attribute_by_name.end()) continue;
+    const SymbolicAttribute& src_attribute = src_it->second;
+    z3::expr translated_dst_value =
+        z3::to_expr(expr.ctx(), Z3_translate(dst_attribute.value.ctx(),
+                                             dst_attribute.value, expr.ctx()));
+    z3::expr_vector from(expr.ctx());
+    z3::expr_vector to(expr.ctx());
+    from.push_back(src_attribute.value);
+    to.push_back(translated_dst_value);
+    expr = expr.substitute(from, to);
+  }
+  return expr;
+}
+
+absl::Status ConstraintSolver::ExportConstraintsToTargetSolver(
+    z3::solver& solver, const SymbolicEnvironment& environment) {
+  z3::expr_vector constraints(solver.ctx());
+  for (z3::expr assertion : solver_->assertions()) {
+    ASSIGN_OR_RETURN(
+        z3::expr translated_assertion,
+        TranslateBySymbolicEnvironment(assertion, environment_, environment));
+    constraints.push_back(z3::to_expr(
+        solver.ctx(),
+        Z3_translate(*context_, translated_assertion, solver.ctx())));
+  }
+  solver.add(constraints);
+  return absl::OkStatus();
 }
 
 }  // namespace p4_constraints

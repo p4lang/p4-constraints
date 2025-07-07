@@ -1231,5 +1231,221 @@ INSTANTIATE_TEST_SUITE_P(
     [](const testing::TestParamInfo<FullySpecifiedAdditionalConstraintTestCase>&
            info) { return SnakeCaseToCamelCase(info.param.test_name); });
 
+TEST(ExportConstraintsToTargetSolverTest,
+     ExportConstraintsCorrectlyRenamesExactMatchKeys) {
+  TableInfo table_info =
+      GetTableInfoWithConstraint("exact32 == 42 && exact11 == 1");
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver src_solver,
+                       ConstraintSolver::Create(table_info));
+
+  z3::context dst_context;
+  z3::solver dst_solver(dst_context);
+  // Change one variable name to make sure the renaming works.
+  z3::expr renamed_exact32 = dst_context.bv_const("exact32_renamed", 32);
+  SymbolicEnvironment dst_environment;
+  dst_environment.symbolic_key_by_name.insert(
+      {"exact32", SymbolicExact{.value = renamed_exact32}});
+  ASSERT_OK(
+      src_solver.ExportConstraintsToTargetSolver(dst_solver, dst_environment));
+
+  // Check that the constraint "exact32_renamed == 42" has been added correctly.
+  EXPECT_EQ(dst_solver.check(), z3::sat);
+  dst_solver.push();
+  dst_solver.add(renamed_exact32 != 42);
+  EXPECT_EQ(dst_solver.check(), z3::unsat);
+  dst_solver.pop();
+
+  // Check that other constraints have been added correctly.
+  // The constraint "exact11 == 1" should have been added to dest_solver.
+  dst_solver.push();
+  z3::expr exact11_in_dest = dst_context.bv_const("exact11", 11);
+  dst_solver.add(exact11_in_dest == 2);
+  EXPECT_EQ(dst_solver.check(), z3::unsat);
+  dst_solver.pop();
+}
+
+TEST(ExportConstraintsToTargetSolverTest,
+     ExportConstraintsCorrectlyRenamesOptionalMatchKeys) {
+  TableInfo table_info =
+      GetTableInfoWithConstraint("optional32 == 42 && optional32::mask == -1");
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver source_solver,
+                       ConstraintSolver::Create(table_info));
+
+  z3::context dst_context;
+  z3::solver dst_solver(dst_context);
+  // Change optional32 variable names to make sure the renaming works.
+  z3::expr renamed_optional32 = dst_context.bv_const("optional32_renamed", 32);
+  z3::expr renamed_optional32_mask =
+      dst_context.bv_const("optional32_renamed::mask", 32);
+  SymbolicEnvironment dest_environment;
+  dest_environment.symbolic_key_by_name.insert(
+      {"optional32", SymbolicTernary{.value = renamed_optional32,
+                                     .mask = renamed_optional32_mask}});
+  ASSERT_OK(source_solver.ExportConstraintsToTargetSolver(dst_solver,
+                                                          dest_environment));
+
+  // Check that the constraint "optional32_renamed == 42" has been added
+  // correctly.
+  EXPECT_EQ(dst_solver.check(), z3::sat);
+  dst_solver.push();
+  dst_solver.add(renamed_optional32 != 42);
+  EXPECT_EQ(dst_solver.check(), z3::unsat);
+  dst_solver.pop();
+
+  // Check that the constraint "optional32_renamed.mask > 0" has been added
+  // correctly.
+  EXPECT_EQ(dst_solver.check(), z3::sat);
+  dst_solver.push();
+  dst_solver.add(renamed_optional32_mask == 0);
+  EXPECT_EQ(dst_solver.check(), z3::unsat);
+  dst_solver.pop();
+}
+
+TEST(ExportConstraintsToTargetSolverTest,
+     ExportConstraintsCorrectlyRenamesTernaryMatchKeys) {
+  TableInfo table_info =
+      GetTableInfoWithConstraint("ternary32 == 42 && ternary32::mask != 20");
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver source_solver,
+                       ConstraintSolver::Create(table_info));
+
+  z3::context dst_context;
+  z3::solver dst_solver(dst_context);
+  // Change optional32 variable names to make sure the renaming works.
+  z3::expr renamed_ternary32 = dst_context.bv_const("ternary32_renamed", 32);
+  z3::expr renamed_ternary32_mask =
+      dst_context.bv_const("ternary32_renamed::mask", 32);
+  SymbolicEnvironment dest_environment;
+  dest_environment.symbolic_key_by_name.insert(
+      {"ternary32", SymbolicTernary{.value = renamed_ternary32,
+                                    .mask = renamed_ternary32_mask}});
+  ASSERT_OK(source_solver.ExportConstraintsToTargetSolver(dst_solver,
+                                                          dest_environment));
+
+  // Check that the constraint "ternary32_renamed == 42" has been added
+  // correctly.
+  EXPECT_EQ(dst_solver.check(), z3::sat);
+  dst_solver.push();
+  dst_solver.add(renamed_ternary32 != 42);
+  EXPECT_EQ(dst_solver.check(), z3::unsat);
+  dst_solver.pop();
+
+  // Check that the constraint "ternary32_renamed.mask != 20" has been added
+  // correctly.
+  EXPECT_EQ(dst_solver.check(), z3::sat);
+  dst_solver.push();
+  dst_solver.add(renamed_ternary32_mask == 20);
+  EXPECT_EQ(dst_solver.check(), z3::unsat);
+  dst_solver.pop();
+}
+
+TEST(ExportConstraintsToTargetSolverTest,
+     ExportConstraintsCorrectlyRenamesLpmMatchKeys) {
+  TableInfo table_info =
+      GetTableInfoWithConstraint("lpm32 == 42 && lpm32::prefix_length > 20");
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver source_solver,
+                       ConstraintSolver::Create(table_info));
+
+  z3::context dst_context;
+  z3::solver dst_solver(dst_context);
+  // Change optional32 variable names to make sure the renaming works.
+  z3::expr renamed_lpm32 = dst_context.bv_const("lpm32_renamed", 32);
+  z3::expr renamed_lpm32_prefix_length =
+      dst_context.int_const("lpm32_renamed::prefix_length");
+  SymbolicEnvironment dest_environment;
+  dest_environment.symbolic_key_by_name.insert(
+      {"lpm32", SymbolicLpm{.value = renamed_lpm32,
+                            .prefix_length = renamed_lpm32_prefix_length}});
+  ASSERT_OK(source_solver.ExportConstraintsToTargetSolver(dst_solver,
+                                                          dest_environment));
+
+  // Check that the constraint "lpm32_renamed == 42" has been added correctly.
+  EXPECT_EQ(dst_solver.check(), z3::sat);
+  dst_solver.push();
+  dst_solver.add(renamed_lpm32 != 42);
+  EXPECT_EQ(dst_solver.check(), z3::unsat);
+  dst_solver.pop();
+
+  // Check that the constraint "lpm32_renamed.prefix_length > 20" has been added
+  // correctly.
+  EXPECT_EQ(dst_solver.check(), z3::sat);
+  dst_solver.push();
+  dst_solver.add(renamed_lpm32_prefix_length == 0);
+  EXPECT_EQ(dst_solver.check(), z3::unsat);
+  dst_solver.pop();
+}
+
+TEST(ExportConstraintsToTargetSolverTest,
+     ExportConstraintsCorrectlyRenamesAttributes) {
+  TableInfo table_info = GetTableInfoWithConstraint("::priority == 42");
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver source_solver,
+                       ConstraintSolver::Create(table_info));
+
+  z3::context dest_context;
+  z3::solver dest_solver(dest_context);
+
+  // Change one attribute name to make sure the renaming works.
+  z3::expr renamed_priority = dest_context.int_const("priority_renamed");
+  SymbolicEnvironment dest_environment;
+  dest_environment.symbolic_attribute_by_name.insert(
+      {kSymbolicPriorityAttributeName,
+       SymbolicAttribute{.value = renamed_priority}});
+
+  ASSERT_OK(source_solver.ExportConstraintsToTargetSolver(dest_solver,
+                                                          dest_environment));
+
+  // Check that the constraint "priority_renamed == 42" has been added
+  // correctly.
+  EXPECT_EQ(dest_solver.check(), z3::sat);
+  dest_solver.push();
+  dest_solver.add(renamed_priority != 42);
+  EXPECT_EQ(dest_solver.check(), z3::unsat);
+  dest_solver.pop();
+
+  // Check that other constraints have been added correctly.
+  // The constraint "priority > 0" should have been added to dest_solver.
+  dest_solver.push();
+  dest_solver.add(renamed_priority <= 0);
+  EXPECT_EQ(dest_solver.check(), z3::unsat);
+  dest_solver.pop();
+}
+
+TEST(ExportConstraintsToTargetSolverTest,
+     ExportConstraintsFailsForDestinationEnvironmentsWithNonexistentKeys) {
+  TableInfo table_info = GetTableInfoWithConstraint("exact32 == 42");
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver source_solver,
+                       ConstraintSolver::Create(table_info));
+
+  z3::context dest_context;
+  z3::solver dest_solver(dest_context);
+  SymbolicEnvironment dest_environment;
+  dest_environment.symbolic_key_by_name.insert(
+      {"nonexistent_key", SymbolicExact{.value = dest_context.bv_const(
+                                            "nonexistent_key.value", 32)}});
+
+  EXPECT_THAT(source_solver.ExportConstraintsToTargetSolver(dest_solver,
+                                                            dest_environment),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       testing::HasSubstr("Cannot rename nonexistent key")));
+}
+
+TEST(ExportConstraintsToTargetSolverTest,
+     ExportConstraintsFailsForEnvironmentsWithMismatchedSorts) {
+  TableInfo table_info = GetTableInfoWithConstraint("exact32 == 42");
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver source_solver,
+                       ConstraintSolver::Create(table_info));
+
+  z3::context dest_context;
+  z3::solver dest_solver(dest_context);
+  SymbolicEnvironment dest_environment;
+  dest_environment.symbolic_key_by_name.insert(
+      {"nonexistent_key", SymbolicExact{.value = dest_context.bv_const(
+                                            "nonexistent_key.value", 300)}});
+
+  EXPECT_THAT(source_solver.ExportConstraintsToTargetSolver(dest_solver,
+                                                            dest_environment),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       testing::HasSubstr("Cannot rename nonexistent key")));
+}
+
 }  // namespace
 }  // namespace p4_constraints
