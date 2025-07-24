@@ -1,12 +1,17 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("@rules_cc//cc:defs.bzl", "cc_proto_library")
+# GOOGLE ONLY (DO NOT REMOVE): load("//third_party/protobuf/bazel:cc_proto_library.bzl", "cc_proto_library")
 # GOOGLE ONLY (DO NOT REMOVE): load("//third_party/protobuf/bazel:proto_library.bzl", "proto_library")
 
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
 package(
-    default_visibility = ["//visibility:public"],
+    default_applicable_licenses = ["//third_party/p4lang_p4_constraints:license"],
+    default_visibility = [
+        "//third_party/p4lang_p4_constraints:__subpackages__",
+        "//third_party/pins_infra/p4_fuzzer:__subpackages__",
+        "@com_github_p4lang_p4c///backends/p4tools:__subpackages__",
+    ],
     licenses = ["notice"],  # Apache 2.0
 )
 
