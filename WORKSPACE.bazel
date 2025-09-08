@@ -56,6 +56,12 @@ load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 
 grpc_extra_deps()
 
+# -- Load Rules CC -------------------------------------------------------------
+# See https://github.com/bazelbuild/rules_cc.
+load("@rules_cc//cc:repositories.bzl", "rules_cc_dependencies")
+
+rules_cc_dependencies()
+
 # -- Load Rules Foreign CC (for building Z3) -----------------------------------
 # Used for Z3.
 

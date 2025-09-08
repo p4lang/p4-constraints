@@ -64,6 +64,13 @@ def p4_constraints_deps():
             sha256 = "e3aaefde68b839299cbc988178529535e66048398f7d083b40c69fe0da55f8b7",
             build_file = "@//:bazel/BUILD.z3.bazel",
         )
+    if not native.existing_rule("rules_cc"):
+        http_archive(
+            name = "rules_cc",
+            urls = ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.16/rules_cc-0.0.16.tar.gz"],
+            sha256 = "bbf1ae2f83305b7053b11e4467d317a7ba3517a12cef608543c1b1c5bf48a4df",
+            strip_prefix = "rules_cc-0.0.16",
+        )
     if not native.existing_rule("rules_foreign_cc"):  # Required for Z3.
         http_archive(
             name = "rules_foreign_cc",
