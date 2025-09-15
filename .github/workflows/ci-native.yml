@@ -21,7 +21,7 @@ jobs:
         os: [ubuntu-22.04, ubuntu-latest]
         # See Bazelisk README for legal values.
         # TODO - Add `latest` once it is supported. Requires using Bzlmod.
-        bazel_version: [7.x]
+        bazel_version: [6.x]
       # Don't abort other runs when one of them fails, to ease debugging.
       fail-fast: false
 

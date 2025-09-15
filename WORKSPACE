@@ -40,11 +40,14 @@ load("@com_github_nelhage_rules_boost//:boost/boost.bzl", "boost_deps")
 
 boost_deps()
 
+# -- Load GRPC -----------------------------------------------------------------
+
 load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 
 switched_rules_by_language(
     name = "com_google_googleapis_imports",
     cc = True,
+    go = True,
     grpc = True,
 )
 
