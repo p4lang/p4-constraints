@@ -27,8 +27,9 @@ def p4_constraints_deps():
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            url = "https://github.com/protocolbuffers/protobuf/releases/download/v29.1/protobuf-29.1.tar.gz",
-            strip_prefix = "protobuf-29.1",
+            url = "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v25.2.zip",
+            strip_prefix = "protobuf-25.2",
+            sha256 = "ddd0f5271f31b549efc74eb39061e142132653d5d043071fcec265bd571e73c4",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
         http_archive(
@@ -39,9 +40,9 @@ def p4_constraints_deps():
     if not native.existing_rule("rules_proto"):
         http_archive(
             name = "rules_proto",
-            sha256 = "0e5c64a2599a6e26c6a03d6162242d231ecc0de219534c38cb4402171def21e8",
-            strip_prefix = "rules_proto-7.0.2",
-            url = "https://github.com/bazelbuild/rules_proto/releases/download/7.0.2/rules_proto-7.0.2.tar.gz",
+            url = "https://github.com/bazelbuild/rules_proto/archive/5.3.0-21.7.tar.gz",
+            strip_prefix = "rules_proto-5.3.0-21.7",
+            sha256 = "dc3fb206a2cb3441b485eb1e423165b231235a1ea9b031b4433cf7bc1fa460dd",
         )
     if not native.existing_rule("com_github_p4lang_p4runtime"):
         http_archive(
