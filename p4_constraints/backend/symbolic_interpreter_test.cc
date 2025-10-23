@@ -1410,7 +1410,7 @@ TEST(ExportConstraintsToTargetSolverTest,
 }
 
 TEST(ExportConstraintsToTargetSolverTest,
-     ExportConstraintsFailsForDestinationEnvironmentsWithNonexistentKeys) {
+     ExportConstraintsWorksForDestinationEnvironmentsWithNonexistentKeys) {
   TableInfo table_info = GetTableInfoWithConstraint("exact32 == 42");
   ASSERT_OK_AND_ASSIGN(ConstraintSolver source_solver,
                        ConstraintSolver::Create(table_info));
@@ -1422,10 +1422,8 @@ TEST(ExportConstraintsToTargetSolverTest,
       {"nonexistent_key", SymbolicExact{.value = dest_context.bv_const(
                                             "nonexistent_key.value", 32)}});
 
-  EXPECT_THAT(source_solver.ExportConstraintsToTargetSolver(dest_solver,
-                                                            dest_environment),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       testing::HasSubstr("Cannot rename nonexistent key")));
+  EXPECT_OK(source_solver.ExportConstraintsToTargetSolver(dest_solver,
+                                                          dest_environment));
 }
 
 TEST(ExportConstraintsToTargetSolverTest,
@@ -1437,14 +1435,16 @@ TEST(ExportConstraintsToTargetSolverTest,
   z3::context dest_context;
   z3::solver dest_solver(dest_context);
   SymbolicEnvironment dest_environment;
+
+  // Add a symbolic key with a mismatched sort.
   dest_environment.symbolic_key_by_name.insert(
-      {"nonexistent_key", SymbolicExact{.value = dest_context.bv_const(
-                                            "nonexistent_key.value", 300)}});
+      {"exact32", SymbolicExact{.value = dest_context.int_const("exact32")}});
 
   EXPECT_THAT(source_solver.ExportConstraintsToTargetSolver(dest_solver,
                                                             dest_environment),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       testing::HasSubstr("Cannot rename nonexistent key")));
+              StatusIs(absl::StatusCode::kInternal,
+                       testing::HasSubstr(
+                           "Mismatched Z3 sorts during symbolic translation")));
 }
 
 }  // namespace
