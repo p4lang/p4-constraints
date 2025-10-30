@@ -26,6 +26,7 @@
 #include <variant>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/escaping.h"
@@ -834,6 +835,7 @@ absl::StatusOr<z3::expr> GetPrefixLength(const SymbolicKey& symbolic_key) {
 // Substitute variable names in `expr`, replacing variables in `src_env` with
 // ones in `dst_env`. Note that `dst_env` is a subset of `src_env` and may not
 // share the same z3 context.
+// TODO: b/456233699 - Refactor this with a simpler solution.
 absl::StatusOr<z3::expr> TranslateBySymbolicEnvironment(
     z3::expr expr, const SymbolicEnvironment& src_env,
     const SymbolicEnvironment& dst_env) {
@@ -842,9 +844,12 @@ absl::StatusOr<z3::expr> TranslateBySymbolicEnvironment(
     const auto& dst_key = entry.second;
     auto src_it = src_env.symbolic_key_by_name.find(key_name);
     if (src_it == src_env.symbolic_key_by_name.end()) {
-      return gutil::InvalidArgumentErrorBuilder()
-             << "Cannot rename nonexistent key '" << key_name
-             << "' specified in destination but not in source.";
+      // It's possible that some symbolic keys only exist in the dst_env
+      // (e.g. they are unconstrained in the src_env). This is fine. We can
+      // simply skip them.
+      LOG(INFO) << "Skipping key " << key_name
+                << " because it does not exist in the src_env.";
+      continue;
     }
     const SymbolicKey& src_key = src_it->second;
 
@@ -972,6 +977,7 @@ absl::StatusOr<z3::expr> TranslateBySymbolicEnvironment(
   return expr;
 }
 
+// TODO: b/456233699 - Refactor this with a simpler solution.
 absl::Status ConstraintSolver::ExportConstraintsToTargetSolver(
     z3::solver& solver, const SymbolicEnvironment& environment) {
   z3::expr_vector constraints(solver.ctx());
