@@ -10,6 +10,13 @@ def p4_constraints_deps():
             urls = ["https://github.com/abseil/abseil-cpp/releases/download/20240722.0/abseil-cpp-20240722.0.tar.gz"],
             strip_prefix = "abseil-cpp-20240722.0",
         )
+    if not native.existing_rule("com_google_googleapis"):
+        http_archive(
+            name = "com_google_googleapis",
+            url = "https://github.com/googleapis/googleapis/archive/f405c718d60484124808adb7fb5963974d654bb4.zip",
+            strip_prefix = "googleapis-f405c718d60484124808adb7fb5963974d654bb4",
+            sha256 = "406b64643eede84ce3e0821a1d01f66eaf6254e79cb9c4f53be9054551935e79",
+        )
     if not native.existing_rule("com_google_gutil"):
         http_archive(
             name = "com_google_gutil",
@@ -46,15 +53,18 @@ def p4_constraints_deps():
     if not native.existing_rule("com_github_p4lang_p4runtime"):
         http_archive(
             name = "com_github_p4lang_p4runtime",
-            urls = ["https://github.com/p4lang/p4runtime/archive/970cbdc1d8663356214d33e3ba213cb91676b491.tar.gz"],
-            strip_prefix = "p4runtime-970cbdc1d8663356214d33e3ba213cb91676b491/proto",
+            # Newest commit on main as of 2025-08-27.
+            urls = ["https://github.com/p4lang/p4runtime/archive/baaf39325ceabd89b04b0d03226b6f13fc9eca29.zip"],
+            strip_prefix = "p4runtime-baaf39325ceabd89b04b0d03226b6f13fc9eca29/proto",
+            sha256 = "8b71b8a9e59c3ee7d99653e394afc44a0bfc6437dec14df619d5e1f766f129c6",
         )
     if not native.existing_rule("com_github_p4lang_p4c"):
         http_archive(
             name = "com_github_p4lang_p4c",
-            # Newest commit on main on 2021-12-07.
-            url = "https://github.com/p4lang/p4c/archive/80629201abb61d9172639fefc7bb5b9d6007db08.zip",
-            strip_prefix = "p4c-80629201abb61d9172639fefc7bb5b9d6007db08",
+            # Newest commit on main on 2024-08-01.
+            url = "https://github.com/p4lang/p4c/archive/44dbcda9c7e3d26d24baadb884b31b32d215edef.zip",
+            strip_prefix = "p4c-44dbcda9c7e3d26d24baadb884b31b32d215edef",
+            sha256 = "ae4d53d0fd41572c38b03e881a8e2d2e472df246f75d6a64555f9ff1b656b574",
         )
     if not native.existing_rule("com_github_z3prover_z3"):
         http_archive(
@@ -63,13 +73,6 @@ def p4_constraints_deps():
             strip_prefix = "z3-z3-4.8.12",
             sha256 = "e3aaefde68b839299cbc988178529535e66048398f7d083b40c69fe0da55f8b7",
             build_file = "@//:bazel/BUILD.z3.bazel",
-        )
-    if not native.existing_rule("rules_cc"):
-        http_archive(
-            name = "rules_cc",
-            urls = ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.16/rules_cc-0.0.16.tar.gz"],
-            sha256 = "bbf1ae2f83305b7053b11e4467d317a7ba3517a12cef608543c1b1c5bf48a4df",
-            strip_prefix = "rules_cc-0.0.16",
         )
     if not native.existing_rule("rules_foreign_cc"):  # Required for Z3.
         http_archive(
