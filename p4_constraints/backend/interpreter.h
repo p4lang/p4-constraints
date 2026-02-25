@@ -20,7 +20,6 @@
 #ifndef P4_CONSTRAINTS_BACKEND_INTERPRETER_H_
 #define P4_CONSTRAINTS_BACKEND_INTERPRETER_H_
 
-#include <gmpxx.h>
 #include <stdint.h>
 
 #include <ostream>
@@ -34,6 +33,7 @@
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/big_int.h"
 
 namespace p4_constraints {
 
@@ -54,35 +54,34 @@ namespace internal_interpreter {
 
 // -- Runtime representations --------------------------------------------------
 
-// We use mpz_class to represent all integers, including arbitrary-precision
-// and fixed-width signed/unsigned integers.
-using Integer = mpz_class;
+// We use p4_constraints::BigInt to represent all integers, including
+// arbitrary-precision and fixed-width signed/unsigned integers.
 
 struct Exact {
-  Integer value;
+  BigInt value;
 };
 
 // Used to represent both ternary and optional keys at runtime, since an
 // optional key is just a ternary key whose mask is all zeros or all ones.
 struct Ternary {
-  Integer value;
-  Integer mask;
+  BigInt value;
+  BigInt mask;
 };
 
 struct Lpm {
-  Integer value;
-  Integer prefix_length;
+  BigInt value;
+  BigInt prefix_length;
 };
 
 struct Range {
-  Integer low;
-  Integer high;
+  BigInt low;
+  BigInt high;
 };
 
 // Evaluation can result in a value of various types.
 // We use a tagged union to ease debugging (see DynamicTypeCheck); an untagged
 // union would work just fine assuming the type checker has no bugs.
-using EvalResult = absl::variant<bool, Integer, Exact, Ternary, Lpm, Range>;
+using EvalResult = absl::variant<bool, BigInt, Exact, Ternary, Lpm, Range>;
 
 inline bool operator==(const Exact& left, const Exact& right) {
   return left.value == right.value;
@@ -100,28 +99,31 @@ inline bool operator==(const Range& left, const Range& right) {
   return left.low == right.low && left.high == right.high;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const Integer& integer) {
-  return os << integer.get_str();
+inline std::ostream& operator<<(std::ostream& os, const BigInt& integer) {
+  return os << BigIntToString(integer);
 }
 
 inline std::ostream& operator<<(std::ostream& os, const Exact& exact) {
-  return os << absl::StrFormat("Exact{.value = %s}", exact.value.get_str());
+  return os << absl::StrFormat("Exact{.value = %s}",
+                               BigIntToString(exact.value));
 }
 
 inline std::ostream& operator<<(std::ostream& os, const Ternary& ternary) {
   return os << absl::StrFormat("Ternary{.value = %s, .mask = %s}",
-                               ternary.value.get_str(), ternary.mask.get_str());
+                               BigIntToString(ternary.value),
+                               BigIntToString(ternary.mask));
 }
 
 inline std::ostream& operator<<(std::ostream& os, const Lpm& lpm) {
   return os << absl::StrFormat("Lpm{.value = %s, .prefix_length = %s}",
-                               lpm.value.get_str(),
-                               lpm.prefix_length.get_str());
+                               BigIntToString(lpm.value),
+                               BigIntToString(lpm.prefix_length));
 }
 
 inline std::ostream& operator<<(std::ostream& os, const Range& range) {
   return os << absl::StrFormat("Range{.low = %s, .high = %s}",
-                               range.low.get_str(), range.high.get_str());
+                               BigIntToString(range.low),
+                               BigIntToString(range.high));
 }
 
 // Converts EvalResult to readable string.
@@ -148,7 +150,7 @@ struct ActionInvocation {
   uint32_t action_id;
   std::string action_name;
   // Map of param names to param values.
-  absl::flat_hash_map<std::string, Integer> action_parameters;
+  absl::flat_hash_map<std::string, BigInt> action_parameters;
 };
 
 // Context under which an `Expression` is evaluated. An `EvaluationContext` is
@@ -220,10 +222,10 @@ absl::StatusOr<bool> EvalToBool(const ast::Expression& expr,
                                 const EvaluationContext& context,
                                 EvaluationCache* eval_cache);
 
-// Converts a P4 integer in binary string format to Integer format. For details
+// Converts a P4 integer in binary string format to BigInt format. For details
 // on the conversion, see
 // https://p4.org/p4-spec/docs/p4runtime-spec-working-draft-html-version.html#sec-bytestrings.
-Integer ParseP4RTInteger(std::string int_str);
+BigInt ParseP4RTInteger(std::string int_str);
 
 }  // namespace internal_interpreter
 }  // namespace p4_constraints

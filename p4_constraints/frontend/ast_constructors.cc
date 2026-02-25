@@ -16,7 +16,6 @@
 #include "p4_constraints/frontend/ast_constructors.h"
 
 #include <arpa/inet.h>
-#include <gmpxx.h>
 
 #include <bitset>
 #include <cstdint>
@@ -35,6 +34,7 @@
 #include "absl/types/span.h"
 #include "gutil/status.h"
 #include "p4_constraints/ast.pb.h"
+#include "p4_constraints/big_int.h"
 #include "p4_constraints/frontend/constraint_kind.h"
 #include "p4_constraints/frontend/token.h"
 #include "p4_constraints/ret_check.h"
@@ -75,24 +75,31 @@ absl::StatusOr<ast::BinaryOperator> ConvertBinaryOperator(Token::Kind binop) {
 }
 
 absl::StatusOr<std::string> ConvertNumeral(const Token& numeral_token) {
-  mpz_class numeral;
   switch (numeral_token.kind) {
-    case Token::BINARY:
-      RET_CHECK_EQ(numeral.set_str(numeral_token.text, 2), 0)
-          << "invalid binary string \"" << numeral_token.text << "\".\n";
-      return numeral.get_str(10);
-    case Token::OCTARY:
-      RET_CHECK_EQ(numeral.set_str(numeral_token.text, 8), 0)
-          << "invalid octary string \"" << numeral_token.text << "\".\n";
-      return numeral.get_str(10);
-    case Token::DECIMAL:
-      RET_CHECK_EQ(numeral.set_str(numeral_token.text, 10), 0)
-          << "invalid decimal string \"" << numeral_token.text << "\".\n";
-      return numeral.get_str(10);
-    case Token::HEXADEC:
-      RET_CHECK_EQ(numeral.set_str(numeral_token.text, 16), 0)
-          << "invalid hexadecimal string \"" << numeral_token.text << "\".\n";
-      return numeral.get_str(10);
+    case Token::BINARY: {
+      ASSIGN_OR_RETURN(
+          BigInt numeral, ParseBigInt(numeral_token.text, 2),
+          _ << "invalid binary string \"" << numeral_token.text << "\".\n");
+      return BigIntToString(numeral);
+    }
+    case Token::OCTARY: {
+      ASSIGN_OR_RETURN(
+          BigInt numeral, ParseBigInt(numeral_token.text, 8),
+          _ << "invalid octary string \"" << numeral_token.text << "\".\n");
+      return BigIntToString(numeral);
+    }
+    case Token::DECIMAL: {
+      ASSIGN_OR_RETURN(
+          BigInt numeral, ParseBigInt(numeral_token.text, 10),
+          _ << "invalid decimal string \"" << numeral_token.text << "\".\n");
+      return BigIntToString(numeral);
+    }
+    case Token::HEXADEC: {
+      ASSIGN_OR_RETURN(BigInt numeral, ParseBigInt(numeral_token.text, 16),
+                       _ << "invalid hexadecimal string \""
+                         << numeral_token.text << "\".\n");
+      return BigIntToString(numeral);
+    }
     default:
       return gutil::InvalidArgumentErrorBuilder()
              << "expected numeral, got " << numeral_token.kind;
