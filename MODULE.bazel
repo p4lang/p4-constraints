@@ -1,7 +1,6 @@
 module(
     name = "p4_constraints",
-    # Fill in concrete versions only on release branches/in the BCR.
-    version = "head",
+    version = "20260311.0",
     bazel_compatibility = [">=7.6.0"],
 )
 
