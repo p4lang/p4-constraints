@@ -15,12 +15,9 @@
 
 #include "p4_constraints/backend/interpreter.h"
 
-#include <gmp.h>
-#include <gmpxx.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include <cstring>
 #include <string>
 #include <utility>
 #include <variant>
@@ -46,6 +43,7 @@
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/backend/errors.h"
+#include "p4_constraints/big_int.h"
 #include "p4_constraints/constraint_source.h"
 #include "p4_constraints/quote.h"
 #include "p4_constraints/ret_check.h"
@@ -79,48 +77,40 @@ std::string EvalResultToString(const EvalResult& result) {
   return absl::visit(
       gutil::Overload{
           [](bool result) -> std::string { return result ? "true" : "false"; },
-          [](const Integer& result) { return result.get_str(); },
+          [](const BigInt& result) { return BigIntToString(result); },
           [](const Exact& result) {
             return absl::StrFormat("Exact{.value = %s}",
-                                   result.value.get_str());
+                                   BigIntToString(result.value));
           },
           [](const Ternary& result) {
             return absl::StrFormat("Ternary{.value = %s, .mask = %s}",
-                                   result.value.get_str(),
-                                   result.mask.get_str());
+                                   BigIntToString(result.value),
+                                   BigIntToString(result.mask));
           },
           [](const Lpm& result) {
             return absl::StrFormat("Lpm{.value = %s, .prefix_length = %s}",
-                                   result.value.get_str(),
-                                   result.prefix_length.get_str());
+                                   BigIntToString(result.value),
+                                   BigIntToString(result.prefix_length));
           },
           [](const Range& result) {
             return absl::StrFormat("Range{.low = %s, .high = %s}",
-                                   result.low.get_str(), result.high.get_str());
+                                   BigIntToString(result.low),
+                                   BigIntToString(result.high));
           }},
       result);
 }
 
 // -- Parsing P4RT table entries -----------------------------------------------
 
-Integer ParseP4RTInteger(std::string int_str) {
-  // Remove leading zero-bits, to properly convert to a c_str in next step,
-  // allowing for non-canonical bytestrings.
+BigInt ParseP4RTInteger(std::string int_str) {
+  // Remove leading zero-bits, allowing for non-canonical bytestrings.
   int_str.erase(0, int_str.find_first_not_of('\0'));
-  mpz_class integer;
-  constexpr int most_significant_first = 1;
-  constexpr size_t char_size = sizeof(char);
-  static_assert(char_size == 1, "expected sizeof(char) == 1");
-  constexpr int endian = 0;    // system default
-  constexpr size_t nails = 0;  // don't skip any bits
-  mpz_import(integer.get_mpz_t(), int_str.size(), most_significant_first,
-             char_size, endian, nails, int_str.data());
-  return integer;
+  return ParseBigEndianBytes(int_str);
 }
 
-static Integer MaxValueForBitwidth(int bitwidth) {
+static BigInt MaxValueForBitwidth(int bitwidth) {
   // 2^bitwidth - 1
-  return (mpz_class(1) << bitwidth) - mpz_class(1);
+  return (BigInt(1) << bitwidth) - BigInt(1);
 }
 
 // Returns (table key name, table key value)-pair.
@@ -137,23 +127,23 @@ absl::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
     case p4::v1::FieldMatch::kExact: {
       RET_CHECK_EQ(key.type.type_case(), Type::kExact)
           << "P4RT table entry inconsistent with P4 program";
-      Integer value = ParseP4RTInteger(p4field.exact().value());
+      BigInt value = ParseP4RTInteger(p4field.exact().value());
       return {std::make_pair(key.name, Exact{.value = value})};
     }
 
     case p4::v1::FieldMatch::kTernary: {
       RET_CHECK_EQ(key.type.type_case(), Type::kTernary)
           << "P4RT table entry inconsistent with P4 program";
-      Integer value = ParseP4RTInteger(p4field.ternary().value());
-      Integer mask = ParseP4RTInteger(p4field.ternary().mask());
+      BigInt value = ParseP4RTInteger(p4field.ternary().value());
+      BigInt mask = ParseP4RTInteger(p4field.ternary().mask());
       return {std::make_pair(key.name, Ternary{.value = value, .mask = mask})};
     }
 
     case p4::v1::FieldMatch::kLpm: {
       RET_CHECK_EQ(key.type.type_case(), Type::kLpm)
           << "P4RT table entry inconsistent with P4 program";
-      Integer value = ParseP4RTInteger(p4field.lpm().value());
-      Integer prefix_len = mpz_class(p4field.lpm().prefix_len());
+      BigInt value = ParseP4RTInteger(p4field.lpm().value());
+      BigInt prefix_len = BigInt(p4field.lpm().prefix_len());
       return {std::make_pair(key.name,
                              Lpm{.value = value, .prefix_length = prefix_len})};
     }
@@ -162,15 +152,15 @@ absl::StatusOr<std::pair<std::string, EvalResult>> ParseKey(
       RET_CHECK_EQ(key.type.type_case(), Type::kRange)
           << "P4RT table entry inconsistent with P4 program";
 
-      Integer low = ParseP4RTInteger(p4field.range().low());
-      Integer high = ParseP4RTInteger(p4field.range().high());
+      BigInt low = ParseP4RTInteger(p4field.range().low());
+      BigInt high = ParseP4RTInteger(p4field.range().high());
       return {std::make_pair(key.name, Range{.low = low, .high = high})};
     }
 
     case p4::v1::FieldMatch::kOptional: {
       RET_CHECK_EQ(key.type.type_case(), Type::kOptionalMatch)
           << "P4RT table entry inconsistent with P4 program";
-      Integer value = ParseP4RTInteger(p4field.optional().value());
+      BigInt value = ParseP4RTInteger(p4field.optional().value());
       return {std::make_pair(
           key.name, Ternary{.value = value,
                             .mask = MaxValueForBitwidth(
@@ -216,7 +206,7 @@ absl::StatusOr<EvaluationContext> ParseTableEntry(
         continue;
       case ast::Type::kRange:
         keys[name] = Range{
-            .low = mpz_class(0),
+            .low = BigInt(0),
             .high = MaxValueForBitwidth(key_info.type.range().bitwidth()),
         };
         continue;
@@ -248,12 +238,12 @@ absl::StatusOr<EvaluationContext> ParseTableEntry(
 
 absl::StatusOr<EvaluationContext> ParseAction(const p4::v1::Action& action,
                                               const ActionInfo& action_info) {
-  absl::flat_hash_map<std::string, Integer> action_parameters;
+  absl::flat_hash_map<std::string, BigInt> action_parameters;
 
   // Parse action parameters.
   for (const p4::v1::Action_Param& param : action.params()) {
     int32_t param_id = param.param_id();
-    Integer param_value = ParseP4RTInteger(param.value());
+    BigInt param_value = ParseP4RTInteger(param.value());
     auto it = action_info.params_by_id.find(param_id);
     if (it == action_info.params_by_id.end()) {
       return gutil::InvalidArgumentErrorBuilder()
@@ -299,13 +289,12 @@ absl::StatusOr<bool> EvalToBool(const Expression& expr,
   }
 }
 
-// Like Eval, but ensuring the result is an Integer.
-absl::StatusOr<Integer> EvalToInt(const Expression& expr,
-                                  const EvaluationContext& context,
-                                  EvaluationCache* eval_cache) {
+// Like Eval, but ensuring the result is a BigInt.
+absl::StatusOr<BigInt> EvalToInt(const Expression& expr,
+                                 const EvaluationContext& context,
+                                 EvaluationCache* eval_cache) {
   ASSIGN_OR_RETURN(EvalResult result, Eval(expr, context, eval_cache));
-  if (absl::holds_alternative<Integer>(result))
-    return absl::get<Integer>(result);
+  if (absl::holds_alternative<BigInt>(result)) return absl::get<BigInt>(result);
   return RuntimeTypeError(context.constraint_source, expr.start_location(),
                           expr.end_location())
          << "expected expression of integral type";
@@ -316,18 +305,18 @@ absl::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
                                          const EvaluationContext& context,
                                          EvaluationCache* eval_cache) {
   ASSIGN_OR_RETURN(EvalResult result, Eval(expr, context, eval_cache));
-  if (absl::holds_alternative<Integer>(result)) {
-    const Integer value = absl::get<Integer>(result);
-    const Integer one = mpz_class(1);
-    const Integer zero = mpz_class(0);
+  if (absl::holds_alternative<BigInt>(result)) {
+    const BigInt value = absl::get<BigInt>(result);
+    const BigInt one = BigInt(1);
+    const BigInt zero = BigInt(0);
     const int bitwidth = TypeBitwidth(type).value_or(-1);
     DCHECK_NE(bitwidth, -1) << "can only cast to fixed-size types";
     switch (type.type_case()) {
       // int ~~> bit<W>
       //   n |~> n mod 2^W
       case Type::kFixedUnsigned: {
-        Integer domain_size = one << bitwidth;  // 2^W
-        Integer fixed_value = value % domain_size;
+        BigInt domain_size = one << bitwidth;  // 2^W
+        BigInt fixed_value = value % domain_size;
         // operator% may return negative values.
         if (fixed_value < zero) fixed_value += domain_size;
         return {fixed_value};
@@ -342,14 +331,14 @@ absl::StatusOr<EvalResult> EvalAndCastTo(const Type& type,
       //      n |~> Ternary { value = n; mask = 2^W-1 }
       case Type::kTernary:
       case Type::kOptionalMatch: {
-        Integer mask = (one << bitwidth) - one;  // 2^W - 1
+        BigInt mask = (one << bitwidth) - one;  // 2^W - 1
         return {Ternary{.value = value, .mask = mask}};
       }
 
       // bit<W> ~~> LPM<W>
       //      n |~> LPM { value = n; prefix_length = W }
       case Type::kLpm:
-        return {Lpm{.value = value, .prefix_length = mpz_class(bitwidth)}};
+        return {Lpm{.value = value, .prefix_length = BigInt(bitwidth)}};
 
       // bit<W> ~~> Range<W>
       //      n |~> Range { low = n; high = n }
@@ -387,11 +376,10 @@ absl::StatusOr<bool> EvalBinaryExpression(ast::BinaryOperator binop,
     case ast::LT:
     case ast::LE: {
       // Ordered comparison (<, <=, >, >=) is only supported by types whose run-
-      // time representation is Integer; the type checker should have our back.
-      ASSIGN_OR_RETURN(Integer left, EvalToInt(left_expr, context, eval_cache),
+      // time representation is BigInt; the type checker should have our back.
+      ASSIGN_OR_RETURN(BigInt left, EvalToInt(left_expr, context, eval_cache),
                        _ << " in ordered comparison");
-      ASSIGN_OR_RETURN(Integer right,
-                       EvalToInt(right_expr, context, eval_cache),
+      ASSIGN_OR_RETURN(BigInt right, EvalToInt(right_expr, context, eval_cache),
                        _ << " in ordered comparison");
       switch (binop) {
         case ast::GT:
@@ -474,7 +462,7 @@ struct EvalFieldAccess {
   }
   absl::StatusOr<EvalResult> operator()(bool) { return Error("bool"); }
 
-  absl::StatusOr<EvalResult> operator()(const Integer&) { return Error("int"); }
+  absl::StatusOr<EvalResult> operator()(const BigInt&) { return Error("int"); }
 };
 
 // -- Explainer ----------------------------------------------------------------
@@ -635,11 +623,11 @@ absl::StatusOr<std::string> ExplainConstraintViolation(
             std::string param_info = absl::StrJoin(
                 gutil::AsOrderedView(action_invocation.action_parameters), "",
                 [&](std::string* out,
-                    const std::pair<std::string, Integer>& pair) {
+                    const std::pair<std::string, BigInt>& pair) {
                   if (relevant_fields.contains(pair.first)) {
-                    absl::StrAppend(out, "Param name: \"", pair.first,
-                                    "\" -> Value: ", pair.second.get_str(),
-                                    "\n");
+                    absl::StrAppend(
+                        out, "Param name: \"", pair.first,
+                        "\" -> Value: ", BigIntToString(pair.second), "\n");
                   }
                 });
             return absl::StrFormat(
@@ -671,11 +659,10 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
       return {expr.boolean_constant()};
 
     case Expression::kIntegerConstant: {
-      mpz_class result;
-      if (result.set_str(expr.integer_constant(), 10) == 0) return {result};
-      return gutil::InternalErrorBuilder()
-             << "AST invariant violated; invalid decimal string: "
-             << expr.integer_constant();
+      ASSIGN_OR_RETURN(BigInt result, ParseBigInt(expr.integer_constant(), 10),
+                       _ << "AST invariant violated; invalid decimal string: "
+                         << expr.integer_constant());
+      return {result};
     }
 
     case Expression::kKey: {
@@ -728,7 +715,7 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
       const std::string attribute_name =
           expr.attribute_access().attribute_name();
       if (attribute_name == "priority") {
-        return Integer(table_entry->priority);
+        return BigInt(table_entry->priority);
       } else {
         return RuntimeTypeError(context.constraint_source,
                                 expr.start_location(), expr.end_location())
@@ -743,8 +730,8 @@ absl::StatusOr<EvalResult> Eval_(const Expression& expr,
     }
 
     case Expression::kArithmeticNegation: {
-      ASSIGN_OR_RETURN(Integer result, EvalToInt(expr.arithmetic_negation(),
-                                                 context, eval_cache));
+      ASSIGN_OR_RETURN(BigInt result, EvalToInt(expr.arithmetic_negation(),
+                                                context, eval_cache));
       return {-result};
     }
 
@@ -793,7 +780,7 @@ absl::Status DynamicTypeCheck(const ConstraintSource& source,
       break;
     case Type::kArbitraryInt:
     case Type::kFixedUnsigned:
-      if (absl::holds_alternative<Integer>(result)) return absl::OkStatus();
+      if (absl::holds_alternative<BigInt>(result)) return absl::OkStatus();
       break;
     case Type::kExact:
       if (absl::holds_alternative<Exact>(result)) return absl::OkStatus();

@@ -16,7 +16,6 @@
 #include "p4_constraints/backend/interpreter.h"
 
 #include <gmock/gmock.h>
-#include <gmpxx.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
 
@@ -26,6 +25,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -37,6 +37,7 @@
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/big_int.h"
 #include "p4_constraints/constraint_source.h"
 
 namespace p4_constraints {
@@ -54,6 +55,12 @@ using ::testing::Eq;
 using ::testing::Not;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
+
+BigInt ParseBigIntForTest(absl::string_view text, int base = 10) {
+  auto result = ParseBigInt(text, base);
+  CHECK(result.ok()) << result.status();
+  return *result;
+}
 
 std::string PrintTextProto(const google::protobuf::Message& message) {
   std::string text;
@@ -105,15 +112,13 @@ class ReasonEntryViolatesConstraintTest : public ::testing::Test {
   const TableEntry kParsedEntry = {
       .table_name = "table",
       .keys = {
-          {"exact32", {Exact{.value = mpz_class(42)}}},
-          {"ternary32",
-           {Ternary{.value = mpz_class(12), .mask = mpz_class(128)}}},
-          {"lpm32",
-           {Lpm{.value = mpz_class(0), .prefix_length = mpz_class(32)}}},
-          {"range32", {Range{.low = mpz_class(5), .high = mpz_class(500)}}},
+          {"exact32", {Exact{.value = BigInt(42)}}},
+          {"ternary32", {Ternary{.value = BigInt(12), .mask = BigInt(128)}}},
+          {"lpm32", {Lpm{.value = BigInt(0), .prefix_length = BigInt(32)}}},
+          {"range32", {Range{.low = BigInt(5), .high = BigInt(500)}}},
           {"optional32",
-           {Ternary{.value = mpz_class(12),
-                    .mask = (mpz_class(1) << 32) - mpz_class(1)}}},
+           {Ternary{.value = BigInt(12),
+                    .mask = (BigInt(1) << 32) - BigInt(1)}}},
       }};
 
   const EvaluationContext kEvaluationContext = {
@@ -745,7 +750,7 @@ TEST_F(EvalTest, IntegerConstant) {
          {kArbitraryInt, kFixedUnsigned16, kFixedUnsigned32}) {
       const Expression kExpr = ExpressionWithType(
           type, absl::Substitute(R"(integer_constant: "$0")", int_str));
-      EvalResult result = mpz_class(int_str);
+      EvalResult result = ParseBigIntForTest(int_str);
       EXPECT_THAT(Eval(kExpr, kEvaluationContext, nullptr),
                   IsOkAndHolds(Eq(result)));
     }
@@ -784,7 +789,7 @@ TEST_F(EvalTest, BooleanNegation) {
 }
 
 TEST_F(EvalTest, ArithmeticNegation) {
-  Integer value = mpz_class(42);
+  BigInt value = BigInt(42);
   Expression inner_expr =
       ExpressionWithType(kArbitraryInt, R"(integer_constant: "42")");
   for (int i = 0; i < 4; i++) {
@@ -798,10 +803,10 @@ TEST_F(EvalTest, ArithmeticNegation) {
 }
 
 TEST_F(EvalTest, TypeCast) {
-  const Integer max_uint32 = (mpz_class(1) << 32) - 1;  // 2^32 - 1
+  const BigInt max_uint32 = (BigInt(1) << 32) - 1;  // 2^32 - 1
 
   for (int n : {-1, 42}) {
-    const Integer unsigned_n = (n == -1) ? max_uint32 : mpz_class(n);
+    const BigInt unsigned_n = (n == -1) ? max_uint32 : BigInt(n);
     const Expression arbitrary_int = ExpressionWithType(
         kArbitraryInt, absl::Substitute(R"(integer_constant: "$0")", n));
 
@@ -889,20 +894,20 @@ TEST_F(EvalTest, BinaryExpression_BooleanArguments) {
 }
 
 TEST_F(EvalTest, BinaryExpression_NumericArguments) {
-  auto int_const = [&](Integer n) -> Expression {
-    return ExpressionWithType(kArbitraryInt,
-                              "integer_constant: \"" + n.get_str() + "\"");
+  auto int_const = [&](BigInt n) -> Expression {
+    return ExpressionWithType(
+        kArbitraryInt, "integer_constant: \"" + BigIntToString(n) + "\"");
   };
-  const std::vector<Integer> values = {
-      mpz_class(-1),
-      mpz_class(0),
-      mpz_class(42),
-      mpz_class("-452389348125871341098532412564"),
-      mpz_class("53871347531398537818732785237812312987523"),
+  const std::vector<BigInt> values = {
+      BigInt(-1),
+      BigInt(0),
+      BigInt(42),
+      ParseBigIntForTest("-452389348125871341098532412564"),
+      ParseBigIntForTest("53871347531398537818732785237812312987523"),
   };
 
-  for (const Integer& left : values) {
-    for (const Integer& right : values) {
+  for (const BigInt& left : values) {
+    for (const BigInt& right : values) {
       Expression expr = ExpressionWithType(
           kBool, absl::Substitute("binary_expression { left {$0} right {$1} }",
                                   PrintTextProto(int_const(left)),
@@ -975,9 +980,9 @@ TEST_F(EvalTest, BinaryExpression_CompositeArguments) {
 }
 
 TEST_F(EvalTest, FieldAccess) {
-  Integer value = mpz_class(42);
+  BigInt value = BigInt(42);
   EvalResult result = value;
-  Integer value2 = mpz_class(-21);
+  BigInt value2 = BigInt(-21);
   EvalResult result2 = value2;
 
   TableEntry entry = kParsedEntry;

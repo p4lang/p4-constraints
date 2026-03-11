@@ -1,15 +1,25 @@
 # Optional per-user config goes into user.bazelrc, which is .gitignore-ed.
 try-import user.bazelrc
 
-# Use C++17.
-build --cxxopt=-std=c++17
-build --host_cxxopt=-std=c++17
+# Use Bzlmod (`MODULE.bazel`) instead of the legacy workspace system.
+common --enable_bzlmod
+common --noenable_workspace
+
+# Auto-select build:linux / build:macos based on the host OS.
+common --enable_platform_specific_config
+
+# Use C++20.
+build --cxxopt=-std=c++20
+build --host_cxxopt=-std=c++20
 
 # Use Clang.
 build --action_env=CC=clang
 build --action_env=CXX=clang++
+build:linux --repo_env=CC=clang
+build:macos --repo_env=CC=/usr/bin/clang
 
-# Use `WORKSPACE.bazel` instead of Bzlmod (`MODULE.bazel`).
-# TODO - migrate to Bzlmod.
-common --noenable_bzlmod
-common --enable_workspace
+# macOS requires some extra tweaks.
+build:macos --macos_minimum_os=10.15
+build:macos --host_macos_minimum_os=10.15
+build:macos --copt=-D_XOPEN_SOURCE
+build:macos --host_copt=-D_XOPEN_SOURCE

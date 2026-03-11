@@ -118,12 +118,8 @@ p4-constraints can be used as follows:
 
 ## Building
 
-Building p4-constraints requires [Bazel](https://bazel.build/), a C++11 compiler
-(or newer), and [GMP](https://gmplib.org/). The latter can be installed on
-Ubuntu as follows:
-```sh
-apt-get install libgmp-dev
-```
+Building p4-constraints requires [Bazel](https://bazel.build/) 7.6 or newer
+with Bzlmod enabled and a C++20 compiler.
 
 We inherit a few additional dependencies
 ([Bison](https://en.wikipedia.org/wiki/GNU_Bison) and
@@ -158,15 +154,10 @@ bazel run //p4_constraints/frontend:lexer_test
 
 ### MacOS
 
-While building under MacOS is not officially supported, it currently works after
-executing the following commands, using [Homebrew](https://brew.sh/) to install
-[GMP](https://gmplib.org/):
-```sh
-# Install GMP.
-brew install gmp && brew link gmp
-# Tell linker (ld) where to find GMP so '-lgmp' works.
-echo "build --linkopt='-L/usr/local/brew/lib'" > user.bazelrc
-```
+While building under MacOS is not officially supported, it currently works with
+Apple Command Line Tools installed. The checked-in `.bazelrc` already selects
+the system Clang toolchain and sets the macOS deployment target needed by
+`std::filesystem`.
 
 ### Docker
 
