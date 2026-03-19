@@ -22,8 +22,12 @@ CLANG_FORMAT_EXTENSIONS="cc|h|proto"
 
 # Run clang-format.
 find . -not -path "./third_party/**" \
-  | egrep "\.(${CLANG_FORMAT_EXTENSIONS})\$" \
-  | xargs clang-format --verbose -style=google -i
+| egrep "\.(${CLANG_FORMAT_EXTENSIONS})\$" \
+| xargs clang-format --verbose -style=google -i
 
 bazel run -- \
-  @buildifier_prebuilt//:buildifier --lint=fix -r $(bazel info workspace)
+@buildifier_prebuilt//:buildifier --lint=fix -r $(bazel info workspace)
+
+# Format Markdown files using mdformat.
+find . -not -path "./third_party/**" -name "*.md" \
+| xargs mdformat --wrap 80
