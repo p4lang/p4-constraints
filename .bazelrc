@@ -1,9 +1,7 @@
 # Optional per-user config goes into user.bazelrc, which is .gitignore-ed.
 try-import user.bazelrc
 
-# Use Bzlmod (`MODULE.bazel`) instead of the legacy workspace system.
-common --enable_bzlmod
-common --noenable_workspace
+# Use `WORKSPACE.bazel` instead of Bzlmod (`MODULE.bazel`).
 
 # Auto-select build:linux / build:macos based on the host OS.
 common --enable_platform_specific_config

@@ -1,5 +1,3 @@
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 package(
     licenses = ["notice"],  # Apache 2.0
@@ -18,12 +16,12 @@ cc_library(
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
         "//p4_constraints:quote",
-        "@abseil-cpp//absl/log",
-        "@abseil-cpp//absl/log:check",
-        "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/status:statusor",
-        "@abseil-cpp//absl/strings",
-        "@gutil//gutil:status",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_gutil//gutil:status",
     ],
 )
 
@@ -37,11 +35,11 @@ cc_test(
         ":token",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
-        "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/status:statusor",
-        "@googletest//:gtest_main",
-        "@gutil//gutil:proto_matchers",
-        "@gutil//gutil:status_matchers",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_gutil//gutil:proto_matchers",
+        "@com_google_gutil//gutil:status_matchers",
     ],
 )
 
@@ -55,10 +53,10 @@ cc_library(
         "//p4_constraints:ast",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
-        "@abseil-cpp//absl/log",
-        "@abseil-cpp//absl/log:check",
-        "@abseil-cpp//absl/strings",
-        "@re2",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
+        "@com_google_absl//absl/strings",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 
@@ -71,7 +69,7 @@ cc_test(
         ":token",
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:constraint_source",
-        "@googletest//:gtest_main",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -81,10 +79,10 @@ cc_library(
     hdrs = ["token.h"],
     deps = [
         "//p4_constraints:ast_cc_proto",
-        "@abseil-cpp//absl/container:flat_hash_map",
-        "@abseil-cpp//absl/log",
-        "@abseil-cpp//absl/log:check",
-        "@abseil-cpp//absl/types:optional",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
+        "@com_google_absl//absl/types:optional",
     ],
 )
 
@@ -94,7 +92,7 @@ cc_test(
     srcs = ["token_test.cc"],
     deps = [
         ":token",
-        "@googletest//:gtest_main",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -109,12 +107,12 @@ cc_library(
         "//p4_constraints:ast_cc_proto",
         "//p4_constraints:big_int",
         "//p4_constraints:ret_check",
-        "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/status:statusor",
-        "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/strings:str_format",
-        "@abseil-cpp//absl/types:span",
-        "@gutil//gutil:status",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:span",
+        "@com_google_gutil//gutil:status",
     ],
 )
 

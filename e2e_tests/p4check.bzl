@@ -31,7 +31,7 @@ file, run:
 ```
 """
 
-load("@p4c//bazel:p4_library.bzl", "p4_library")
+load("@com_github_p4lang_p4c//bazel:p4_library.bzl", "p4_library")
 
 def run_p4check(name, src, out, deps = [], table_entries = [], visibility = None):
     """Runs p4check on the given P4 file and table entries, recording output.

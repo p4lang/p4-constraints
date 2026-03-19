@@ -1,6 +1,3 @@
-load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
 # GOOGLE ONLY (DO NOT REMOVE): load("//third_party/protobuf/bazel:proto_library.bzl", "proto_library")
 
 load("@rules_proto//proto:defs.bzl", "proto_library")
@@ -15,11 +12,11 @@ cc_library(
     srcs = ["big_int.cc"],
     hdrs = ["big_int.h"],
     deps = [
-        "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/status:statusor",
-        "@abseil-cpp//absl/strings",
-        "@boost.multiprecision",
-        "@gutil//gutil:status",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@boost//:multiprecision",
+        "@com_google_gutil//gutil:status",
     ],
 )
 
@@ -29,8 +26,8 @@ cc_test(
     srcs = ["big_int_test.cc"],
     deps = [
         ":big_int",
-        "@googletest//:gtest_main",
-        "@gutil//gutil:status_matchers",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_gutil//gutil:status_matchers",
     ],
 )
 
@@ -40,16 +37,16 @@ cc_library(
     hdrs = ["ast.h"],
     deps = [
         ":ast_cc_proto",
-        "@abseil-cpp//absl/container:flat_hash_map",
-        "@abseil-cpp//absl/container:flat_hash_set",
-        "@abseil-cpp//absl/log",
-        "@abseil-cpp//absl/meta:type_traits",
-        "@abseil-cpp//absl/status:statusor",
-        "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/types:optional",
-        "@gutil//gutil:proto",
-        "@gutil//gutil:status",
-        "@protobuf",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/meta:type_traits",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_gutil//gutil:proto",
+        "@com_google_gutil//gutil:status",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -65,11 +62,11 @@ cc_test(
     srcs = ["ast_test.cc"],
     deps = [
         ":ast",
-        "@abseil-cpp//absl/container:flat_hash_set",
-        "@abseil-cpp//absl/strings",
-        "@googletest//:gtest_main",
-        "@gutil//gutil:status_matchers",
-        "@gutil//gutil:testing",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_gutil//gutil:status_matchers",
+        "@com_google_gutil//gutil:testing",
     ],
 )
 
@@ -91,12 +88,12 @@ cc_library(
         ":ast",
         ":ast_cc_proto",
         ":constraint_source",
-        "@abseil-cpp//absl/log",
-        "@abseil-cpp//absl/status:statusor",
-        "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/strings:str_format",
-        "@gutil//gutil:proto",
-        "@gutil//gutil:status",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_gutil//gutil:proto",
+        "@com_google_gutil//gutil:status",
     ],
 )
 
@@ -106,9 +103,9 @@ cc_library(
     hdrs = ["ret_check.h"],
     deps = [
         ":source_location",
-        "@abseil-cpp//absl/base:core_headers",
-        "@abseil-cpp//absl/status",
-        "@gutil//gutil:status",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status",
+        "@com_google_gutil//gutil:status",
     ],
 )
 
