@@ -19,10 +19,11 @@ def p4_constraints_deps():
             sha256 = "3b5b49006181f5f8ff626ef8ddceaa95e9bb8ad294f7b5d7b11ea9f7ddaf8c59",
         )
     if not native.existing_rule("com_google_gutil"):
-        git_repository(
+        http_archive(
             name = "com_google_gutil",
-            remote = "https://github.com/google/gutil",
-            branch = "bazel-workspace-support",
+            url = "https://github.com/google/gutil/archive/16283826f41a6d4301a7c42abb07d0c8aaeec452.tar.gz",
+            strip_prefix = "gutil-16283826f41a6d4301a7c42abb07d0c8aaeec452",
+            sha256 = "c470e5e017e0a9b341c445d1edc8df3e11d54b6286dcba74e9128118ac0d3653",
         )
     if not native.existing_rule("com_google_googletest"):
         http_archive(
@@ -61,16 +62,18 @@ def p4_constraints_deps():
         )
     # rules_proto is provided transitively by protobuf_deps().
     if not native.existing_rule("com_github_p4lang_p4runtime"):
-        git_repository(
+        http_archive(
             name = "com_github_p4lang_p4runtime",
-            remote = "https://github.com/p4lang/p4runtime",
-            branch = "bazel-workspace-support",
+            url = "https://github.com/p4lang/p4runtime/archive/bd2a626484e125da30422326d27fad0ddebdd645.tar.gz",
+            strip_prefix = "p4runtime-bd2a626484e125da30422326d27fad0ddebdd645/proto",
+            sha256 = "5cad9290fce6748ef3e76a857f9d2cb6747ec3540423a325eff61a718d464cfd",
         )
     if not native.existing_rule("com_github_p4lang_p4c"):
-        git_repository(
+        http_archive(
             name = "com_github_p4lang_p4c",
-            remote = "https://github.com/p4lang/p4c",
-            branch = "bazel-workspace-support",
+            url = "https://github.com/p4lang/p4c/archive/df264349e4216f08275c1c71a532f631df9b5666.tar.gz",
+            strip_prefix = "p4c-df264349e4216f08275c1c71a532f631df9b5666",
+            sha256 = "2f185be689a72f4df4f355dd80a0f3ccc0e984a794605d782d0a9b3a151eb7ec",
         )
     if not native.existing_rule("com_github_z3prover_z3"):
         http_archive(
