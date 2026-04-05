@@ -118,29 +118,16 @@ p4-constraints can be used as follows:
 
 ## Building
 
-Building p4-constraints requires [Bazel](https://bazel.build/) 7.6 or newer
-with Bzlmod enabled and a C++20 compiler.
+Building p4-constraints requires [Bazelisk](https://github.com/bazelbuild/bazelisk) and Clang.
 
-We inherit a few additional dependencies
-([Bison](https://en.wikipedia.org/wiki/GNU_Bison) and
-[Flex](https://en.wikipedia.org/wiki/Flex_\(lexical_analyser_generator\)))
-from [p4c](https://github.com/p4lang/p4c); these are required for
-[golden testing](#golden-tests) only and can be installed on Ubuntu as follows:
-```sh
-apt-get install bison flex libfl-dev
-```
+Officially, p4-constraints can be built on Ubuntu (enforced via CI); in practice, it should
+also build on most Linux distribituions and on macOS.
 
 To build, run
 ```sh
 bazel build //p4_constraints/...
-```
 
-To run all tests except [golden tests](#golden-tests), run
-```sh
-bazel test //p4_constraints/...
-```
-
-To run all tests including [golden tests](#golden-tests), run
+To test, run
 ```sh
 bazel test //...
 ```
@@ -150,22 +137,6 @@ as it will build p4c from source.
 To see the output of a failed test, invoke it using `bazel run` like so:
 ```sh
 bazel run //p4_constraints/frontend:lexer_test
-```
-
-### MacOS
-
-While building under MacOS is not officially supported, it currently works with
-Apple Command Line Tools installed. The checked-in `.bazelrc` already selects
-the system Clang toolchain and sets the macOS deployment target needed by
-`std::filesystem`.
-
-### Docker
-
-You can also build p4-constraint in a Docker container, for example:
-```sh
-docker build --tag p4-constraints .                 # Time to get coffee...
-docker run --tty --interactive p4-constraints bash  # Open shell in container.
-bazel test //...                                    # Run tests in container.
 ```
 
 ## Golden tests
@@ -209,6 +180,31 @@ bazel run p4_constraints/cli:p4check -- --help
 See [docs/language-specification.md](docs/language-specification.md) for a
 documentation of the constraint languages, or look at some example constraints
 in the .p4-files in the [e2e_tests folder](e2e_tests/).
+
+## Cutting a Release
+
+The version of releases follows the year, month, date, and patch format.
+
+1.  Create a new branch with the name `release-yyyymmdd`.
+2.  In the branch, the version in the MODULE.bazel must be updated to match
+    `yyyymmdd.p`, where p is the patch number (initially 0).
+    *   Note: This branch should not be deleted to keep an archive of all
+        releases and to make it easier to patch release, if necessary.
+    *   Tip: You can do steps 1 and 2 in one swoop by editing MODULE.bazel
+        directly through the GitHub website and committing the change to a
+        new branch of the correct name.
+3.  Create a new release on Github with the tag being in the form `yyyymmdd.p`,
+    the title being `p4-constraints yyyymmdd.p (month year)`. The release notes
+    can be auto-generated.
+    *   The release archive must be added to the Github release for the Bazel
+        Central Registry to achieve
+        [archive checksum stability](https://blog.bazel.build/2023/02/15/github-archive-checksum.html)
+    *   The release archive can be added after creating a release. Download the
+        source zip and re-uploading it as the stable release archive.
+5.  The
+    [Bazel Central Registry for Gutil](https://github.com/bazelbuild/bazel-central-registry/tree/main/modules/p4-constraints)
+    must also be updated accordingly by following the
+    [contribution guidelines](https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md).
 
 ## Contributing
 
