@@ -201,8 +201,8 @@ The version of releases follows the year, month, date, and patch format.
         [archive checksum stability](https://blog.bazel.build/2023/02/15/github-archive-checksum.html)
     *   The release archive can be added after creating a release. Download the
         source zip and re-uploading it as the stable release archive.
-5.  The
-    [Bazel Central Registry for Gutil](https://github.com/bazelbuild/bazel-central-registry/tree/main/modules/p4-constraints)
+4.  The
+    [Bazel Central Registry](https://github.com/bazelbuild/bazel-central-registry/tree/main/modules/p4_constraints)
     must also be updated accordingly by following the
     [contribution guidelines](https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md).
 
