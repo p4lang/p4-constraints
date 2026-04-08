@@ -183,7 +183,8 @@ in the .p4-files in the [e2e_tests folder](e2e_tests/).
 
 ## Cutting a Release
 
-The version of releases follows the year, month, date, and patch format.
+Releases follow [CalVer](https://calver.org/): `yyyymmdd.p`, where `p` is a
+patch number starting at `0`.
 
 1.  Create a new branch with the name `release-yyyymmdd`.
 2.  In the branch, the version in the MODULE.bazel must be updated to match
