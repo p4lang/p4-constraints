@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2020 The P4-Constraints Authors
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # p4-constraints language specification
 
 The general design philosophy behind the p4-constraints language is to recycle
