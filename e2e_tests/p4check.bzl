@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2021 The P4-Constraints Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Bazel targets for end-to-end diff testing of p4_constraints library.
 
 This file defines targets `run_p4check` and `diff_test`, which are intended to be

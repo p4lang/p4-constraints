@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2020 The P4-Constraints Authors
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 ![native build & test](https://github.com/p4lang/p4-constraints/workflows/native%20build%20&%20test/badge.svg)
 
 # p4-constraints
