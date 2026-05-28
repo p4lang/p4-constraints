@@ -361,8 +361,11 @@ absl::StatusOr<SymbolicEvalResult> EvalSymbolically(
     }
 
     case ast::Expression::kActionParameter: {
-      return absl::UnimplementedError(
-          "TODO: b/293656077 - Support action constraints");
+      ASSIGN_OR_RETURN(
+          const z3::expr* param,
+          gutil::FindPtrOrStatus(environment.symbolic_parameter_by_name,
+                                 expr.action_parameter()));
+      return *param;
     }
 
     case ast::Expression::kFieldAccess: {
@@ -680,19 +683,23 @@ absl::StatusOr<z3::expr> EvaluateConstraintSymbolically(
 
 }  // namespace internal_interpreter
 
-absl::StatusOr<p4::v1::TableEntry> ConstraintSolver::ConcretizeEntry() {
+absl::StatusOr<p4::v1::TableEntry> ConstraintSolver::ConcretizeEntryKey() {
+  if (!table_info_.has_value()) {
+    return gutil::FailedPreconditionErrorBuilder()
+           << "ConcretizeEntryKey is only allowed when TableInfo is provided.";
+  }
   if (solver_->check() != z3::sat) {
     return gutil::InternalErrorBuilder() << "Constraints are not satisfiable.";
   }
 
   z3::model model = solver_->get_model();
   p4::v1::TableEntry table_entry;
-  table_entry.set_table_id(table_info_.id);
+  table_entry.set_table_id(table_info_->id);
 
   // Construct match fields by evaluating their respective entries in the model.
   // Ordered for reproducibility.
   for (const auto& [key_name, key_info] :
-       gutil::AsOrderedView(table_info_.keys_by_name)) {
+       gutil::AsOrderedView(table_info_->keys_by_name)) {
     ASSIGN_OR_RETURN(bool key_should_be_skipped, skip_key_named_(key_name));
     if (key_should_be_skipped) continue;
 
@@ -727,7 +734,43 @@ absl::StatusOr<p4::v1::TableEntry> ConstraintSolver::ConcretizeEntry() {
   return table_entry;
 }
 
-absl::StatusOr<bool> ConstraintSolver::AddConstraint(
+absl::StatusOr<p4::v1::Action> ConstraintSolver::ConcretizeAction() {
+  if (!action_info_.has_value()) {
+    return gutil::FailedPreconditionErrorBuilder()
+           << "ConcretizeAction is only allowed when ActionInfo is provided.";
+  }
+  if (solver_->check() != z3::sat) {
+    return gutil::InternalErrorBuilder() << "Constraints are not satisfiable.";
+  }
+
+  z3::model model = solver_->get_model();
+  p4::v1::Action action;
+  action.set_action_id(action_info_->id);
+
+  // Construct action parameters by evaluating their respective entries in the
+  // model. Ordered for reproducibility.
+  for (const auto& [param_name, param_info] :
+       gutil::AsOrderedView(action_info_->params_by_name)) {
+    ASSIGN_OR_RETURN(const z3::expr* param_expr,
+                     gutil::FindPtrOrStatus(
+                         environment_.symbolic_parameter_by_name, param_name));
+
+    p4::v1::Action::Param* param = action.add_params();
+    param->set_param_id(param_info.id);
+
+    ASSIGN_OR_RETURN(int bitwidth, ast::TypeBitwidthOrStatus(param_info.type));
+
+    // Evaluate the parameter value in the model.
+    std::string z3_value =
+        model.eval(*param_expr, /*model_completion=*/true).to_string();
+    ASSIGN_OR_RETURN(*param->mutable_value(),
+                     Z3BitvectorValueToP4RuntimeBytestring(z3_value, bitwidth));
+  }
+
+  return action;
+}
+
+absl::StatusOr<bool> ConstraintSolver::AddConstraintInternal(
     const ast::Expression& constraint,
     const ConstraintSource& constraint_source) {
   if (solver_->check() != z3::sat) {
@@ -748,10 +791,14 @@ absl::StatusOr<bool> ConstraintSolver::AddConstraint(
   return true;
 };
 
-absl::StatusOr<bool> ConstraintSolver::AddConstraint(
+absl::StatusOr<bool> ConstraintSolver::AddTableConstraint(
     absl::string_view constraint_string) {
+  if (!table_info_.has_value()) {
+    return gutil::FailedPreconditionErrorBuilder()
+           << "AddTableConstraint is only allowed when TableInfo is provided.";
+  }
   ast::SourceLocation source_location;
-  source_location.set_table_name(table_info_.name);
+  source_location.set_table_name(table_info_->name);
 
   ConstraintSource constraint_source{
       .constraint_string = std::string(constraint_string),
@@ -762,9 +809,10 @@ absl::StatusOr<bool> ConstraintSolver::AddConstraint(
       ast::Expression constraint_ast,
       ParseConstraint(ConstraintKind::kTableConstraint, constraint_source));
 
-  RETURN_IF_ERROR(InferAndCheckTypes(&constraint_ast, table_info_));
+  RETURN_IF_ERROR(InferAndCheckTypes(&constraint_ast, *table_info_));
 
-  return ConstraintSolver::AddConstraint(constraint_ast, constraint_source);
+  return ConstraintSolver::AddConstraintInternal(constraint_ast,
+                                                 constraint_source);
 }
 
 absl::StatusOr<ConstraintSolver> ConstraintSolver::Create(
@@ -772,7 +820,7 @@ absl::StatusOr<ConstraintSolver> ConstraintSolver::Create(
     std::function<absl::StatusOr<bool>(absl::string_view key_name)>
         skip_key_named) {
   ConstraintSolver constraint_solver = ConstraintSolver();
-  constraint_solver.table_info_ = std::move(table);
+  constraint_solver.table_info_ = table;
   constraint_solver.skip_key_named_ = std::move(skip_key_named);
 
   // Add keys to solver and map and determine whether the table needs a
@@ -780,7 +828,7 @@ absl::StatusOr<ConstraintSolver> ConstraintSolver::Create(
   bool requires_priority = false;
   // Ordered for reproducibility.
   for (const auto& [key_name, key_info] :
-       gutil::AsOrderedView(constraint_solver.table_info_.keys_by_name)) {
+       gutil::AsOrderedView(constraint_solver.table_info_->keys_by_name)) {
     if (key_info.type.has_ternary() || key_info.type.has_optional_match()) {
       // In P4Runtime, all tables with ternaries or optionals require priorities
       // for their entries.
@@ -806,14 +854,51 @@ absl::StatusOr<ConstraintSolver> ConstraintSolver::Create(
 
   if (table.constraint.has_value()) {
     ASSIGN_OR_RETURN(bool modeled_constraint_added,
-                     constraint_solver.AddConstraint(*table.constraint,
-                                                     table.constraint_source));
+                     constraint_solver.AddConstraintInternal(
+                         *table.constraint, table.constraint_source));
     if (!modeled_constraint_added) {
       return gutil::InvalidArgumentErrorBuilder()
              << "TableInfo provided an unsatisfiable constraint. "
                 "ConstraintSolver must contain a satisfiable constraint at all "
                 "times so creation failed.\n Unsatisfiable Constraint: "
              << table.constraint_source.constraint_string;
+    }
+  }
+
+  return constraint_solver;
+}
+
+absl::StatusOr<ConstraintSolver> ConstraintSolver::Create(
+    const ActionInfo& action) {
+  ConstraintSolver constraint_solver = ConstraintSolver();
+  constraint_solver.action_info_ = action;
+
+  // Initialize symbolic variables for action parameters.
+  for (const auto& [param_name, param_info] : action.params_by_name) {
+    ASSIGN_OR_RETURN(int bitwidth, ast::TypeBitwidthOrStatus(param_info.type));
+    if (bitwidth <= 0) {
+      return gutil::InvalidArgumentErrorBuilder()
+             << "expected a param type with bitwidth > 0, but got: "
+             << param_info.name << " with type "
+             << param_info.type.ShortDebugString();
+    }
+    // Action parameters are just bitvectors.
+    z3::expr param_expr =
+        constraint_solver.solver_->ctx().bv_const(param_name.c_str(), bitwidth);
+    constraint_solver.environment_.symbolic_parameter_by_name.insert(
+        {param_name, param_expr});
+  }
+
+  if (action.constraint.has_value()) {
+    ASSIGN_OR_RETURN(bool modeled_constraint_added,
+                     constraint_solver.AddConstraintInternal(
+                         *action.constraint, action.constraint_source));
+    if (!modeled_constraint_added) {
+      return gutil::InvalidArgumentErrorBuilder()
+             << "ActionInfo provided an unsatisfiable constraint. "
+                "ConstraintSolver must contain a satisfiable constraint at all "
+                "times so creation failed.\n Unsatisfiable Constraint: "
+             << action.constraint_source.constraint_string;
     }
   }
 
@@ -971,6 +1056,21 @@ absl::StatusOr<z3::expr> TranslateBySymbolicEnvironment(
     z3::expr_vector from(expr.ctx());
     z3::expr_vector to(expr.ctx());
     from.push_back(src_attribute.value);
+    to.push_back(translated_dst_value);
+    expr = expr.substitute(from, to);
+  }
+
+  // Substitute parameter names.
+  for (const auto& [param_name, dst_param] :
+       dst_env.symbolic_parameter_by_name) {
+    auto src_it = src_env.symbolic_parameter_by_name.find(param_name);
+    if (src_it == src_env.symbolic_parameter_by_name.end()) continue;
+    const z3::expr& src_param = src_it->second;
+    z3::expr translated_dst_value = z3::to_expr(
+        expr.ctx(), Z3_translate(dst_param.ctx(), dst_param, expr.ctx()));
+    z3::expr_vector from(expr.ctx());
+    z3::expr_vector to(expr.ctx());
+    from.push_back(src_param);
     to.push_back(translated_dst_value);
     expr = expr.substitute(from, to);
   }
