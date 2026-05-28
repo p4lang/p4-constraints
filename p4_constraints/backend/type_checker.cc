@@ -111,7 +111,7 @@ bool StrictlyAboveInCastabilityOrder(const Type& left, const Type& right) {
 // two types in the castability diagram above, where an ancestor is a type
 // reachable via am upward path. Note that such a supremum (common ancestor)
 // does not exist for all pairs of types.
-absl::optional<Type> LeastUpperBound(const Type& left, const Type& right) {
+std::optional<Type> LeastUpperBound(const Type& left, const Type& right) {
   if (left == right) return left;
   if (StrictlyAboveInCastabilityOrder(left, right)) return left;
   if (StrictlyAboveInCastabilityOrder(right, left)) return right;
@@ -169,7 +169,7 @@ absl::Status CastTransitivelyTo(Expression* expr, Type target_type) {
 // upper bound. Otherwise, Unify returns an InvalidArgument Status.
 absl::StatusOr<Type> Unify(Expression* left, Expression* right,
                            const ConstraintSource& constraint_source) {
-  const absl::optional<Type> least_upper_bound =
+  const std::optional<Type> least_upper_bound =
       LeastUpperBound(left->type(), right->type());
   if (!least_upper_bound.has_value()) {
     return StaticTypeError(constraint_source, left->start_location(),
@@ -199,13 +199,13 @@ const auto* const kFieldTypes =
         {std::make_tuple(Type::kOptionalMatch, "mask"), Type::kFixedUnsigned},
     };
 
-absl::optional<Type> FieldTypeOfCompositeType(const Type& composite_type,
-                                              const std::string& field) {
+std::optional<Type> FieldTypeOfCompositeType(const Type& composite_type,
+                                             const std::string& field) {
   auto it =
       kFieldTypes->find(std::make_tuple(composite_type.type_case(), field));
   if (it == kFieldTypes->end()) return {};
   Type field_type = TypeCaseToType(it->second);
-  absl::optional<int> bitwidth = TypeBitwidth(composite_type);
+  std::optional<int> bitwidth = TypeBitwidth(composite_type);
   if (!bitwidth.has_value()) {
     LOG(ERROR) << "expected composite type " << composite_type
                << " to have bitwidth";
