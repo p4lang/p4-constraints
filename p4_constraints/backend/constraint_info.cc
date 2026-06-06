@@ -79,7 +79,7 @@ void SetConstraintLocationName(ConstraintKind constraint_kind,
       << "ConstraintKind is neither TableConstraint nor ActionConstraint";
 }
 
-absl::StatusOr<absl::optional<ConstraintSource>> ExtractConstraint(
+absl::StatusOr<std::optional<ConstraintSource>> ExtractConstraint(
     ConstraintKind constraint_kind, const Preamble& preamble) {
   // We expect .p4 files to have the following format for tables:
   // ```p4
@@ -247,10 +247,10 @@ absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
   }
 
   ASSIGN_OR_RETURN(
-      absl::optional<ConstraintSource> constraint_source,
+      std::optional<ConstraintSource> constraint_source,
       ExtractConstraint(ConstraintKind::kTableConstraint, table.preamble()));
 
-  absl::optional<ast::Expression> constraint = absl::nullopt;
+  std::optional<ast::Expression> constraint = absl::nullopt;
   if (constraint_source.has_value()) {
     ASSIGN_OR_RETURN(
         constraint,
@@ -297,9 +297,9 @@ absl::StatusOr<ActionInfo> ParseActionInfo(const Action& action) {
     }
   }
   ASSIGN_OR_RETURN(
-      absl::optional<ConstraintSource> constraint_source,
+      std::optional<ConstraintSource> constraint_source,
       ExtractConstraint(ConstraintKind::kActionConstraint, action.preamble()));
-  absl::optional<ast::Expression> constraint;
+  std::optional<ast::Expression> constraint;
   if (constraint_source.has_value()) {
     ASSIGN_OR_RETURN(
         constraint,

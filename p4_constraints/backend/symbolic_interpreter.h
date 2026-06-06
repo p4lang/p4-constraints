@@ -88,13 +88,14 @@ struct SymbolicEnvironment {
   absl::flat_hash_map<std::string, SymbolicKey> symbolic_key_by_name;
   absl::flat_hash_map<std::string, SymbolicAttribute>
       symbolic_attribute_by_name;
+  absl::flat_hash_map<std::string, z3::expr> symbolic_parameter_by_name;
 };
 
 // -- Main Class ---------------------------------------------------------------
 
-// A solver for constraints on a table.
-// NOTE: Encodes a single table entry for the table given to the constructor. A
-// single instantiation can not be used to encode multiple entries.
+// A solver for constraints on a table or action.
+// NOTE: Encodes a single table entry or action at a time. A single
+// instantiation can not be used to encode multiple entries or actions.
 class ConstraintSolver {
  public:
   // Constructs a ConstraintSolver representing an entry for `table` that
@@ -106,22 +107,21 @@ class ConstraintSolver {
       std::function<absl::StatusOr<bool>(absl::string_view key_name)>
           skip_key_named = [](absl::string_view key_name) { return false; });
 
-  // Returns true and adds constraint to the solver. If `constraint` would make
-  // the current ConstraintSolver unable to generate an entry, returns false and
-  // does not change the state of the ConstraintSolver. If `constraint` is
-  // malformed returns error and `constraint_source` is used for debugging info.
-  absl::StatusOr<bool> AddConstraint(const ast::Expression& constraint,
-                                     const ConstraintSource& constraint_source);
-  // Similar to overload above except that both the AST expression and its
-  // source are derived from `constraint`. Additionally returns an error if a
-  // valid AST cannot be produced from `constraint`.
-  absl::StatusOr<bool> AddConstraint(absl::string_view constraint);
+  // Constructs a ConstraintSolver representing action parameter values for
+  // `action` that respects its P4-Constraints.
+  static absl::StatusOr<ConstraintSolver> Create(const ActionInfo& action);
 
-  // Returns the entry encoded by the object.
-  // NOTE: The entry will NOT contain an action and is thus not a valid
-  // P4Runtime entry without modification.
-  // TODO(b/242201770): Extract actions once action constraints are supported.
-  absl::StatusOr<p4::v1::TableEntry> ConcretizeEntry();
+  // Returns true and adds a table constraint to the solver. If `constraint` is
+  // malformed or would make the current ConstraintSolver unable to generate
+  // an entry, returns false/error and does not change the state of the solver.
+  // Additionally returns an error if a valid AST cannot be produced.
+  absl::StatusOr<bool> AddTableConstraint(absl::string_view constraint);
+
+  // Returns the entry encoded by the object (keys and priority only).
+  absl::StatusOr<p4::v1::TableEntry> ConcretizeEntryKey();
+
+  // Returns the action encoded by the object.
+  absl::StatusOr<p4::v1::Action> ConcretizeAction();
 
   // Adds the ConstraintSolver's constraints to the target solver.
   // Renames variables according to the passed SymbolicEnvironment as needed.
@@ -133,15 +133,20 @@ class ConstraintSolver {
       : context_(std::make_unique<z3::context>()),
         solver_(std::make_unique<z3::solver>(*context_)) {}
 
+  absl::StatusOr<bool> AddConstraintInternal(
+      const ast::Expression& constraint,
+      const ConstraintSource& constraint_source);
+
   // Z3 context and solver. 'solver' requires a reference to `context` for
   // construction so it is privately stored to avoid dangling reference.
   std::unique_ptr<z3::context> context_;
   std::unique_ptr<z3::solver> solver_;
 
-  // TableInfo of table that is being constrained.
-  TableInfo table_info_;
+  std::optional<TableInfo> table_info_;
+  std::optional<ActionInfo> action_info_;
 
-  // Symbolic environment for storing information on symbolic keys.
+  // Symbolic environment for storing information on symbolic keys, params, and
+  // attributes.
   SymbolicEnvironment environment_;
 
   // Function to determine whether a key should be ignored while creating

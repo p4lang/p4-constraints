@@ -607,7 +607,7 @@ TEST(CreateConstraintSolver, WorksWithoutConstraints) {
   EXPECT_OK(ConstraintSolver::Create(table_info));
 }
 
-TEST(CreateConstraintSolverAddConstraint, WorksWithoutPriority) {
+TEST(CreateConstraintSolverAddTableConstraint, WorksWithoutPriority) {
   TableInfo table_info = GetTableInfoWithConstraint("true");
 
   // Remove the ternaries and optionals, so that no priority is required.
@@ -645,7 +645,7 @@ TEST_P(ConstraintTest, CreateConstraintSolverAndConcretizeEntry) {
                        ConstraintSolver::Create(table_info));
 
   ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry concretized_entry,
-                       constraint_solver.ConcretizeEntry());
+                       constraint_solver.ConcretizeEntryKey());
 
   // The empty string signifies that the entry doesn't violate the constraint.
   ConstraintInfo context{
@@ -807,7 +807,7 @@ TEST_P(FullySpecifiedConstraintTest,
       }));
 
   ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry concretized_entry,
-                       constraint_solver.ConcretizeEntry());
+                       constraint_solver.ConcretizeEntryKey());
 
   EXPECT_THAT(concretized_entry,
               EqualsProto(GetParam().expected_concretized_entry));
@@ -999,32 +999,144 @@ INSTANTIATE_TEST_SUITE_P(
       return SnakeCaseToCamelCase(info.param.test_name);
     });
 
-TEST(AddConstraint, NonBooleanConstraintGivesInvalidArgument) {
+ActionInfo GetActionInfoWithConstraint(absl::string_view constraint_string) {
+  const Type kBit32 = ParseProtoOrDie<Type>("fixed_unsigned { bitwidth: 32 }");
+  const Type kBit16 = ParseProtoOrDie<Type>("fixed_unsigned { bitwidth: 16 }");
+  const std::string kActionName = "action";
+
+  ConstraintSource source{
+      .constraint_string = std::string(constraint_string),
+      .constraint_location = ast::SourceLocation(),
+  };
+  source.constraint_location.set_action_name(kActionName);
+
+  ActionInfo action_info{
+      .id = 1,
+      .name = kActionName,
+      .constraint_source = std::move(source),
+      .params_by_id =
+          {
+              {1, {1, "param32", kBit32}},
+              {2, {2, "param16", kBit16}},
+          },
+      .params_by_name =
+          {
+              {"param32", {1, "param32", kBit32}},
+              {"param16", {2, "param16", kBit16}},
+          },
+  };
+
+  auto constraint = ParseConstraint(ConstraintKind::kActionConstraint,
+                                    action_info.constraint_source);
+  CHECK_OK(constraint);
+  CHECK_OK(InferAndCheckTypes(&(*constraint), action_info));
+  action_info.constraint = *constraint;
+
+  return action_info;
+}
+
+struct FullySpecifiedActionConstraintTestCase {
+  std::string test_name;
+  std::string constraint_string;
+  p4::v1::Action expected_action;
+};
+
+using FullySpecifiedActionConstraintTest =
+    testing::TestWithParam<FullySpecifiedActionConstraintTestCase>;
+
+TEST_P(FullySpecifiedActionConstraintTest,
+       CreateConstraintSolverAndConcretizeActionGivesExactAction) {
+  ActionInfo action_info =
+      GetActionInfoWithConstraint(GetParam().constraint_string);
+
+  TableInfo dummy_table_info{
+      .id = 1,
+      .name = "dummy_table",
+  };
+
+  ConstraintInfo context{
+      .action_info_by_id = {{
+          action_info.id,
+          action_info,
+      }},
+      .table_info_by_id = {{
+          dummy_table_info.id,
+          dummy_table_info,
+      }},
+  };
+
+  p4::v1::TableEntry dummy_entry;
+  dummy_entry.set_table_id(dummy_table_info.id);
+  *dummy_entry.mutable_action()->mutable_action() = GetParam().expected_action;
+
+  ASSERT_THAT(ReasonEntryViolatesConstraint(dummy_entry, context),
+              IsOkAndHolds(""))
+      << "\nFor action:\n"
+      << GetParam().expected_action.DebugString()
+      << "\nConstraint string: " << GetParam().constraint_string
+      << "\nConstraint: " << action_info.constraint->DebugString();
+
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver constraint_solver,
+                       ConstraintSolver::Create(action_info));
+
+  ASSERT_OK_AND_ASSIGN(p4::v1::Action concretized_action,
+                       constraint_solver.ConcretizeAction());
+
+  EXPECT_THAT(concretized_action, EqualsProto(GetParam().expected_action));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    CheckExactActionOutput, FullySpecifiedActionConstraintTest,
+    testing::ValuesIn(std::vector<FullySpecifiedActionConstraintTestCase>{
+        {
+            .test_name = "only_equals",
+            .constraint_string = "param32 == 42; param16 == 5;",
+            .expected_action = ParseProtoOrDie<p4::v1::Action>(R"pb(
+              action_id: 1
+              params { param_id: 2 value: "\005" }
+              params { param_id: 1 value: "*" }
+            )pb"),
+        },
+        {
+            .test_name = "inequalities_and_bounds",
+            .constraint_string = "param32 > 41; param32 < 43; param16 == 5;",
+            .expected_action = ParseProtoOrDie<p4::v1::Action>(R"pb(
+              action_id: 1
+              params { param_id: 2 value: "\005" }
+              params { param_id: 1 value: "*" }
+            )pb"),
+        },
+    }),
+    [](const testing::TestParamInfo<FullySpecifiedActionConstraintTestCase>&
+           info) { return SnakeCaseToCamelCase(info.param.test_name); });
+
+TEST(AddTableConstraint, NonBooleanConstraintGivesInvalidArgument) {
   ASSERT_OK_AND_ASSIGN(
       ConstraintSolver constraint_solver,
       ConstraintSolver::Create(GetTableInfoWithConstraint("true")));
 
-  EXPECT_THAT(constraint_solver.AddConstraint("42"),
+  EXPECT_THAT(constraint_solver.AddTableConstraint("42"),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
-TEST(AddConstraint, UnknownVariableGivesInvalidArgument) {
+TEST(AddTableConstraint, UnknownVariableGivesInvalidArgument) {
   ASSERT_OK_AND_ASSIGN(
       ConstraintSolver constraint_solver,
       ConstraintSolver::Create(GetTableInfoWithConstraint("true")));
 
-  EXPECT_THAT(constraint_solver.AddConstraint("dragon == 42"),
+  EXPECT_THAT(constraint_solver.AddTableConstraint("dragon == 42"),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
-TEST(AddConstraint, OnlySatisfiableConstraintCanBeAdded) {
+TEST(AddTableConstraint, OnlySatisfiableConstraintCanBeAdded) {
   ASSERT_OK_AND_ASSIGN(
       ConstraintSolver constraint_solver,
       ConstraintSolver::Create(GetTableInfoWithConstraint("true")));
 
-  EXPECT_THAT(constraint_solver.AddConstraint("false"), IsOkAndHolds(false));
+  EXPECT_THAT(constraint_solver.AddTableConstraint("false"),
+              IsOkAndHolds(false));
 
-  EXPECT_THAT(constraint_solver.AddConstraint("true"), IsOkAndHolds(true));
+  EXPECT_THAT(constraint_solver.AddTableConstraint("true"), IsOkAndHolds(true));
 }
 
 struct AdditionalConstraintTestCase {
@@ -1040,7 +1152,7 @@ using AdditionalConstraintTest =
     testing::TestWithParam<AdditionalConstraintTestCase>;
 
 TEST_P(AdditionalConstraintTest,
-       AddConstraintOnlyAddsSatisfiableConstraintsToSolver) {
+       AddTableConstraintOnlyAddsSatisfiableConstraintsToSolver) {
   TableInfo table_info =
       GetTableInfoWithConstraint(GetParam().p4_program_constraint_string);
 
@@ -1048,11 +1160,11 @@ TEST_P(AdditionalConstraintTest,
                        ConstraintSolver::Create(table_info));
 
   EXPECT_THAT(
-      constraint_solver.AddConstraint(GetParam().custom_constraint_string),
+      constraint_solver.AddTableConstraint(GetParam().custom_constraint_string),
       IsOkAndHolds(GetParam().is_sat));
 }
 
-TEST_P(AdditionalConstraintTest, AddConstraintAndConcretizeEntry) {
+TEST_P(AdditionalConstraintTest, AddTableConstraintAndConcretizeEntry) {
   if (!GetParam().is_sat) {
     GTEST_SKIP() << "Test only sensible for satisfiable constraints";
   }
@@ -1064,11 +1176,11 @@ TEST_P(AdditionalConstraintTest, AddConstraintAndConcretizeEntry) {
                        ConstraintSolver::Create(table_info));
 
   ASSERT_THAT(
-      constraint_solver.AddConstraint(GetParam().custom_constraint_string),
+      constraint_solver.AddTableConstraint(GetParam().custom_constraint_string),
       IsOkAndHolds(true));
 
   ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry concretized_entry,
-                       constraint_solver.ConcretizeEntry());
+                       constraint_solver.ConcretizeEntryKey());
 
   // The empty string signifies that the entry doesn't violate the
   ConstraintInfo context{
@@ -1170,11 +1282,11 @@ TEST_P(FullySpecifiedAdditionalConstraintTest,
                        ConstraintSolver::Create(table_info));
 
   ASSERT_THAT(
-      constraint_solver.AddConstraint(GetParam().custom_constraint_string),
+      constraint_solver.AddTableConstraint(GetParam().custom_constraint_string),
       IsOkAndHolds(true));
 
   ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry concretized_entry,
-                       constraint_solver.ConcretizeEntry());
+                       constraint_solver.ConcretizeEntryKey());
 
   EXPECT_THAT(concretized_entry,
               EqualsProto(GetParam().expected_concretized_entry));
@@ -1445,6 +1557,80 @@ TEST(ExportConstraintsToTargetSolverTest,
               StatusIs(absl::StatusCode::kInternal,
                        testing::HasSubstr(
                            "Mismatched Z3 sorts during symbolic translation")));
+}
+
+TEST(ExportConstraintsToTargetSolverTest,
+     ExportConstraintsCorrectlyRenamesActionParameters) {
+  ActionInfo action_info =
+      GetActionInfoWithConstraint("param32 == 42 && param16 == 12");
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver source_solver,
+                       ConstraintSolver::Create(action_info));
+
+  z3::context dest_context;
+  z3::solver dest_solver(dest_context);
+
+  // Change one parameter name to make sure the renaming works.
+  z3::expr renamed_param32 = dest_context.bv_const("param32_renamed", 32);
+  SymbolicEnvironment dest_environment;
+  dest_environment.symbolic_parameter_by_name.insert(
+      {"param32", renamed_param32});
+
+  ASSERT_OK(source_solver.ExportConstraintsToTargetSolver(dest_solver,
+                                                          dest_environment));
+
+  // Check that the constraint "param32_renamed == 42" has been added
+  // correctly.
+  EXPECT_EQ(dest_solver.check(), z3::sat);
+  dest_solver.push();
+  dest_solver.add(renamed_param32 != 42);
+  EXPECT_EQ(dest_solver.check(), z3::unsat);
+  dest_solver.pop();
+
+  // Check that other constraints have been added correctly.
+  // The constraint "param16 == 12" should have been added to dest_solver.
+  dest_solver.push();
+  z3::expr param16_in_dest = dest_context.bv_const("param16", 16);
+  dest_solver.add(param16_in_dest == 12);
+  EXPECT_EQ(dest_solver.check(), z3::sat);
+  dest_solver.add(param16_in_dest != 12);
+  EXPECT_EQ(dest_solver.check(), z3::unsat);
+  dest_solver.pop();
+}
+
+TEST(ActionConstraintSolverTest, WorksWithoutConstraints) {
+  ActionInfo action_info = GetActionInfoWithConstraint("true");
+  action_info.constraint = std::nullopt;
+
+  EXPECT_OK(ConstraintSolver::Create(action_info));
+}
+
+TEST(ActionConstraintSolverTest, OnlyWorksWithSatisfiableConstraints) {
+  ActionInfo sat_action_info = GetActionInfoWithConstraint("param32 == 42");
+  EXPECT_OK(ConstraintSolver::Create(sat_action_info));
+
+  ActionInfo unsat_action_info =
+      GetActionInfoWithConstraint("param32 == 42 && param32 == 43");
+  EXPECT_THAT(ConstraintSolver::Create(unsat_action_info),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(ConstraintSolverPreconditionTest, ConcretizeActionFailsWithoutActionInfo) {
+  TableInfo table_info = GetTableInfoWithConstraint("true");
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver constraint_solver,
+                       ConstraintSolver::Create(table_info));
+
+  EXPECT_THAT(constraint_solver.ConcretizeAction(),
+              StatusIs(absl::StatusCode::kFailedPrecondition));
+}
+
+TEST(ConstraintSolverPreconditionTest,
+     ConcretizeEntryKeyFailsWithoutTableInfo) {
+  ActionInfo action_info = GetActionInfoWithConstraint("true");
+  ASSERT_OK_AND_ASSIGN(ConstraintSolver constraint_solver,
+                       ConstraintSolver::Create(action_info));
+
+  EXPECT_THAT(constraint_solver.ConcretizeEntryKey(),
+              StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 }  // namespace

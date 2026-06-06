@@ -1,8 +1,6 @@
 load(":p4check.bzl", "diff_test", "run_p4check")
 
-package(
-    licenses = ["notice"],  # Apache 2.0
-)
+licenses(["notice"])
 
 diff_test(
     name = "invalid_constraints_test",
