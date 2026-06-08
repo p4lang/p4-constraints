@@ -1,9 +1,8 @@
 load("//e2e_tests:p4check.bzl", "cmd_diff_test")
 
-package(
-    default_visibility = ["//visibility:public"],
-    licenses = ["notice"],  # Apache 2.0
-)
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
 
 cc_library(
     name = "interpreter",
