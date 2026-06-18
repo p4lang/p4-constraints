@@ -69,7 +69,8 @@ TEST(P4ToConstraintInfoTest, ValidActionRestrictionSucceeds) {
             "multicast_group_id != 0");
 }
 
-TEST(P4ToConstraintInfoTest, ActionWithP4NamedTypeConstraintFails) {
+TEST(P4ToConstraintInfoTest,
+     ActionWithP4NamedTypeAndBitwidthConstraintSucceeds) {
   P4Info p4_info;
 
   std::string_view proto_string =
@@ -79,23 +80,52 @@ TEST(P4ToConstraintInfoTest, ActionWithP4NamedTypeConstraintFails) {
         id: 123
         name: "MyIngress.act_2"
         alias: "act_2"
-        annotations: "@action_restriction(\"custom_type_param != 0\")"
+        annotations: "@action_restriction(\"custom_type_with_bitwidth_param != 0\")"
       }
       params {
         id: 1
-        name: "custom_type_param"
+        name: "custom_type_with_bitwidth_param"
         bitwidth: 16
-        type_name { name: "custom_type_t" }
+        type_name { name: "custom_type_with_bitwidth_t" }
       }
     }
       )pb";
 
   ASSERT_OK(gutil::ReadProtoFromString(proto_string, &p4_info));
 
-  absl::StatusOr<ConstraintInfo> constraints =
-      p4_constraints::P4ToConstraintInfo(p4_info);
+  ASSERT_OK_AND_ASSIGN(const ConstraintInfo constraints,
+                       p4_constraints::P4ToConstraintInfo(p4_info));
 
-  EXPECT_TRUE(!constraints.ok());
+  EXPECT_EQ(
+      constraints.action_info_by_id.at(123).constraint_source.constraint_string,
+      "custom_type_with_bitwidth_param != 0");
+}
+
+TEST(P4ToConstraintInfoTest,
+     ActionWithP4NamedTypeAndNoBitwidthConstraintFails) {
+  P4Info p4_info;
+
+  std::string_view proto_string =
+      R"pb(
+    actions {
+      preamble {
+        id: 123
+        name: "MyIngress.act_2"
+        alias: "act_2"
+        annotations: "@action_restriction(\"custom_type_without_bitwidth_param != 0\")"
+      }
+      params {
+        id: 1
+        name: "custom_type_without_bitwidth_param"
+        bitwidth: 0
+        type_name { name: "custom_type_without_bitwidth_t" }
+      }
+    }
+      )pb";
+
+  ASSERT_OK(gutil::ReadProtoFromString(proto_string, &p4_info));
+
+  EXPECT_FALSE(p4_constraints::P4ToConstraintInfo(p4_info).ok());
 }
 
 TEST(P4ToConstraintInfoTest, ConstraintAnnotationsMustBeEnclosedInParen) {

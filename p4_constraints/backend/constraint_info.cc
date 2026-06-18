@@ -216,14 +216,22 @@ absl::StatusOr<ast::Type> ParseKeyType(const MatchField& key) {
 
 absl::StatusOr<ast::Type> ParseParamType(const Action_Param& param) {
   ast::Type type;
+  // If the parameter has a bitwidth, we can treat it as fixed_unsigned,
+  // even if it has a user-defined type name (e.g., typedef bit<W>).
+  if (param.bitwidth() > 0) {
+    type.mutable_fixed_unsigned()->set_bitwidth(param.bitwidth());
+    return type;
+  }
+
   // P4NamedType is unset if the param does not use a user-defined type.
-  // Currently we do not support user-defined types.
+  // Types without a positive bitwidth (e.g., bool, string) are currently
+  // unsupported as action parameters in constraints.
   if (!param.type_name().name().empty()) {
     type.mutable_unsupported()->set_name(param.type_name().name());
     return type;
   }
 
-  type.mutable_fixed_unsigned()->set_bitwidth(param.bitwidth());
+  type.mutable_unsupported()->set_name("unknown");
   return type;
 }
 
