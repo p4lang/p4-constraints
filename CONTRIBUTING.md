@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2020 The P4-Constraints Authors
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Contributing
 
 You can fork the repo and submit a pull request on GitHub. For more information
