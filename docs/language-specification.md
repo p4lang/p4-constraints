@@ -96,6 +96,12 @@ When `k` is of type `bool`, everything behaves precisely as if `k` was of type
 `bit<1>`, with the boolean constant `true` and `false` being mapped to `1` and
 `0`, respectively.
 
+*Note on Action Parameters:* Currently, `bool` action parameters are not
+supported in action constraints. Action parameters must be representable as
+bitstrings with a positive bitwidth (i.e. `bit<W>`). If a `bool` action
+parameter is not mapped to a positive `bitwidth` in the P4Info, it will be
+treated as unsupported.
+
 
 ### Assumed P4runtime Well-Formedness Constraints
 
