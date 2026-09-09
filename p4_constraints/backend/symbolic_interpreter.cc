@@ -751,6 +751,10 @@ absl::StatusOr<p4::v1::Action> ConstraintSolver::ConcretizeAction() {
   // model. Ordered for reproducibility.
   for (const auto& [param_name, param_info] :
        gutil::AsOrderedView(action_info_->params_by_name)) {
+    ASSIGN_OR_RETURN(bool param_should_be_skipped,
+                     skip_param_named_(param_name));
+    if (param_should_be_skipped) continue;
+
     ASSIGN_OR_RETURN(const z3::expr* param_expr,
                      gutil::FindPtrOrStatus(
                          environment_.symbolic_parameter_by_name, param_name));
@@ -869,12 +873,19 @@ absl::StatusOr<ConstraintSolver> ConstraintSolver::Create(
 }
 
 absl::StatusOr<ConstraintSolver> ConstraintSolver::Create(
-    const ActionInfo& action) {
+    const ActionInfo& action,
+    std::function<absl::StatusOr<bool>(absl::string_view param_name)>
+        skip_param_named) {
   ConstraintSolver constraint_solver = ConstraintSolver();
   constraint_solver.action_info_ = action;
+  constraint_solver.skip_param_named_ = std::move(skip_param_named);
 
   // Initialize symbolic variables for action parameters.
   for (const auto& [param_name, param_info] : action.params_by_name) {
+    ASSIGN_OR_RETURN(bool param_should_be_skipped,
+                     constraint_solver.skip_param_named_(param_name));
+    if (param_should_be_skipped) continue;
+
     ASSIGN_OR_RETURN(int bitwidth, ast::TypeBitwidthOrStatus(param_info.type));
     if (bitwidth <= 0) {
       return gutil::InvalidArgumentErrorBuilder()

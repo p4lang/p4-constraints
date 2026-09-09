@@ -999,6 +999,18 @@ INSTANTIATE_TEST_SUITE_P(
       return SnakeCaseToCamelCase(info.param.test_name);
     });
 
+TEST(ConstraintSolverTableTest, FailsWhenSkipKeyCallbackReturnsError) {
+  TableInfo table_info = GetTableInfoWithConstraint("true");
+  // Force a failure during solver initialization by passing a skip_key_named
+  // callback that returns an error status. Verify that ConstraintSolver::Create
+  // propagates this error.
+  EXPECT_THAT(
+      ConstraintSolver::Create(
+          table_info,
+          [](absl::string_view) { return absl::InternalError("skip error"); }),
+      StatusIs(absl::StatusCode::kInternal, testing::HasSubstr("skip error")));
+}
+
 ActionInfo GetActionInfoWithConstraint(absl::string_view constraint_string) {
   const Type kBit32 = ParseProtoOrDie<Type>("fixed_unsigned { bitwidth: 32 }");
   const Type kBit16 = ParseProtoOrDie<Type>("fixed_unsigned { bitwidth: 16 }");
@@ -1039,6 +1051,9 @@ struct FullySpecifiedActionConstraintTestCase {
   std::string test_name;
   std::string constraint_string;
   p4::v1::Action expected_action;
+  // Optionally, specify a set of params that should be skipped when
+  // concretizing the action.
+  absl::flat_hash_set<std::string> params_to_skip;
 };
 
 using FullySpecifiedActionConstraintTest =
@@ -1076,8 +1091,11 @@ TEST_P(FullySpecifiedActionConstraintTest,
       << "\nConstraint string: " << GetParam().constraint_string
       << "\nConstraint: " << action_info.constraint->DebugString();
 
-  ASSERT_OK_AND_ASSIGN(ConstraintSolver constraint_solver,
-                       ConstraintSolver::Create(action_info));
+  ASSERT_OK_AND_ASSIGN(
+      ConstraintSolver constraint_solver,
+      ConstraintSolver::Create(action_info, [&](absl::string_view param_name) {
+        return GetParam().params_to_skip.contains(param_name);
+      }));
 
   ASSERT_OK_AND_ASSIGN(p4::v1::Action concretized_action,
                        constraint_solver.ConcretizeAction());
@@ -1106,9 +1124,30 @@ INSTANTIATE_TEST_SUITE_P(
               params { param_id: 1 value: "*" }
             )pb"),
         },
+        {
+            .test_name = "skip_parameters",
+            .constraint_string = "param32 == 42;",
+            .expected_action = ParseProtoOrDie<p4::v1::Action>(R"pb(
+              action_id: 1
+              params { param_id: 1 value: "*" }
+            )pb"),
+            .params_to_skip = {"param16"},
+        },
     }),
     [](const testing::TestParamInfo<FullySpecifiedActionConstraintTestCase>&
            info) { return SnakeCaseToCamelCase(info.param.test_name); });
+
+TEST(ConstraintSolverActionTest, FailsWhenSkipParamCallbackReturnsError) {
+  ActionInfo action_info = GetActionInfoWithConstraint("param32 == 42");
+  // Force a failure during solver initialization by passing a skip_param_named
+  // callback that returns an error status. Verify that ConstraintSolver::Create
+  // propagates this error.
+  EXPECT_THAT(
+      ConstraintSolver::Create(
+          action_info,
+          [](absl::string_view) { return absl::InternalError("skip error"); }),
+      StatusIs(absl::StatusCode::kInternal, testing::HasSubstr("skip error")));
+}
 
 TEST(AddTableConstraint, NonBooleanConstraintGivesInvalidArgument) {
   ASSERT_OK_AND_ASSIGN(
