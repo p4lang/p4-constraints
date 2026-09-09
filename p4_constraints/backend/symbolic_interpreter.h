@@ -108,8 +108,14 @@ class ConstraintSolver {
           skip_key_named = [](absl::string_view key_name) { return false; });
 
   // Constructs a ConstraintSolver representing action parameter values for
-  // `action` that respects its P4-Constraints.
-  static absl::StatusOr<ConstraintSolver> Create(const ActionInfo& action);
+  // `action` that respects its P4-Constraints. An action encoded by the
+  // resulting ConstraintSolver does not include any `param` for which
+  // `skip_param_named(param)` is true.
+  static absl::StatusOr<ConstraintSolver> Create(
+      const ActionInfo& action,
+      std::function<absl::StatusOr<bool>(absl::string_view param_name)>
+          skip_param_named =
+              [](absl::string_view param_name) { return false; });
 
   // Returns true and adds a table constraint to the solver. If `constraint` is
   // malformed or would make the current ConstraintSolver unable to generate
@@ -149,10 +155,12 @@ class ConstraintSolver {
   // attributes.
   SymbolicEnvironment environment_;
 
-  // Function to determine whether a key should be ignored while creating
-  // `environment_` and generating a concrete entry.
+  // Function to determine whether a key or parameter should be ignored while
+  // creating `environment_` and generating a concrete entry or action.
   std::function<absl::StatusOr<bool>(absl::string_view key_name)>
       skip_key_named_;
+  std::function<absl::StatusOr<bool>(absl::string_view param_name)>
+      skip_param_named_;
 };
 
 // -- Accessors ----------------------------------------------------------------
