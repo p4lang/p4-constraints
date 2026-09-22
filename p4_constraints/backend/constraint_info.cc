@@ -120,7 +120,7 @@ absl::StatusOr<std::optional<ConstraintSource>> ExtractConstraint(
     }
   }
 
-  if (constraint_string.empty()) return absl::nullopt;
+  if (constraint_string.empty()) return std::nullopt;
 
   constraint_location.set_line(line);
   if (constraint_location.file_path().empty()) {
@@ -258,7 +258,7 @@ absl::StatusOr<TableInfo> ParseTableInfo(const Table& table) {
       std::optional<ConstraintSource> constraint_source,
       ExtractConstraint(ConstraintKind::kTableConstraint, table.preamble()));
 
-  std::optional<ast::Expression> constraint = absl::nullopt;
+  std::optional<ast::Expression> constraint = std::nullopt;
   if (constraint_source.has_value()) {
     ASSIGN_OR_RETURN(
         constraint,
@@ -341,7 +341,7 @@ std::optional<AttributeInfo> GetAttributeInfo(
   }
 
   // Unknown attribute.
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 const TableInfo* GetTableInfoOrNull(const ConstraintInfo& constraint_info,
