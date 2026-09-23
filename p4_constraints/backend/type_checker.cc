@@ -15,6 +15,7 @@
 
 #include "p4_constraints/backend/type_checker.h"
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -25,7 +26,6 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/types/optional.h"
 #include "gutil/status.h"
 #include "p4_constraints/ast.h"
 #include "p4_constraints/ast.pb.h"
@@ -377,7 +377,7 @@ absl::Status InferAndCheckTypes(Expression* expr, const ActionInfo* action_info,
       const std::string& field = expr->mutable_field_access()->field();
       RETURN_IF_ERROR(
           InferAndCheckTypes(composite_expr, action_info, table_info));
-      absl::optional<Type> field_type =
+      std::optional<Type> field_type =
           FieldTypeOfCompositeType(composite_expr->type(), field);
       if (!field_type.has_value()) {
         return StaticTypeError(constraint_source, expr->start_location(),

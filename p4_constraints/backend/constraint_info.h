@@ -26,6 +26,7 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <ostream>
 #include <string>
 
