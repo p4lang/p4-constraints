@@ -113,7 +113,7 @@ absl::optional<int> TypeBitwidth(const Type& type) {
     case Type::kOptionalMatch:
       return type.optional_match().bitwidth();
     default:
-      return absl::nullopt;
+      return std::nullopt;
   }
 }
 

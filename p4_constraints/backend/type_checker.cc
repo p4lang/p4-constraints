@@ -118,7 +118,7 @@ std::optional<Type> LeastUpperBound(const Type& left, const Type& right) {
   // While it is not true for partial orders in general that
   // LeastUpperBound(x,y) exists iff x >= y or y >= x, it is true for our
   // castability relation.
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 // Mutates the input expression, wrapping it with a type_cast to the given type.
