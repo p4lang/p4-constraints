@@ -17,6 +17,7 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -30,7 +31,6 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
-#include "absl/types/optional.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/config/v1/p4types.pb.h"
