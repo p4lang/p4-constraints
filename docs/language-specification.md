@@ -1,7 +1,7 @@
 <!--
 SPDX-FileCopyrightText: 2020 The P4-Constraints Authors
 
-SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: CC-BY-4.0
 -->
 
 # p4-constraints language specification
